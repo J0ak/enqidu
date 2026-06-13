@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import JSZip from "jszip";
 import FitParser from "fit-file-parser";
@@ -360,7 +360,7 @@ function App() {
   const [authNotice, setAuthNotice] = useState("");
   const [health, setHealth] = useState(demoHealth);
   const [healthSeries, setHealthSeries] = useState(demoHealthSeries);
-  const [sessions, setSessions] = useState(demoSessions);
+  const [sessions, setSessions] = useState(supabase ? [] : demoSessions);
   const [activityDetail, setActivityDetail] = useState(supabase ? null : demoActivityDetail);
   const [dataState, setDataState] = useState({
     loading: false,
@@ -386,6 +386,14 @@ function App() {
         .eq("session_id", latestSession.id)
         .order("block_order", { ascending: true }),
       supabase
+        .from("enkidu_conversation_enrichments")
+        .select("payload, enrichment_status, created_at")
+        .eq("session_id", latestSession.id)
+        .in("enrichment_status", ["active", "applied", "completed"] )
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
         .from("session_exercises")
         .select("block_id, reported_name, exercise_order, sets_completed, reps_per_set, duration_seconds, load_value, load_unit, side, notes, data_confidence")
         .eq("session_id", latestSession.id)
@@ -401,7 +409,9 @@ function App() {
     const heartRate = summary.heart_rate || {};
     const strengthTracking = summary.strength_tracking || {};
     const blocks = mapExerciseBlocks(blocksResult.data || [], exercisesResult.data || []);
-    const conversationStats = buildConversationSessionStats(blocks);
+    const enrichmentBlocks = !blocks.length ? mapEnrichmentBlocks(enrichmentResult.data?.payload?.blocks || []) : [];
+    const renderBlocks = blocks.length ? blocks : enrichmentBlocks;
+    const conversationStats = buildConversationSessionStats(renderBlocks);
     const avgHr = average(samples.map((item) => item.heart_rate_bpm).filter(Boolean));
     const maxHr = Math.max(...samples.map((item) => Number(item.heart_rate_bpm || 0)), 0);
     const duration = Number(summary.duration_total_seconds || latestSession.duration_seconds || 0);
@@ -418,6 +428,7 @@ function App() {
       session: {
         id: latestSession.id,
         title,
+        session_status: latestSession.session_status,
         tags: latestSession.tags || [],
         activity_type: classifyActivityTypeFromSummary(summary, latestSession),
         local_date: latestSession.local_date,
@@ -445,11 +456,8 @@ function App() {
         max_hr: roundOptionalMetric(numberMetric(metrics, ["max_heart_rate", "maximum_heart_rate"], (heartRate.max_bpm ?? maxHr) || null)),
       },
       exercises: mapExercises(exercisesResult.data || []),
-      blocks,
-      hasConversationBlocks: Boolean(
-        latestSession.tags?.includes("conversation_enriched") ||
-          (blocksResult.data || []).some((block) => block.data_confidence === "manual"),
-      ),
+      blocks: renderBlocks,
+      hasConversationBlocks: renderBlocks.length > 0,
       samples,
       zones: mapReportedHeartRateZones(heartRateZones),
       summary,
@@ -480,9 +488,11 @@ function App() {
     const sessionQuery = supabase
       .from("training_sessions")
       .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, tags, session_structure")
-      .order("created_at", { ascending: false, nullsFirst: false })
+      .or("session_status.is.null,session_status.neq.archived")
+      .order("local_date", { ascending: false, nullsFirst: false })
       .order("started_at", { ascending: false, nullsFirst: false })
-      .limit(20);
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(100);
 
     const profileQuery = userId
       ? supabase
@@ -588,8 +598,8 @@ function App() {
     ]);
 
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
-    if (sessionResult.data?.length) {
-      setSessions(sessionResult.data.map(mapTrainingSession));
+    if (!sessionResult.error) {
+      setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
@@ -678,8 +688,9 @@ function App() {
 
   const activeDiscipline = disciplines[discipline];
   const filteredSessions = useMemo(() => {
-    if (!query.trim()) return sessions;
-    return sessions.filter((session) => `${session.title} ${session.type}`.toLowerCase().includes(query.toLowerCase()));
+    const activeSessions = sessions.filter((session) => !isArchivedSession(session));
+    if (!query.trim()) return activeSessions;
+    return activeSessions.filter((session) => `${session.title} ${session.type}`.toLowerCase().includes(query.toLowerCase()));
   }, [query, sessions]);
 
   const openSessionDetail = async (selectedSession) => {
@@ -1188,10 +1199,27 @@ function SignalBoard({ health, sleep }) {
 
 function ActivityView({ activityDetail }) {
   if (!activityDetail?.session) return <ActivityDetailSkeleton />;
+  if (activityDetail.session.session_status === "archived") return <ArchivedSessionNotice detail={activityDetail} />;
   return (
     <section className="viewStack">
       <ActivitySummaryCard detail={activityDetail} />
       <ActivityElements detail={activityDetail} />
+    </section>
+  );
+}
+
+function ArchivedSessionNotice({ detail }) {
+  const canonical = detail?.canonicalSession;
+  return (
+    <section className="viewStack">
+      <section className="sectionLead activitySummaryLead">
+        <div className="leadIcon"><ShieldCheck size={22} /></div>
+        <div>
+          <h2>Sesión archivada</h2>
+          <p>Esta sesión está archivada y no se renderiza como actividad normal.</p>
+          {canonical && <p>Sesión canónica sugerida: {canonical.title} · {canonical.local_date} · {formatDurationClock(canonical.duration_seconds || 0)}</p>}
+        </div>
+      </section>
     </section>
   );
 }
@@ -1232,7 +1260,7 @@ function ActivitySummaryCard({ detail }) {
 
 function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
   const [selectedType, setSelectedType] = useState("all");
-  const typedSessions = sessions.map(classifySession);
+  const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
   const visible = selectedType === "all" ? typedSessions : typedSessions.filter((item) => item.activityType === selectedType);
   const week = buildActivityWeek(visible);
   const totalSeconds = visible.reduce((sum, item) => sum + Number(item.duration_seconds || item.durationSeconds || 0), 0);
@@ -1287,6 +1315,7 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
               <b>{formatDurationClock(item.duration_seconds || item.durationSeconds || 0)}</b>
             </button>
           ))}
+          {!visible.length && <p className="emptyText">No hay sesiones visibles para este filtro.</p>}
         </div>
       </section>
     </section>
@@ -2153,11 +2182,26 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
     const rawMessages = parseFitMessageGroups(binary);
     const normalized = normalizeParsedFit(fit, checksum, rawMessages);
 
-    const { data: existing } = await supabase
+    const { data: existingByReference } = await supabase
       .from("training_sessions")
       .select("id, title, session_structure, tags")
       .eq("external_reference", `fit:${checksum}`)
       .maybeSingle();
+
+    const { data: existingByDay } = !existingByReference?.id && normalized.localDate
+      ? await supabase
+          .from("training_sessions")
+          .select("id, title, session_structure, tags")
+          .eq("user_id", userId)
+          .eq("local_date", normalized.localDate)
+          .neq("session_status", "archived")
+          .contains("tags", ["garmin_fit"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+    const existing = existingByReference || existingByDay;
 
     let sessionId = existing?.id;
     if (!sessionId) {
@@ -3115,6 +3159,10 @@ function buildHrvTrend(hrvRows = [], fallback) {
   return [fallback - 8, fallback - 4, fallback - 2, fallback, fallback + 2, fallback + 1, fallback - 5].map((value) => Math.round(value));
 }
 
+function isArchivedSession(item) {
+  return `${item?.session_status || ""}`.toLowerCase() === "archived";
+}
+
 function mapTrainingSession(item) {
   const summary = item.session_structure?.garmin_fit_summary || {};
   const durationMinutes = item.duration_seconds ? Math.round(item.duration_seconds / 60) : null;
@@ -3134,6 +3182,7 @@ function mapTrainingSession(item) {
     source_id: item.source_id,
     tags: item.tags || [],
     session_structure: item.session_structure,
+    session_status: item.session_status,
     score: Math.round(score),
     date: item.local_date || (item.started_at ? new Date(item.started_at).toLocaleDateString("es-ES") : "Recent"),
     meta: [durationMinutes ? `${durationMinutes} min` : null, distanceKm ? `${distanceKm.toFixed(1)} km` : null]
@@ -3402,6 +3451,40 @@ function mapExerciseBlocks(blockRows, exerciseRows) {
       exerciseDetails,
       sourceText: buildTemporalSourceText(block),
       warningText: buildTemporalWarningText(block),
+    };
+  });
+}
+
+
+function mapEnrichmentBlocks(blockRows = []) {
+  if (!Array.isArray(blockRows) || !blockRows.length) return [];
+  return blockRows.map((block, index) => {
+    const prescription = block.prescription || block;
+    const exercises = Array.isArray(prescription.exercises) ? prescription.exercises : Array.isArray(block.exercises) ? block.exercises : [];
+    const normalizedBlock = {
+      id: block.id || `enrichment-${index + 1}`,
+      block_order: block.block_order ?? block.order ?? index + 1,
+      block_type: block.block_type || block.type || prescription.block_type || "conversation",
+      name: block.name || block.title || prescription.name || `Bloque ${index + 1}`,
+      duration_seconds: null,
+      active_seconds: null,
+      rest_seconds: null,
+      heart_rate_avg_bpm: null,
+      heart_rate_max_bpm: null,
+      temporal_metrics_source: "fit_unavailable_or_unmapped",
+      temporal_metrics_confidence: "unknown",
+      rounds_completed: prescription.rounds_completed ?? block.rounds_completed,
+      prescription: {
+        ...prescription,
+        exercises,
+        coach_interpretation: prescription.coach_interpretation || block.coach_interpretation || block.notes || [],
+      },
+      execution_notes: block.execution_notes || block.notes || "",
+      data_confidence: block.data_confidence || "conversation_enrichment",
+    };
+    return {
+      ...mapExerciseBlocks([normalizedBlock], [])[0],
+      sourceText: "enkidu_conversation_enrichments.payload.blocks · conversation_enrichment",
     };
   });
 }
