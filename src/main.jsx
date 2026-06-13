@@ -374,7 +374,14 @@ function App() {
     if (!supabase || !latestSession?.id) return demoActivityDetail;
     const detailUserId = latestSession.user_id || session?.user?.id;
 
-    const [metricsResult, samplesResult, blocksResult, exercisesResult, zoneProfileResult] = await Promise.all([
+    const [
+      metricsResult,
+      samplesResult,
+      blocksResult,
+      enrichmentResult,
+      exercisesResult,
+      zoneProfileResult,
+    ] = await Promise.all([
       supabase
         .from("session_metrics")
         .select("metric_code, metric_name, value_numeric, value_text, value_json, unit")
@@ -2188,20 +2195,10 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
       .eq("external_reference", `fit:${checksum}`)
       .maybeSingle();
 
-    const { data: existingByDay } = !existingByReference?.id && normalized.localDate
-      ? await supabase
-          .from("training_sessions")
-          .select("id, title, session_structure, tags")
-          .eq("user_id", userId)
-          .eq("local_date", normalized.localDate)
-          .neq("session_status", "archived")
-          .contains("tags", ["garmin_fit"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
-
-    const existing = existingByReference || existingByDay;
+    // FIT imports are only merged into an existing session when the strong
+    // file identity matches. Same-day Garmin sessions can be distinct workouts,
+    // so local_date/tags alone must never be used as an overwrite signal.
+    const existing = existingByReference;
 
     let sessionId = existing?.id;
     if (!sessionId) {
