@@ -16,7 +16,13 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background: linear-gradient(180deg, #05070a, #07111a 52%, #05070a);
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
@@ -45,108 +51,6 @@ button:disabled {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
   color: var(--text);
-}
-
-.adminDemo {
-  min-height: 60vh;
-  color: #f3f7f5;
-}
-
-.adminDemoInner {
-  max-width: 920px;
-  margin: 0 auto;
-  display: grid;
-  gap: 18px;
-}
-
-.adminDemo header h1 {
-  margin: 4px 0 8px;
-  font-size: 28px;
-}
-
-.adminDemo header p {
-  margin: 0;
-  color: #aab6b4;
-}
-
-.adminEyebrow {
-  color: #23e6c1 !important;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.adminPanel {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  background: rgba(18, 22, 27, 0.9);
-  padding: 18px;
-}
-
-.adminPanel p {
-  margin: 0 0 8px;
-  color: #93a09e;
-}
-
-.adminPanel code {
-  display: block;
-  margin-bottom: 14px;
-  padding: 12px;
-  border-radius: 12px;
-  overflow-wrap: anywhere;
-  color: #23e6c1;
-  background: rgba(5, 7, 9, 0.78);
-}
-
-.adminPanel button {
-  width: 100%;
-  border: 0;
-  border-radius: 14px;
-  padding: 12px 16px;
-  color: #04110e;
-  background: #23e6c1;
-  font-weight: 900;
-}
-
-.adminPanel button:disabled {
-  opacity: 0.55;
-}
-
-.adminPanel h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
-
-.adminPanel pre {
-  margin: 0;
-  overflow: auto;
-  max-height: 360px;
-  color: #d6e3e0;
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
-.adminPanelOk {
-  border-color: rgba(16, 185, 129, 0.5);
-  background: rgba(6, 78, 59, 0.28);
-}
-
-.adminPanelOk h2 {
-  color: #6ee7b7;
-}
-
-.adminPanelError {
-  border-color: rgba(248, 113, 113, 0.5);
-  background: rgba(127, 29, 29, 0.28);
-}
-
-.adminPanelError h2 {
-  color: #fca5a5;
-}
-
-.adminPayload {
-  max-height: 420px !important;
 }
 
 .rail {
@@ -210,7 +114,8 @@ button:disabled {
 .phoneCanvas {
   width: min(100%, 980px);
   margin: 0 auto;
-  padding: 24px 22px calc(112px + env(safe-area-inset-bottom));
+  min-width: 0;
+  padding: 24px 22px calc(132px + env(safe-area-inset-bottom));
 }
 
 .appHeader {
@@ -1096,6 +1001,10 @@ button:disabled {
   background: #202020;
 }
 
+.activitiesOverview {
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
+
 .activitiesHero span {
   color: var(--muted);
   text-transform: uppercase;
@@ -1330,6 +1239,7 @@ button:disabled {
 
 .activityList .activityHistoryCard {
   width: 100%;
+  min-width: 0;
   min-height: 116px;
   border-radius: 18px;
   grid-template-columns: 48px minmax(0, 1fr) auto;
@@ -1390,6 +1300,7 @@ button:disabled {
 }
 
 .activityFlags {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: end;
@@ -2161,7 +2072,8 @@ button:disabled {
 
 .coachView {
   min-height: calc(100vh - 180px);
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
 .coachHero,
@@ -2279,8 +2191,8 @@ button:disabled {
   display: grid;
   align-content: end;
   gap: 10px;
-  min-height: 430px;
-  max-height: 56vh;
+  min-height: min(560px, calc(100vh - 220px));
+  max-height: calc(100vh - 190px);
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -2313,7 +2225,7 @@ button:disabled {
   bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 7;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border);
@@ -2713,7 +2625,7 @@ button:disabled {
   }
 
   .phoneCanvas {
-    padding-bottom: calc(116px + env(safe-area-inset-bottom));
+    padding-bottom: calc(132px + env(safe-area-inset-bottom));
   }
 
   .smartGrid {
@@ -2748,16 +2660,12 @@ button:disabled {
 
 @media (max-width: 640px) {
   .phoneCanvas {
-    padding: 18px 14px calc(116px + env(safe-area-inset-bottom));
+    padding: 18px 14px calc(136px + env(safe-area-inset-bottom));
   }
 
   .appHeader {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .statusPill {
-    width: 100%;
   }
 
   .disciplineSwitch {
@@ -2917,6 +2825,7 @@ button:disabled {
   .activityDateSelector {
     grid-template-columns: 72px repeat(7, 58px);
     overflow-x: auto;
+    max-width: 100%;
     padding-bottom: 4px;
   }
 
@@ -2953,7 +2862,8 @@ button:disabled {
   }
 
   .coachComposer {
-    grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
+    grid-template-columns: minmax(0, 1fr) 42px 42px;
+    bottom: calc(94px + env(safe-area-inset-bottom));
   }
 
   .authForm,

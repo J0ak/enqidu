@@ -4,7 +4,6 @@ import JSZip from "jszip";
 import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
-import ConversationEnrichmentDemo from "@/pages/admin/ConversationEnrichmentDemo";
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import {
@@ -51,7 +50,6 @@ const storageKeys = {
   profile: "enqidu.profile",
   fitImports: "enqidu.fit-imports",
   messages: "enqidu.messages",
-  checkIn: "enqidu.daily-check-in",
   backoffice: "enqidu.backoffice",
 };
 
@@ -145,62 +143,6 @@ const disciplines = {
   },
 };
 
-const demoHealth = {
-  calendar_date: "2026-06-05",
-  resting_heart_rate_bpm: 54,
-  steps: 8740,
-  intensity_minutes: 126,
-  active_kcal: 920,
-  average_stress_level: 31,
-  body_battery_current: 72,
-  spo2_avg_pct: 97,
-  respiration_avg_brpm: 13.8,
-};
-
-const demoHealthSeries = {
-  sleep: null,
-  hrv: null,
-  bodyBattery: [],
-  stress: [],
-  respiration: [],
-  spo2: [],
-};
-
-const demoSessions = [
-  { id: "s1", title: "HYROX engine intervals", type: "conditioning", score: 82, date: "Today" },
-  { id: "s2", title: "Boyle strength base", type: "strength", score: 78, date: "Yesterday" },
-  { id: "s3", title: "Trail aerobic climb", type: "cardio", score: 69, date: "Tue" },
-];
-
-const demoActivityDetail = {
-  session: {
-    title: "HIIT",
-    duration_seconds: 3178,
-    active_seconds: 1498,
-    rest_seconds: 1680,
-    calories_total: 447,
-    calories_active: 370,
-    calories_resting: 77,
-    training_effect_aerobic: 2.4,
-    training_effect_anaerobic: 2.7,
-    exercise_load: 85,
-    avg_hr: 114,
-    max_hr: 165,
-  },
-  exercises: [
-    { set: "Recorrido 1", name: "Unknown", active_seconds: 439, rest_seconds: 116, reps: 7, weight: "--" },
-    { set: "Recorrido 2", name: "Elevacion lateral", active_seconds: 186, rest_seconds: 413, reps: 23, weight: "--" },
-    { set: "Recorrido 3", name: "Remo", active_seconds: 483, rest_seconds: 365, reps: 8, weight: "--" },
-    { set: "Recorrido 4", name: "Unknown", active_seconds: 5, rest_seconds: 144, reps: 0, weight: "--" },
-    { set: "Recorrido 5", name: "Unknown", active_seconds: 385, rest_seconds: 643, reps: 11, weight: "--" },
-  ],
-  samples: Array.from({ length: 72 }, (_, index) => ({
-    elapsed_seconds: Math.round((3178 / 71) * index),
-    heart_rate_bpm: Math.round(104 + Math.sin(index / 2.3) * 16 + Math.sin(index / 7) * 24 + (index > 36 && index < 50 ? 24 : 0)),
-    temperature_c: Math.round(25 + Math.sin(index / 12) * 1.2 + (index < 12 ? 1 : 0)),
-  })),
-};
-
 const activityTypes = {
   all: { label: "Todas", color: "#9ca3af" },
   run: { label: "Correr", color: "#42a5ff" },
@@ -272,7 +214,7 @@ const activityCardMetadata = [
   },
 ];
 
-const demoMessages = [
+const initialMessages = [
   {
     role: "assistant",
     content:
@@ -298,13 +240,7 @@ function useStoredState(key, initialValue) {
 }
 
 function getInitialRoute() {
-  if (window.location.pathname === "/admin/conversation-enrichment-demo") {
-    return "adminConversationEnrichmentDemo";
-  }
   const hash = window.location.hash.replace("#/", "");
-  if (hash === "admin/conversation-enrichment-demo") {
-    return "adminConversationEnrichmentDemo";
-  }
   const visibleRoutes = ["coach", "health", "activities", "profile", "activityDetail"];
   return visibleRoutes.includes(hash) ? hash : "coach";
 }
@@ -359,18 +295,7 @@ function App() {
   const [discipline, setDiscipline] = useState("boyle");
   const [profile, setProfile] = useStoredState(storageKeys.profile, profileSeed);
   const [fitImports, setFitImports] = useStoredState(storageKeys.fitImports, []);
-  const [messages, setMessages] = useStoredState(storageKeys.messages, demoMessages);
-  const [checkIn, setCheckIn] = useStoredState(storageKeys.checkIn, {
-    sleep: 3,
-    energy: 3,
-    stress: 4,
-    discomfort: 0,
-    availableMinutes: 45,
-    discomfortArea: "",
-    notes: "",
-    savedAt: null,
-    persistence: "local",
-  });
+  const [messages, setMessages] = useStoredState(storageKeys.messages, initialMessages);
   const [backoffice, setBackoffice] = useStoredState(storageKeys.backoffice, {
     lastSync: null,
     tableStatus: [],
@@ -378,20 +303,20 @@ function App() {
   });
   const [session, setSession] = useState(null);
   const [authNotice, setAuthNotice] = useState("");
-  const [health, setHealth] = useState(supabase ? {} : demoHealth);
-  const [healthSeries, setHealthSeries] = useState(demoHealthSeries);
-  const [sessions, setSessions] = useState(supabase ? [] : demoSessions);
-  const [activityDetail, setActivityDetail] = useState(supabase ? null : demoActivityDetail);
+  const [health, setHealth] = useState({});
+  const [healthSeries, setHealthSeries] = useState({ sleep: null, hrv: [], bodyBattery: [], stress: [], respiration: [], spo2: [] });
+  const [sessions, setSessions] = useState([]);
+  const [activityDetail, setActivityDetail] = useState(null);
   const [dataState, setDataState] = useState({
     loading: false,
-    source: supabase ? "Supabase ready" : "Demo mode",
+    source: supabase ? "Conectado" : "Sin conexión",
     detail: supabase
-      ? "Cliente configurado por variables VITE_SUPABASE_*."
-      : "Falta .env.local con VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.",
+      ? "Listo para sincronizar datos."
+      : "La conexión de datos no está disponible en este entorno.",
   });
 
   const loadActivityDetail = async (latestSession) => {
-    if (!supabase || !latestSession?.id) return demoActivityDetail;
+    if (!supabase || !latestSession?.id) return null;
     const detailUserId = latestSession.user_id || session?.user?.id;
 
     const [
@@ -501,8 +426,8 @@ function App() {
     if (!supabase) {
       setDataState({
         loading: false,
-        source: "Demo mode",
-        detail: "No hay cliente Supabase: configura .env.local con URL y publishable key.",
+        source: "Sin conexión",
+        detail: "La conexión de datos no está disponible en este entorno.",
       });
       return;
     }
@@ -681,10 +606,10 @@ function App() {
     });
     setDataState({
       loading: false,
-      source: errors.length ? "Supabase partial" : "Supabase live",
+      source: errors.length ? "Sincronización parcial" : "Datos sincronizados",
       detail: errors.length
-        ? `Conectado a ${SUPABASE_PROJECT_NAME}, pero hay tablas bloqueadas por RLS/Auth.`
-        : `Conectado a ${SUPABASE_PROJECT_NAME}${userId ? ` como ${activeSession.user.email}` : " en modo publico"}.`,
+        ? "Algunos datos no están disponibles para esta cuenta."
+        : userId ? `Sesión activa: ${activeSession.user.email}` : "Datos públicos disponibles.",
     });
   };
 
@@ -692,43 +617,6 @@ function App() {
     setRouteState(next);
     localStorage.setItem(storageKeys.route, JSON.stringify(next));
     window.location.hash = `/${next}`;
-  };
-
-  const saveDailyCheckIn = async (payload) => {
-    const next = {
-      ...payload,
-      savedAt: new Date().toISOString(),
-      persistence: supabase && session?.user?.id ? "supabase" : "local",
-    };
-    setCheckIn(next);
-
-    if (!supabase || !session?.user?.id) {
-      return {
-        ok: true,
-        message: "Check-in guardado localmente. Inicia sesion para guardarlo en Supabase.",
-      };
-    }
-
-    const result = await supabase.from("check_ins").insert({
-      user_id: session.user.id,
-      check_in_date: new Date().toISOString().slice(0, 10),
-      sleep_score: clampCheckIn(payload.sleep, 1, 5),
-      energy_score: clampCheckIn(payload.energy, 1, 5),
-      discomfort_score: clampCheckIn(payload.discomfort, 0, 10),
-      available_minutes: [30, 45, 60, 90].includes(Number(payload.availableMinutes)) ? Number(payload.availableMinutes) : 45,
-      discomfort_area: payload.discomfortArea || null,
-      environment_today: `stress_${clampCheckIn(payload.stress, 1, 10)}`,
-      equipment_today: "enqidu_mobile_checkin",
-      recovery_value: Math.round(((Number(payload.sleep || 0) + Number(payload.energy || 0)) / 10) * 100),
-      user_note: payload.notes || null,
-    });
-
-    if (result.error) {
-      setCheckIn({ ...next, persistence: "local" });
-      return { ok: false, message: `No se pudo guardar en Supabase: ${result.error.message}` };
-    }
-
-    return { ok: true, message: "Check-in guardado en Supabase." };
   };
 
   useEffect(() => {
@@ -794,10 +682,6 @@ function App() {
             <span>{route === "activityDetail" ? activitySubtitle(activityDetail) : routeLabel(route)}</span>
             <h1>{route === "activityDetail" ? activityDetail?.session?.title || "Actividad" : "ENQIDU"}</h1>
           </div>
-          {route !== "activityDetail" && <div className="statusPill">
-            {dataState.loading ? <RefreshCw size={14} className="spin" /> : <Watch size={14} />}
-            {dataState.source}
-          </div>}
         </header>
 
         {route === "health" && (
@@ -805,8 +689,6 @@ function App() {
             health={health}
             healthSeries={healthSeries}
             discipline={activeDiscipline}
-            checkIn={checkIn}
-            onSaveCheckIn={saveDailyCheckIn}
           />
         )}
         {route === "activities" && (
@@ -827,10 +709,7 @@ function App() {
             messages={messages}
             setMessages={setMessages}
             discipline={activeDiscipline}
-            health={health}
-            healthSeries={healthSeries}
             sessions={filteredSessions}
-            setRoute={setRoute}
           />
         )}
         {route === "profile" && (
@@ -839,7 +718,6 @@ function App() {
             setProfile={setProfile}
             fitImports={fitImports}
             setFitImports={setFitImports}
-            dataState={dataState}
             session={session}
             authNotice={authNotice}
             setAuthNotice={setAuthNotice}
@@ -847,20 +725,6 @@ function App() {
             onImportedSession={openSessionDetail}
           />
         )}
-        {route === "backoffice" && (
-          <BackofficeView
-            session={session}
-            dataState={dataState}
-            backoffice={backoffice}
-            fitImports={fitImports}
-            setFitImports={setFitImports}
-            onSync={() => loadBackofficeData(session)}
-            onImportedSession={openSessionDetail}
-            authNotice={authNotice}
-            setAuthNotice={setAuthNotice}
-          />
-        )}
-        {route === "adminConversationEnrichmentDemo" && <ConversationEnrichmentDemo />}
       </main>
     </div>
   );
@@ -872,8 +736,7 @@ function routeLabel(route) {
     activities: "Historial de actividades",
     activityDetail: "Detalle Garmin/FIT",
     coach: "Coach",
-    profile: "Cuenta, datos e ingesta",
-    adminConversationEnrichmentDemo: "Admin conversation demo",
+    profile: "Cuenta e ingesta",
   }[route] || "Coach";
 }
 
@@ -967,67 +830,49 @@ function HeroCard({ discipline }) {
   );
 }
 
-function HealthView({ health, healthSeries, discipline, checkIn, onSaveCheckIn }) {
+function HealthView({ health, healthSeries, discipline }) {
   const readiness = computeHealthReadiness(health);
   const sleep = buildSleepModel(health, healthSeries.sleep, healthSeries.hrv);
-  const energyCurve = buildEnergyCurve(health, healthSeries.bodyBattery);
+  const energyCurve = healthSeries.bodyBattery?.length ? buildEnergyCurve(health, healthSeries.bodyBattery) : [];
   const hrvTrend = buildHrvTrend(healthSeries.hrv, sleep.hrv);
-  const hasHealthData = Boolean(health?.calendar_date);
-  const cards = [
-    ["Body Battery", hasHealthData ? (health.body_battery_current ?? "N/D") : "N/D", "/100", "Energía", hasHealthData ? (health.body_battery_current ?? 0) : 0],
-    ["Sueño", hasHealthData ? sleep.score : "N/D", "/100", "Recuperación", hasHealthData ? sleep.score : 0],
-    ["HRV", hasHealthData ? sleep.hrv : "N/D", "ms", "Balance", hasHealthData ? Math.min(100, (sleep.hrv / 70) * 100) : 0],
-    ["FC reposo", hasHealthData ? (health.resting_heart_rate_bpm ?? "N/D") : "N/D", "ppm", "Cardio", hasHealthData ? Math.max(20, 100 - (Number(health.resting_heart_rate_bpm ?? 54) - 42) * 2) : 0],
-    ["Estrés", hasHealthData ? (health.average_stress_level ?? "N/D") : "N/D", "avg", "Carga", hasHealthData ? 100 - Number(health.average_stress_level ?? 31) : 0],
-    ["Respiración", hasHealthData ? (health.respiration_avg_brpm ?? "N/D") : "N/D", "rpm", "Respira", hasHealthData ? 76 : 0],
-    ["SpO2", hasHealthData ? (health.spo2_avg_pct ?? "N/D") : "N/D", "%", "Oxígeno", hasHealthData ? (health.spo2_avg_pct ?? 0) : 0],
-    ["Carga semanal", hasHealthData ? (health.intensity_minutes ?? "N/D") : "N/D", "min", "Semana", hasHealthData ? Math.min(100, ((health.intensity_minutes ?? 0) / 175) * 100) : 0],
-  ];
+  const hasHealthData = Boolean(health?.calendar_date) && hasRealHealthValues(health, healthSeries);
+  const cards = hasHealthData ? buildRealHealthCards(health, sleep, healthSeries) : [];
 
   return (
     <section className="viewStack">
-      <section className="healthHero">
-        <div>
-          <span>Salud</span>
-          <h2>{hasHealthData ? readiness.label : "Aún no hay datos de salud para hoy."}</h2>
-          <p>{hasHealthData ? readiness.copy : "Cuando haya datos de Garmin o un check-in manual, ENQIDU mostrará recuperación, energía, HRV y señales de alerta aquí."}</p>
-          <div className="healthTags">
-            <span>{discipline.label}</span>
-            <span>{readiness.training}</span>
-            <span>{health.calendar_date || "sin lectura diaria"}</span>
-          </div>
-        </div>
-        <div className="healthScore">
-          <strong>{hasHealthData ? readiness.score : "N/D"}</strong>
-          <span>estado</span>
-        </div>
-      </section>
-      <DailyCheckInCard checkIn={checkIn} onSave={onSaveCheckIn} />
-      <div className="smartGrid">
-        {cards.map(([title, value, unit, badge, progress]) => (
-          <SmartCard key={title} title={title} value={value} unit={unit} badge={badge} progress={progress} />
-        ))}
-      </div>
       {hasHealthData ? (
         <>
+          <section className="healthHero">
+            <div>
+              <span>Salud</span>
+              <h2>{readiness.label}</h2>
+              <p>{readiness.copy}</p>
+              <div className="healthTags">
+                <span>{readiness.training}</span>
+                <span>{health.calendar_date}</span>
+              </div>
+            </div>
+            <div className="healthScore">
+              <strong>{readiness.score}</strong>
+              <span>estado</span>
+            </div>
+          </section>
+          {cards.length > 0 && (
+            <div className="smartGrid">
+              {cards.map(([title, value, unit, badge, progress]) => (
+                <SmartCard key={title} title={title} value={value} unit={unit} badge={badge} progress={progress} />
+              ))}
+            </div>
+          )}
           <GarminHighlights health={health} sleep={sleep} readiness={readiness} />
-          <GarminMetricGrid health={health} sleep={sleep} curve={energyCurve} hrvTrend={hrvTrend} />
-          <section className="healthLayout">
-            <SleepCard sleep={sleep} />
-            <EnergyTimeline curve={energyCurve} />
-          </section>
-          <section className="healthLayout">
-            <HealthDecision readiness={readiness} discipline={discipline} />
-            <SignalBoard health={health} sleep={sleep} series={healthSeries} />
-          </section>
-          <ReadinessMatrix title={`${discipline.label} readiness`} cards={discipline.cards} />
+          <GarminMetricGrid health={health} sleep={sleep} curve={energyCurve} hrvTrend={hrvTrend} healthSeries={healthSeries} />
         </>
       ) : (
         <section className="emptyHealthState">
           <Moon size={20} />
           <div>
             <strong>Aún no hay datos de salud para hoy.</strong>
-            <span>Registra el check-in o conecta datos Garmin para activar sueño, HRV, Body Battery y señales.</span>
+            <span>Cuando existan lecturas conectadas, aquí verás recuperación, sueño, HRV, Body Battery y frecuencia cardíaca.</span>
           </div>
         </section>
       )}
@@ -1035,154 +880,128 @@ function HealthView({ health, healthSeries, discipline, checkIn, onSaveCheckIn }
   );
 }
 
-function DailyCheckInCard({ checkIn, onSave }) {
-  const [draft, setDraft] = useState(checkIn);
-  const [notice, setNotice] = useState("");
-
-  useEffect(() => {
-    setDraft(checkIn);
-  }, [checkIn]);
-
-  const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
-  const save = async () => {
-    setNotice("Guardando check-in...");
-    const result = await onSave(draft);
-    setNotice(result.message);
-  };
-
-  return (
-    <section className="dailyCheckInCard">
-      <PanelTitle label="Check-in diario" title="Cómo llegas hoy" />
-      <div className="checkInGrid">
-        <RangeField label="Sueño subjetivo" value={draft.sleep} min={1} max={5} onChange={(value) => update("sleep", value)} />
-        <RangeField label="Energía" value={draft.energy} min={1} max={5} onChange={(value) => update("energy", value)} />
-        <RangeField label="Estrés" value={draft.stress} min={1} max={10} onChange={(value) => update("stress", value)} />
-        <RangeField label="Dolor/molestias" value={draft.discomfort} min={0} max={10} onChange={(value) => update("discomfort", value)} />
-      </div>
-      <div className="checkInFields">
-        <label>
-          <span>Tiempo disponible</span>
-          <select value={draft.availableMinutes} onChange={(event) => update("availableMinutes", Number(event.target.value))}>
-            {[30, 45, 60, 90].map((value) => (
-              <option key={value} value={value}>{value} min</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Zona sensible</span>
-          <input value={draft.discomfortArea || ""} onChange={(event) => update("discomfortArea", event.target.value)} placeholder="Lumbar, peroneos, hombro..." />
-        </label>
-      </div>
-      <label className="checkInNotes">
-        <span>Notas</span>
-        <textarea value={draft.notes || ""} onChange={(event) => update("notes", event.target.value)} placeholder="Sensaciones, sueño, molestias o disposición para entrenar." />
-      </label>
-      <div className="checkInFooter">
-        <small>{draft.savedAt ? `Último guardado: ${new Date(draft.savedAt).toLocaleString("es-ES")} · ${draft.persistence}` : "Sin check-in guardado todavía."}</small>
-        <button type="button" onClick={save}>Guardar check-in</button>
-      </div>
-      {notice && <p className="notice">{notice}</p>}
-    </section>
-  );
+function hasRealHealthValues(health, healthSeries) {
+  return [
+    health?.body_battery_current,
+    health?.resting_heart_rate_bpm,
+    health?.average_stress_level,
+    health?.respiration_avg_brpm,
+    health?.spo2_avg_pct,
+    health?.intensity_minutes,
+    health?.sleep_score,
+  ].some((value) => value != null) || Boolean(healthSeries?.sleep || healthSeries?.hrv?.length || healthSeries?.bodyBattery?.length);
 }
 
-function RangeField({ label, value, min, max, onChange }) {
-  return (
-    <label className="rangeField">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <input type="range" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
+function buildRealHealthCards(health, sleep, healthSeries) {
+  const cards = [];
+  if (health.body_battery_current != null) {
+    cards.push(["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current]);
+  }
+  if (sleep.hasSleepData) {
+    cards.push(["Sueño", sleep.score, "/100", "Recuperación", sleep.score]);
+  }
+  if (sleep.hasHrvData) {
+    cards.push(["HRV", sleep.hrv, "ms", "Balance", Math.min(100, (sleep.hrv / 70) * 100)]);
+  }
+  if (health.resting_heart_rate_bpm != null) {
+    cards.push(["FC reposo", health.resting_heart_rate_bpm, "ppm", "Cardio", Math.max(20, 100 - (Number(health.resting_heart_rate_bpm) - 42) * 2)]);
+  }
+  if (health.average_stress_level != null) {
+    cards.push(["Estrés", health.average_stress_level, "avg", "Carga", 100 - Number(health.average_stress_level)]);
+  }
+  if (health.respiration_avg_brpm != null) {
+    cards.push(["Respiración", health.respiration_avg_brpm, "rpm", "Respira", 76]);
+  }
+  if (health.spo2_avg_pct != null) {
+    cards.push(["SpO2", health.spo2_avg_pct, "%", "Oxígeno", health.spo2_avg_pct]);
+  }
+  if (health.intensity_minutes != null) {
+    cards.push(["Carga semanal", health.intensity_minutes, "min", "Semana", Math.min(100, (Number(health.intensity_minutes) / 175) * 100)]);
+  }
+  return cards;
 }
 
 function GarminHighlights({ health, sleep, readiness }) {
-  const stress = Number(health.average_stress_level ?? 31);
-  const battery = Number(health.body_battery_current ?? 72);
+  const stress = Number(health.average_stress_level ?? 0);
+  const battery = Number(health.body_battery_current ?? 0);
   return (
     <section className="garminSection">
-      <PanelTitle label="Destacado" title="Resumen principal" />
+      <PanelTitle label="Garmin" title="Resumen principal" />
       <div className="garminCarousel">
         <article className="garminFeatureCard">
-          <span>Predisposicion para entrenar</span>
+          <span>Recuperación</span>
           <div className="readinessGauge" style={{ "--gauge": `${readiness.score * 3.6}deg` }}>
             <strong>{readiness.score}</strong>
           </div>
           <h3>{readiness.score >= 78 ? "Alta" : readiness.score >= 62 ? "Aceptable" : "Bajo"}</h3>
           <p>{readiness.score >= 78 ? "Puedes construir" : readiness.score >= 62 ? "Tomatelo con calma" : "Recuperacion primero"}</p>
           <div className="garminFactorGrid">
-            <InfoPair label="Sueno" value={sleep.quality} />
-            <InfoPair label="Recuperacion" value={battery > 65 ? "Buena" : "Poca necesidad"} />
-            <InfoPair label="Estado VFC" value={sleep.hrv >= 50 ? "Equilibrado" : "Bajo"} />
-            <InfoPair label="Estres reciente" value={stress < 40 ? "Mediano" : "Alto"} />
+            {sleep.hasSleepData && <InfoPair label="Sueño" value={sleep.quality} />}
+            {health.body_battery_current != null && <InfoPair label="Body Battery" value={battery} />}
+            {sleep.hasHrvData && <InfoPair label="Estado VFC" value={sleep.hrv >= 50 ? "Equilibrado" : "Bajo"} />}
+            {health.average_stress_level != null && <InfoPair label="Estrés reciente" value={stress < 40 ? "Medio" : "Alto"} />}
           </div>
-        </article>
-        <article className="garminFeatureCard overload">
-          <span>Estado de entrenamiento</span>
-          <h3>{readiness.score < 64 ? "Sobrecarga" : "Productivo"}</h3>
-          <p>Foco de carga: carga aerobica de intensidad alta insuficiente.</p>
-          <div className="loadFocusBars">
-            <LoadFocus label="Anaerobico" value={306} max={520} color="#ad7cff" optimal={[170, 310]} />
-            <LoadFocus label="Aerobica alta" value={61} max={520} color="#ff9b43" optimal={[190, 420]} />
-            <LoadFocus label="Aerobica baja" value={448} max={520} color="#56d8e9" optimal={[230, 430]} />
-          </div>
-        </article>
-        <article className="garminFeatureCard sleepCoach">
-          <span>Entrenador de sueno</span>
-          <h3>Se recomienda {sleep.score < 75 ? "9h" : "8h"}</h3>
-          <p>{sleep.score < 75 ? "Te vendria bien dormir mucho mas hoy." : "Mantener hora de dormir estable."}</p>
-          <div className="sleepCoachIcon">Zz</div>
         </article>
       </div>
     </section>
   );
 }
 
-function GarminMetricGrid({ health, sleep, curve, hrvTrend }) {
-  const heart = Number(health.resting_heart_rate_bpm ?? 52);
-  const battery = Number(health.body_battery_current ?? 72);
+function GarminMetricGrid({ health, sleep, curve, hrvTrend, healthSeries }) {
+  const heart = Number(health.resting_heart_rate_bpm ?? 0);
+  const battery = Number(health.body_battery_current ?? 0);
+  const hasCards =
+    sleep.hasSleepData ||
+    sleep.hasHrvData ||
+    health.body_battery_current != null ||
+    health.resting_heart_rate_bpm != null;
+  if (!hasCards) return null;
   return (
     <section className="garminSection">
-      <PanelTitle label="Graficas" title="Salud Garmin" />
+      <PanelTitle label="Gráficas" title="Salud Garmin" />
       <div className="garminMetricGrid">
-        <article className="garminMiniCard">
-          <span>Puntuacion de sueno</span>
-          <div className="miniMetricRow">
-            <strong>{sleep.score}</strong>
-            <b>{sleep.duration}</b>
-          </div>
-          <MiniSleepChart stages={sleep.stages} />
-          <footer>00:05 <em>05:53</em></footer>
-        </article>
-        <article className="garminMiniCard">
-          <span>Estado de VFC</span>
-          <div className="miniStatus danger">Bajo</div>
-          <div className="miniMetricRow">
-            <strong>{sleep.hrv} ms</strong>
-            <b>Media de 7 dias</b>
-          </div>
-          <HrvTrend points={hrvTrend} />
-          <footer>Ult. 4 semanas</footer>
-        </article>
-        <article className="garminMiniCard">
-          <span>Body Battery</span>
-          <MiniRing value={battery} />
-          <SparkBars points={curve} />
-          <div className="miniStack">
-            <strong>+{health.body_battery_charged ?? 38}</strong>
-            <span>Cargada</span>
-            <strong>-{health.body_battery_drained ?? 38}</strong>
-            <span>Agotada</span>
-          </div>
-        </article>
-        <article className="garminMiniCard">
-          <span>Frec. cardiaca</span>
-          <MiniRing value={Math.max(18, 100 - (heart - 40) * 2)} label={heart} />
-          <div className="miniStack">
-            <strong>{heart} ppm</strong>
-            <span>Descanso</span>
-          </div>
-        </article>
+        {sleep.hasSleepData && (
+          <article className="garminMiniCard">
+            <span>Puntuación de sueño</span>
+            <div className="miniMetricRow">
+              <strong>{sleep.score}</strong>
+              <b>{sleep.duration}</b>
+            </div>
+            <MiniSleepChart stages={sleep.stages} />
+          </article>
+        )}
+        {sleep.hasHrvData && (
+          <article className="garminMiniCard">
+            <span>Estado de VFC</span>
+            <div className={`miniStatus ${sleep.hrv < 42 ? "danger" : ""}`}>{sleep.hrv < 42 ? "Bajo" : "Equilibrado"}</div>
+            <div className="miniMetricRow">
+              <strong>{sleep.hrv} ms</strong>
+              <b>Últimas lecturas</b>
+            </div>
+            <HrvTrend points={hrvTrend} />
+          </article>
+        )}
+        {health.body_battery_current != null && (
+          <article className="garminMiniCard">
+            <span>Body Battery</span>
+            <MiniRing value={battery} />
+            {healthSeries.bodyBattery?.length > 0 && <SparkBars points={curve} />}
+            <div className="miniStack">
+              {health.body_battery_charged != null && <><strong>+{health.body_battery_charged}</strong><span>Cargada</span></>}
+              {health.body_battery_drained != null && <><strong>-{health.body_battery_drained}</strong><span>Agotada</span></>}
+            </div>
+          </article>
+        )}
+        {health.resting_heart_rate_bpm != null && (
+          <article className="garminMiniCard">
+            <span>Frecuencia cardíaca</span>
+            <MiniRing value={Math.max(18, 100 - (heart - 40) * 2)} label={heart} />
+            <div className="miniStack">
+              <strong>{heart} ppm</strong>
+              <span>Descanso</span>
+            </div>
+          </article>
+        )}
       </div>
     </section>
   );
@@ -1298,45 +1117,6 @@ function EnergyTimeline({ curve }) {
   );
 }
 
-function HealthDecision({ readiness, discipline }) {
-  return (
-    <article className="panel decisionCard">
-      <PanelTitle label="AI health decision" title="Que haria hoy" />
-      <strong>{readiness.training}</strong>
-      <p>{readiness.plan}</p>
-      <div className="actionTags">
-        {discipline.prescription.map((item) => (
-          <span key={item}>{item}</span>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function SignalBoard({ health, sleep }) {
-  const signals = [
-    ["Sleep debt", sleep.score >= 75 ? "Low" : "Medium", sleep.score],
-    ["Stress load", Number(health.average_stress_level ?? 31) < 40 ? "Controlled" : "Watch", 100 - Number(health.average_stress_level ?? 31)],
-    ["Oxygen", Number(health.spo2_avg_pct ?? 97) >= 95 ? "Stable" : "Review", health.spo2_avg_pct ?? 97],
-    ["Respiration", Number(health.respiration_avg_brpm ?? 13.8) < 16 ? "Calm" : "High", 76],
-  ];
-
-  return (
-    <article className="panel healthPanel">
-      <PanelTitle label="Signal board" title="Alertas utiles" />
-      <div className="signalBoard">
-        {signals.map(([label, status, progress]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong>{status}</strong>
-            <i><b style={{ width: `${progress}%` }} /></i>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
-
 function ActivityView({ activityDetail }) {
   if (!activityDetail?.session) return <ActivityDetailSkeleton />;
   if (activityDetail.session.session_status === "archived") return <ArchivedSessionNotice detail={activityDetail} />;
@@ -1425,10 +1205,6 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
           <h2>Historial Garmin/FIT</h2>
           <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existen.</p>
         </div>
-        <button onClick={() => visible[0] ? openDetail(visible[0]) : setRoute("profile")}>
-          <FileUp size={16} />
-          Importar FIT
-        </button>
       </section>
       <section className="weeklyActivityCard">
         <PanelTitle label="Semana" title={weekTitle} />
@@ -2013,14 +1789,10 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
   );
 }
 
-function CoachView({ messages, setMessages, discipline, health, healthSeries, sessions, setRoute }) {
+function CoachView({ messages, setMessages, discipline, sessions }) {
   const [draft, setDraft] = useState("");
   const [micNotice, setMicNotice] = useState("");
   const endRef = useRef(null);
-  const smartCards = useMemo(
-    () => buildCoachSmartCards({ health, healthSeries, sessions }),
-    [health, healthSeries, sessions],
-  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -2031,7 +1803,7 @@ function CoachView({ messages, setMessages, discipline, health, healthSeries, se
     const userMessage = { role: "user", content: draft.trim() };
     const answer = {
       role: "assistant",
-      content: buildCoachReply(draft, discipline, health),
+      content: buildCoachReply(draft, discipline, sessions),
     };
     setMessages([...messages, userMessage, answer]);
     setDraft("");
@@ -2039,18 +1811,6 @@ function CoachView({ messages, setMessages, discipline, health, healthSeries, se
 
   return (
     <section className="coachView">
-      <section className="coachHero">
-        <div>
-          <span>Coach</span>
-          <h2>Cuéntame cómo estás o qué has hecho hoy.</h2>
-          <p>ENQIDU funciona ahora como piloto conversacional local: recoge contexto, muestra señales y prepara el terreno para IA real sin depender de OpenAI API.</p>
-        </div>
-        <button type="button" onClick={() => setRoute("profile")}>
-          <FileUp size={16} />
-          Importar FIT
-        </button>
-      </section>
-      <SmartCardGrid cards={smartCards} />
       <div className="chatLog">
         {messages.map((message, index) => (
           <div key={`${message.role}-${index}`} className={`bubble ${message.role}`}>
@@ -2071,29 +1831,9 @@ function CoachView({ messages, setMessages, discipline, health, healthSeries, se
   );
 }
 
-function SmartCardGrid({ cards }) {
-  return (
-    <div className="coachSmartGrid">
-      {cards.map((card) => (
-        <article key={card.title} className={`coachSmartCard ${card.tone || ""}`}>
-          <div>
-            <span>{card.label}</span>
-            <strong>{card.title}</strong>
-          </div>
-          <p>{card.body}</p>
-          {card.meta && <small>{card.meta}</small>}
-        </article>
-      ))}
-    </div>
-  );
-}
-
 function ChatComposer({ value, onChange, onSend, onMicResult, onMicNotice }) {
   return (
     <div className="coachComposer">
-      <button type="button" className="iconAction" aria-label="Añadir contexto">
-        <Plus size={18} />
-      </button>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -2150,40 +1890,19 @@ function MicrophoneButton({ onResult, onNotice }) {
   );
 }
 
-function ProfileView({ profile, setProfile, fitImports, setFitImports, dataState, session, authNotice, setAuthNotice, onSync, onImportedSession }) {
+function ProfileView({ profile, setProfile, fitImports, setFitImports, session, authNotice, setAuthNotice, onSync, onImportedSession }) {
   return (
-    <section className="viewStack">
-      <section className="profileCard">
+    <section className="viewStack profileView">
+      <section className="profileCard accountCard">
         <div className="avatar">{profile.avatar}</div>
         <div>
-          <span>Cuenta</span>
+          <span>Cuenta ENQIDU</span>
           <input value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
-          <p>{session ? session.user.email : "Cuenta local / sesión pendiente"}</p>
+          <p>{session ? session.user.email : "Inicia sesión para sincronizar tus datos."}</p>
         </div>
       </section>
       <AuthPanel session={session} notice={authNotice} setNotice={setAuthNotice} onSync={onSync} />
-      <section className="panel profileConnectionCard">
-        <PanelTitle label="Garmin" title="Conectar Garmin" />
-        <div className="integrationRows">
-          <InfoRow label="Estado" value="Pendiente - por ahora usa importación FIT." />
-          <InfoRow label="Modo actual" value="Importación manual FIT" />
-        </div>
-      </section>
       <FitDropzone fitImports={fitImports} setFitImports={setFitImports} session={session} onSync={onSync} onImportedSession={onImportedSession} />
-      <section className="panel">
-        <PanelTitle label="Datos" title="Estado de datos" />
-        <div className="integrationRows">
-          <InfoRow label="Datos conectados" value={dataState.source} />
-          <InfoRow label="Último estado" value={dataState.detail} />
-          <InfoRow label="FIT importados" value={`${fitImports.length}`} />
-          <InfoRow label="Supabase" value={`${SUPABASE_PROJECT_NAME} - activo`} />
-        </div>
-      </section>
-      <ActionPanel title="App preparada para el piloto" cta="Actualizar estado" onClick={() => setProfile({ ...profile, garminStatus: "FIT OK - Garmin oficial pendiente" })}>
-        <span>Importar archivo FIT</span>
-        <span>Guardar salud manual</span>
-        <span>Coach conversacional visual</span>
-      </ActionPanel>
     </section>
   );
 }
@@ -2196,11 +1915,11 @@ function AuthPanel({ session, notice, setNotice, onSync }) {
 
   const submit = async () => {
     if (!supabase) {
-      setNotice("Falta .env.local con VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.");
+      setNotice("El acceso ENQIDU no está disponible en este entorno.");
       return;
     }
     if (!email.trim() || !password.trim()) {
-      setNotice("Email y password son necesarios para entrar al backoffice.");
+      setNotice("Introduce email y contraseña.");
       return;
     }
 
@@ -2216,14 +1935,14 @@ function AuthPanel({ session, notice, setNotice, onSync }) {
       return;
     }
 
-    setNotice(mode === "signup" ? "Usuario creado. Si Supabase pide confirmacion, revisa email." : "Sesion iniciada.");
+    setNotice(mode === "signup" ? "Cuenta creada. Revisa tu email si hace falta confirmar el acceso." : "Sesión iniciada.");
     if (onSync) onSync();
   };
 
   const logout = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
-    setNotice("Sesion cerrada.");
+    setNotice("Sesión cerrada.");
   };
 
   return (
@@ -2233,9 +1952,9 @@ function AuthPanel({ session, notice, setNotice, onSync }) {
           {session ? <CheckCircle2 size={22} /> : <LockKeyhole size={22} />}
         </div>
         <div>
-          <span>Backoffice auth</span>
-          <h3>{session ? "Sesion conectada" : "Entrar con Supabase"}</h3>
-          <p>{session ? session.user.email : "Necesario para que RLS entregue tus datos privados."}</p>
+          <span>Cuenta ENQIDU</span>
+          <h3>{session ? "Sesión activa" : "Acceso ENQIDU"}</h3>
+          <p>{session ? session.user.email : "Accede para sincronizar tus datos personales."}</p>
         </div>
       </div>
       {!session ? (
@@ -2268,58 +1987,6 @@ function AuthPanel({ session, notice, setNotice, onSync }) {
   );
 }
 
-function BackofficeView({ session, dataState, backoffice, fitImports, setFitImports, onSync, onImportedSession, authNotice, setAuthNotice }) {
-  return (
-    <section className="viewStack">
-      <SectionLead
-        icon={Database}
-        title="Backoffice"
-        text="Conexion operativa con Supabase/Hybriq: auth, tablas, fuentes FIT y diagnostico de RLS."
-      />
-      <AuthPanel session={session} notice={authNotice} setNotice={setAuthNotice} onSync={onSync} />
-      <FitDropzone fitImports={fitImports} setFitImports={setFitImports} session={session} onSync={onSync} onImportedSession={onImportedSession} />
-      <section className="panel">
-        <PanelTitle label="Sync" title="Estado de datos" />
-        <div className="integrationRows">
-          <InfoRow label="Proyecto" value={`${SUPABASE_PROJECT_NAME} · ${SUPABASE_PROJECT_URL}`} />
-          <InfoRow label="Estado app" value={`${dataState.source} · ${dataState.detail}`} />
-          <InfoRow label="Ultima sincronizacion" value={backoffice.lastSync ? new Date(backoffice.lastSync).toLocaleString("es-ES") : "Pendiente"} />
-        </div>
-      </section>
-      <section className="panel">
-        <PanelTitle label="Tables" title="Lectura de tablas" />
-        <div className="tableStatusGrid">
-          {(backoffice.tableStatus || []).map((item) => (
-            <article key={item.table} className={item.error ? "tableStatus error" : "tableStatus ok"}>
-              <span>{item.table}</span>
-              <strong>{item.error ? "Bloqueada" : `${item.count} rows`}</strong>
-              {item.error && <p>{item.error}</p>}
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className="panel">
-        <PanelTitle label="Garmin sources" title="Ultimas fuentes FIT/backoffice" />
-        <div className="sessionList">
-          {(backoffice.sources || []).map((source) => (
-            <article key={source.id}>
-              <div className="sessionIcon">
-                <FileUp size={17} />
-              </div>
-              <div>
-                <strong>{source.original_filename || source.source_name}</strong>
-                <span>{source.source_type} · {source.import_status}</span>
-              </div>
-              <b>{source.imported_at ? new Date(source.imported_at).toLocaleDateString("es-ES") : "FIT"}</b>
-            </article>
-          ))}
-          {!(backoffice.sources || []).length && <p className="emptyText">Aun no hay fuentes visibles para esta sesion.</p>}
-        </div>
-      </section>
-    </section>
-  );
-}
-
 function FitDropzone({ fitImports, setFitImports, session, onSync, onImportedSession }) {
   const [dragging, setDragging] = useState(false);
   const [uploadState, setUploadState] = useState({ status: "idle", message: "" });
@@ -2339,7 +2006,7 @@ function FitDropzone({ fitImports, setFitImports, session, onSync, onImportedSes
       setUploadState({
         status: failed.length ? "warning" : "ok",
         message: failed.length
-          ? `${parsed.length} FIT procesado(s), pero ${failed.length} no entraron completos en backoffice. Mira el detalle debajo.`
+          ? `${parsed.length} FIT procesado(s), pero ${failed.length} no pudieron registrarse completos.`
           : `${parsed.length} FIT cargado(s) y registrado(s).`,
       });
       if (onSync) onSync();
@@ -2376,7 +2043,7 @@ function FitDropzone({ fitImports, setFitImports, session, onSync, onImportedSes
     >
       <FileUp size={26} />
       <div>
-        <strong>Carga .fit Garmin</strong>
+        <strong>Importar archivo FIT</strong>
         <span>Selecciona un .fit o un .zip exportado de Garmin. En movil usa Archivos/Mis archivos.</span>
       </div>
       <label>
@@ -2395,7 +2062,7 @@ function FitDropzone({ fitImports, setFitImports, session, onSync, onImportedSes
       {fitImports.length > 0 && (
         <div className="fitList">
           {mergeFitImports([], fitImports).slice(0, 4).map((item) => (
-            <InfoRow key={`${item.name}-${item.importedAt}`} label={item.name} value={`${item.sizeKb} KB · ${item.status} · ${item.backoffice || "local"}`} />
+            <InfoRow key={`${item.name}-${item.importedAt}`} label={item.name} value={`${item.sizeKb} KB · ${item.status}`} />
           ))}
         </div>
       )}
@@ -3438,19 +3105,6 @@ function mergeTags(existingTags, nextTags) {
   return [...new Set([...(existingTags || []), ...(nextTags || [])].filter(Boolean))];
 }
 
-function ReadinessMatrix({ title, cards }) {
-  return (
-    <section className="panel">
-      <PanelTitle label="Smart cards" title={title} />
-      <div className="smartGrid">
-        {cards.map(([titleItem, value, unit, badge, progress]) => (
-          <SmartCard key={titleItem} title={titleItem} value={value} unit={unit} badge={badge} progress={progress} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function SmartCard({ title, value, unit, badge, progress }) {
   return (
     <article className="smartCard">
@@ -3489,22 +3143,6 @@ function SessionList({ sessions }) {
   );
 }
 
-function ActionPanel({ title, cta, onClick, children }) {
-  return (
-    <section className="actionPanel">
-      <div>
-        <span>Next best action</span>
-        <h3>{title}</h3>
-        <div className="actionTags">{children}</div>
-      </div>
-      <button onClick={onClick}>
-        {cta}
-        <ChevronRight size={16} />
-      </button>
-    </section>
-  );
-}
-
 function SectionLead({ icon: Icon, title, text }) {
   return (
     <section className="sectionLead">
@@ -3537,55 +3175,8 @@ function InfoRow({ label, value }) {
   );
 }
 
-function buildCoachSmartCards({ health, healthSeries, sessions }) {
-  const latestSession = sessions?.[0];
-  const sleep = buildSleepModel(health, healthSeries?.sleep, healthSeries?.hrv);
-  const readiness = computeHealthReadiness(health);
-  const hasHealthData = Boolean(health?.calendar_date);
-  const hasSession = Boolean(latestSession?.id);
-  const lastDuration = latestSession?.duration_seconds ? formatDurationClock(latestSession.duration_seconds) : "";
-  const garminSets = latestSession?.session_structure?.garmin_fit_summary?.strength_tracking?.garmin_sets_total;
-
-  return [
-    {
-      label: "Estado de hoy",
-      title: hasHealthData ? `${readiness.score}/100` : "Sin datos de hoy",
-      body: hasHealthData ? readiness.copy : "Aún no hay datos de salud para hoy.",
-      meta: hasHealthData ? health.calendar_date : "Añade un check-in en Salud.",
-      tone: readiness.score >= 78 ? "good" : readiness.score >= 62 ? "warn" : "care",
-    },
-    {
-      label: "Resumen de sesión",
-      title: hasSession ? latestSession.title : "Importa un FIT",
-      body: hasSession
-        ? [lastDuration, latestSession.meta, latestSession.date].filter(Boolean).join(" · ")
-        : "Importa un FIT desde Perfil para analizar tu sesión.",
-      meta: garminSets ? `${garminSets} series Garmin detectadas` : "Garmin/FIT listo",
-      tone: hasSession ? "good" : "warn",
-    },
-    {
-      label: "Señales de salud",
-      title: hasHealthData ? `${sleep.duration} · HRV ${sleep.hrv} ms` : "Sin señales",
-      body: hasHealthData ? sleep.note : "Sueño, HRV, Body Battery y FC aparecerán cuando Supabase entregue datos.",
-      meta: hasHealthData ? `Body Battery ${health.body_battery_current ?? "N/D"}` : "wearable_* preparado",
-    },
-    {
-      label: "Próxima acción",
-      title: readiness.training,
-      body: hasHealthData || hasSession
-        ? readiness.plan
-        : "El coach conversacional avanzado se activará más adelante.",
-      meta: "Piloto local, sin OpenAI API",
-      tone: "action",
-    },
-  ];
-}
-
-function buildCoachReply(input, discipline, health) {
-  const stress = Number(health.average_stress_level ?? 31);
-  const battery = Number(health.body_battery_current ?? 72);
+function buildCoachReply(input, discipline, sessions = []) {
   const lower = input.toLowerCase();
-  const caution = stress > 55 || battery < 45;
   const intent = lower.includes("hyrox")
     ? "HYROX"
     : lower.includes("trail")
@@ -3593,25 +3184,26 @@ function buildCoachReply(input, discipline, health) {
       : lower.includes("crossfit")
         ? "CrossFit"
         : discipline.label;
+  const latestSession = sessions?.[0];
 
-  if (caution) {
-    return `Para ${intent}, hoy bajo el coste: ${discipline.prescription[0]}, tecnica suave y salida Z2. Body Battery ${battery}, stress ${stress}: queremos continuidad, no factura manana.`;
+  if (latestSession?.id) {
+    const duration = latestSession.duration_seconds ? formatDurationClock(latestSession.duration_seconds) : "";
+    return `He registrado tu actualización. La última actividad disponible es ${latestSession.title}${duration ? ` (${duration})` : ""}. Cuéntame objetivo, sensación o molestias y lo afinamos desde ahí.`;
   }
 
-  return `Para ${intent}, iria con ${discipline.prescription.join(" + ")}. Readiness suficiente: manten RPE 7/10 y corta si la tecnica cae dos series seguidas.`;
+  return `He registrado tu actualización para ${intent}. Cuando importes un FIT o sincronices datos, podré usar tu historial real para responder con más contexto.`;
 }
 
 function computeHealthReadiness(health) {
-  const battery = Number(health.body_battery_current ?? 72);
-  const stress = Number(health.average_stress_level ?? 31);
-  const rhr = Number(health.resting_heart_rate_bpm ?? 54);
-  const oxygen = Number(health.spo2_avg_pct ?? 97);
-  const score = Math.round(
-    battery * 0.42 +
-      (100 - stress) * 0.28 +
-      Math.max(0, 100 - Math.abs(rhr - 52) * 3) * 0.18 +
-      Math.min(100, oxygen) * 0.12,
-  );
+  const components = [];
+  if (health.body_battery_current != null) components.push({ value: Number(health.body_battery_current), weight: 0.42 });
+  if (health.average_stress_level != null) components.push({ value: 100 - Number(health.average_stress_level), weight: 0.28 });
+  if (health.resting_heart_rate_bpm != null) components.push({ value: Math.max(0, 100 - Math.abs(Number(health.resting_heart_rate_bpm) - 52) * 3), weight: 0.18 });
+  if (health.spo2_avg_pct != null) components.push({ value: Math.min(100, Number(health.spo2_avg_pct)), weight: 0.12 });
+  const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
+  const score = totalWeight
+    ? Math.round(components.reduce((sum, component) => sum + component.value * component.weight, 0) / totalWeight)
+    : 0;
 
   if (score >= 78) {
     return {
@@ -3643,10 +3235,11 @@ function computeHealthReadiness(health) {
 }
 
 function buildSleepModel(health, sleepSession, hrvRows = []) {
-  const fallbackScore = Math.round(Math.min(92, Math.max(58, 82 - Number(health.average_stress_level ?? 31) * 0.16 + Number(health.body_battery_current ?? 72) * 0.08)));
-  const score = Math.round(Number(sleepSession?.sleep_score ?? fallbackScore));
+  const hasSleepData = Boolean(sleepSession || health.sleep_score != null);
+  const score = hasSleepData ? Math.round(Number(sleepSession?.sleep_score ?? health.sleep_score)) : null;
   const hrvSource = sleepSession?.hrv_last_night_avg_ms ?? hrvRows?.[0]?.last_night_avg_ms;
-  const hrv = Math.round(Number(hrvSource ?? 44 + Number(health.body_battery_current ?? 72) * 0.14 - Number(health.average_stress_level ?? 31) * 0.05));
+  const hasHrvData = hrvSource != null;
+  const hrv = hasHrvData ? Math.round(Number(hrvSource)) : null;
   const durationSeconds = sleepSession?.total_duration_seconds;
   const stages = sleepSession
     ? [
@@ -3659,23 +3252,20 @@ function buildSleepModel(health, sleepSession, hrvRows = []) {
   const totalStageSeconds = stages?.reduce((sum, [, seconds]) => sum + Number(seconds || 0), 0) || 0;
 
   return {
-    score,
+    hasSleepData,
+    hasHrvData,
+    score: score ?? 0,
     hrv,
-    duration: durationSeconds ? formatDuration(durationSeconds) : score > 80 ? "7h 48m" : score > 68 ? "7h 05m" : "6h 22m",
-    quality: score > 80 ? "good" : score > 68 ? "usable" : "light",
-    note: score > 76 ? "La noche permite absorber carga moderada." : "La noche no bloquea entrenar, pero pide margen y menos lactato.",
+    duration: durationSeconds ? formatDuration(durationSeconds) : "",
+    quality: score > 80 ? "Buena" : score > 68 ? "Correcta" : "Ligera",
+    note: score > 76 ? "La noche permite absorber carga moderada." : "La noche pide margen y menos intensidad.",
     stages: stages && totalStageSeconds
       ? stages.map(([label, seconds]) => ({
           label,
           value: Math.round((Number(seconds || 0) / totalStageSeconds) * 100),
           text: formatDuration(seconds || 0),
         }))
-      : [
-          ["Deep", 18, "1h 24m"],
-          ["Light", 48, "3h 42m"],
-          ["REM", 24, "1h 52m"],
-          ["Awake", 10, "46m"],
-        ].map(([label, value, text]) => ({ label, value, text })),
+      : [],
   };
 }
 
@@ -3705,7 +3295,7 @@ function buildHrvTrend(hrvRows = [], fallback) {
       .map((row) => Number(row.last_night_avg_ms || 0))
       .filter(Boolean);
   }
-  return [fallback - 8, fallback - 4, fallback - 2, fallback, fallback + 2, fallback + 1, fallback - 5].map((value) => Math.round(value));
+  return fallback ? [fallback] : [];
 }
 
 function isArchivedSession(item) {
@@ -4427,12 +4017,6 @@ function optionalNumber(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isNaN(number) ? null : number;
-}
-
-function clampCheckIn(value, min, max) {
-  const number = Number(value);
-  if (Number.isNaN(number)) return min;
-  return Math.max(min, Math.min(max, Math.round(number)));
 }
 
 function formatOptionalDuration(value) {
