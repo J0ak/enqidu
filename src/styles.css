@@ -1549,6 +1549,42 @@ button:disabled {
   align-items: center;
 }
 
+.garminSeriesTable {
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.garminSeriesHeader,
+.garminSeriesRow {
+  display: grid;
+  grid-template-columns: 64px minmax(150px, 1.2fr) 88px 88px 64px 78px 78px 78px;
+  gap: 10px;
+  align-items: center;
+  min-width: 760px;
+}
+
+.garminSeriesHeader {
+  color: var(--text);
+  font-weight: 800;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 12px 0;
+}
+
+.garminSeriesRow {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.garminSeriesRow strong {
+  font-weight: 700;
+}
+
+.garminSeriesRow span {
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+}
+
 .exerciseHeader {
   color: var(--text);
   font-weight: 800;
