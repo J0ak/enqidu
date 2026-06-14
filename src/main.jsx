@@ -2331,6 +2331,7 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
     });
 
     await insertFitMessagePayloadRows(sessionId, sourceId, normalized.fitMessages);
+    await upsertGarminSetRows(sessionId, normalized.summary.garmin_series || [], normalized.samples || []);
 
     if (!existing?.id) {
       await insertMetricRows(sessionId, normalized.metrics);
@@ -3061,6 +3062,56 @@ async function insertSampleRows(sessionId, sourceId, rows) {
 async function insertExerciseRows(sessionId, rows) {
   if (!rows.length) return;
   await supabase.from("session_exercises").insert(rows.map((row) => ({ ...row, session_id: sessionId })));
+}
+
+
+async function upsertGarminSetRows(sessionId, rows, samples = []) {
+  if (!rows.length) return;
+  const prepared = rows.map((row, index) => {
+    const start = nullableNumber(row.start_elapsed_seconds);
+    const end = nullableNumber(row.end_elapsed_seconds);
+    const hr = heartRateForGarminSetWindow(samples, start, end);
+    return {
+      session_id: sessionId,
+      source: "garmin_fit",
+      series_order: index + 1,
+      garmin_exercise_name: row.garmin_exercise_name || null,
+      start_elapsed_seconds: start == null ? null : Math.round(start),
+      end_elapsed_seconds: end == null ? null : Math.round(end),
+      duration_seconds: row.duration_seconds == null ? null : Math.round(Number(row.duration_seconds)),
+      active_seconds: row.active_seconds == null ? null : Math.round(Number(row.active_seconds)),
+      rest_seconds: row.rest_seconds == null ? null : Math.round(Number(row.rest_seconds)),
+      repetitions: row.repetitions == null ? null : Math.round(Number(row.repetitions)),
+      load_value: nullableNumber(row.load_value),
+      load_unit: row.load_unit || null,
+      heart_rate_avg_bpm: row.heart_rate_avg_bpm == null ? hr.avg : Math.round(Number(row.heart_rate_avg_bpm)),
+      heart_rate_max_bpm: row.heart_rate_max_bpm == null ? hr.max : Math.round(Number(row.heart_rate_max_bpm)),
+      raw_payload: row.raw_payload || row,
+      confidence: row.confidence || "reported",
+      updated_at: new Date().toISOString(),
+    };
+  });
+
+  const { error } = await supabase.from("session_garmin_sets").upsert(prepared, {
+    onConflict: "session_id,source,series_order",
+  });
+  if (error) throw error;
+}
+
+function heartRateForGarminSetWindow(samples, start, end) {
+  if (start == null || end == null || end < start) return { avg: null, max: null };
+  const values = samples
+    .filter((sample) => {
+      const elapsed = nullableNumber(sample.elapsed_seconds);
+      return elapsed != null && elapsed >= start && elapsed <= end && sample.heart_rate_bpm != null;
+    })
+    .map((sample) => Number(sample.heart_rate_bpm))
+    .filter(Number.isFinite);
+  if (!values.length) return { avg: null, max: null };
+  return {
+    avg: Math.round(average(values)),
+    max: Math.round(Math.max(...values)),
+  };
 }
 
 async function insertFitMessagePayloadRows(sessionId, sourceId, rows) {
