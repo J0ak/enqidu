@@ -16,9 +16,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 50% -10%, rgba(35, 230, 193, 0.2), transparent 32%),
-    linear-gradient(180deg, #0b0e11, #050607);
+  background: linear-gradient(180deg, #05070a, #07111a 52%, #05070a);
 }
 
 button,
@@ -341,14 +339,7 @@ button:disabled {
 }
 
 .heroCard::before {
-  content: "";
-  position: absolute;
-  inset: -30% -20% auto auto;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--discipline) 22%, transparent);
-  filter: blur(22px);
+  content: none;
 }
 
 .heroTop {
@@ -1286,6 +1277,126 @@ button:disabled {
   font-size: 20px;
 }
 
+.activityDateSelector {
+  display: grid;
+  grid-template-columns: 74px repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.activityDateSelector button {
+  min-width: 0;
+  min-height: 76px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.activityDateSelector button:first-child {
+  font-weight: 850;
+}
+
+.activityDateSelector button.active {
+  color: #06100d;
+  border-color: transparent;
+  background: var(--discipline);
+}
+
+.activityDateSelector span,
+.activityDateSelector small {
+  font-size: 11px;
+}
+
+.activityDateSelector strong {
+  font-size: 22px;
+}
+
+.activityDayGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.activityDayGroup + .activityDayGroup {
+  margin-top: 18px;
+}
+
+.activityDayGroup h3 {
+  margin: 0;
+}
+
+.activityList .activityHistoryCard {
+  width: 100%;
+  min-height: 116px;
+  border-radius: 18px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px;
+}
+
+.activityList .activityHistoryCard:hover {
+  border-color: color-mix(in srgb, var(--type) 45%, var(--border));
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.activityBadge {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--type);
+  background: color-mix(in srgb, var(--type) 16%, transparent);
+}
+
+.activityHistoryMain {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.activityHistoryMain > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activityHistoryMain strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityMetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.activityMetrics span,
+.activityFlags span {
+  min-height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+}
+
+.activityFlags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 7px;
+  align-items: center;
+}
+
 .activityElements > .panelTitle {
   grid-column: 1 / -1;
 }
@@ -2050,7 +2161,118 @@ button:disabled {
 
 .coachView {
   min-height: calc(100vh - 180px);
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.coachHero,
+.dailyCheckInCard,
+.emptyHealthState {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    var(--surface);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.28);
+}
+
+.coachHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: end;
+  min-height: 210px;
+  padding: 22px;
+}
+
+.coachHero span,
+.dailyCheckInCard .panelTitle span,
+.activityDayGroup h3 {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.coachHero h2 {
+  max-width: 760px;
+  margin: 8px 0 10px;
+  font-size: clamp(31px, 6vw, 56px);
+  line-height: 0.98;
+}
+
+.coachHero p {
+  max-width: 680px;
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 76%, var(--muted));
+  line-height: 1.55;
+}
+
+.coachHero button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: #06100d;
+  background: var(--discipline);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.coachSmartGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.coachSmartCard {
+  min-height: 168px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  align-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  background: #0e1621;
+}
+
+.coachSmartCard.good {
+  border-color: rgba(35, 230, 193, 0.38);
+}
+
+.coachSmartCard.warn {
+  border-color: rgba(255, 157, 46, 0.42);
+}
+
+.coachSmartCard.care {
+  border-color: rgba(255, 69, 101, 0.42);
+}
+
+.coachSmartCard.action {
+  background: #101b28;
+}
+
+.coachSmartCard span,
+.coachSmartCard small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.coachSmartCard strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.coachSmartCard p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+  line-height: 1.45;
 }
 
 .chatLog {
@@ -2087,9 +2309,18 @@ button:disabled {
 }
 
 .coachComposer {
+  position: sticky;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 7;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
   gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 8px;
+  background: rgba(5, 7, 10, 0.92);
+  backdrop-filter: blur(18px);
 }
 
 .coachComposer input,
@@ -2101,6 +2332,139 @@ button:disabled {
   color: var(--text);
   background: var(--surface);
   padding: 0 14px;
+}
+
+.coachComposer .iconAction,
+.coachComposer .sendAction {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.coachComposer .iconAction {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.coachComposer .iconAction.listening {
+  color: #06100d;
+  background: var(--discipline);
+}
+
+.coachComposer .sendAction {
+  color: #06100d;
+  background: var(--discipline);
+}
+
+.composerNotice {
+  margin: -2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dailyCheckInCard {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.checkInGrid,
+.checkInFields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkInFields {
+  grid-template-columns: 180px 1fr;
+}
+
+.rangeField,
+.checkInFields label,
+.checkInNotes {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rangeField span,
+.checkInFields span,
+.checkInNotes span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rangeField strong {
+  font-size: 26px;
+}
+
+.rangeField input {
+  width: 100%;
+  accent-color: var(--discipline);
+}
+
+.checkInFields input,
+.checkInFields select,
+.checkInNotes textarea {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+}
+
+.checkInNotes textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.checkInFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.checkInFooter small {
+  color: var(--muted);
+}
+
+.checkInFooter button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 14px;
+  color: #06100d;
+  background: var(--discipline);
+  font-weight: 850;
+}
+
+.emptyHealthState {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  color: var(--muted);
+}
+
+.emptyHealthState strong,
+.emptyHealthState span {
+  display: block;
+}
+
+.emptyHealthState strong {
+  color: var(--text);
+  margin-bottom: 4px;
 }
 
 .profileCard {
@@ -2356,6 +2720,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .coachSmartGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .activityElements {
     grid-template-columns: 1fr;
   }
@@ -2534,6 +2902,33 @@ button:disabled {
     flex-direction: column;
   }
 
+  .coachHero {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .coachSmartGrid,
+  .checkInGrid,
+  .checkInFields {
+    grid-template-columns: 1fr;
+  }
+
+  .activityDateSelector {
+    grid-template-columns: 72px repeat(7, 58px);
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .activityList .activityHistoryCard {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .activityFlags {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .stackedWeek {
     gap: 10px;
   }
@@ -2558,7 +2953,7 @@ button:disabled {
   }
 
   .coachComposer {
-    grid-template-columns: 1fr;
+    grid-template-columns: 42px minmax(0, 1fr) 42px 42px;
   }
 
   .authForm,

@@ -10,7 +10,9 @@ import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliatio
 import {
   Activity,
   ArrowUpRight,
+  BatteryCharging,
   Bot,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   CircleGauge,
@@ -18,14 +20,20 @@ import {
   Database,
   Dumbbell,
   FileUp,
+  Flame,
+  Gauge,
   HeartPulse,
   Home,
   LockKeyhole,
   LogIn,
   LogOut,
+  MessageCircle,
+  Mic,
   Mountain,
+  Moon,
+  Plus,
   RefreshCw,
-  Search,
+  Send,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -39,11 +47,12 @@ const SUPABASE_PROJECT_URL = "https://rdduqsziboqxlgeqouxq.supabase.co";
 const SUPABASE_PROJECT_NAME = "Hybriq";
 
 const storageKeys = {
-  route: "sport-elements.route",
-  profile: "sport-elements.profile",
-  fitImports: "sport-elements.fit-imports",
-  messages: "sport-elements.messages",
-  backoffice: "sport-elements.backoffice",
+  route: "enqidu.route",
+  profile: "enqidu.profile",
+  fitImports: "enqidu.fit-imports",
+  messages: "enqidu.messages",
+  checkIn: "enqidu.daily-check-in",
+  backoffice: "enqidu.backoffice",
 };
 
 const profileSeed = {
@@ -267,7 +276,7 @@ const demoMessages = [
   {
     role: "assistant",
     content:
-      "Hoy iria a Boyle + engine controlado: fuerza limpia, 24 min Z2 y nada de ego en wall balls. La app va a mirar readiness, carga y objetivo antes de proponer.",
+      "Cuéntame cómo estás o qué has hecho hoy.",
   },
 ];
 
@@ -296,7 +305,8 @@ function getInitialRoute() {
   if (hash === "admin/conversation-enrichment-demo") {
     return "adminConversationEnrichmentDemo";
   }
-  return hash || localStorage.getItem(storageKeys.route)?.replaceAll('"', "") || "home";
+  const visibleRoutes = ["coach", "health", "activities", "profile", "activityDetail"];
+  return visibleRoutes.includes(hash) ? hash : "coach";
 }
 
 async function fetchAllSessionSamples(sessionId) {
@@ -347,10 +357,20 @@ async function fetchHeartRateZoneProfile(userId) {
 function App() {
   const [route, setRouteState] = useState(getInitialRoute);
   const [discipline, setDiscipline] = useState("boyle");
-  const [query, setQuery] = useState("");
   const [profile, setProfile] = useStoredState(storageKeys.profile, profileSeed);
   const [fitImports, setFitImports] = useStoredState(storageKeys.fitImports, []);
   const [messages, setMessages] = useStoredState(storageKeys.messages, demoMessages);
+  const [checkIn, setCheckIn] = useStoredState(storageKeys.checkIn, {
+    sleep: 3,
+    energy: 3,
+    stress: 4,
+    discomfort: 0,
+    availableMinutes: 45,
+    discomfortArea: "",
+    notes: "",
+    savedAt: null,
+    persistence: "local",
+  });
   const [backoffice, setBackoffice] = useStoredState(storageKeys.backoffice, {
     lastSync: null,
     tableStatus: [],
@@ -358,7 +378,7 @@ function App() {
   });
   const [session, setSession] = useState(null);
   const [authNotice, setAuthNotice] = useState("");
-  const [health, setHealth] = useState(demoHealth);
+  const [health, setHealth] = useState(supabase ? {} : demoHealth);
   const [healthSeries, setHealthSeries] = useState(demoHealthSeries);
   const [sessions, setSessions] = useState(supabase ? [] : demoSessions);
   const [activityDetail, setActivityDetail] = useState(supabase ? null : demoActivityDetail);
@@ -674,9 +694,46 @@ function App() {
     window.location.hash = `/${next}`;
   };
 
+  const saveDailyCheckIn = async (payload) => {
+    const next = {
+      ...payload,
+      savedAt: new Date().toISOString(),
+      persistence: supabase && session?.user?.id ? "supabase" : "local",
+    };
+    setCheckIn(next);
+
+    if (!supabase || !session?.user?.id) {
+      return {
+        ok: true,
+        message: "Check-in guardado localmente. Inicia sesion para guardarlo en Supabase.",
+      };
+    }
+
+    const result = await supabase.from("check_ins").insert({
+      user_id: session.user.id,
+      check_in_date: new Date().toISOString().slice(0, 10),
+      sleep_score: clampCheckIn(payload.sleep, 1, 5),
+      energy_score: clampCheckIn(payload.energy, 1, 5),
+      discomfort_score: clampCheckIn(payload.discomfort, 0, 10),
+      available_minutes: [30, 45, 60, 90].includes(Number(payload.availableMinutes)) ? Number(payload.availableMinutes) : 45,
+      discomfort_area: payload.discomfortArea || null,
+      environment_today: `stress_${clampCheckIn(payload.stress, 1, 10)}`,
+      equipment_today: "enqidu_mobile_checkin",
+      recovery_value: Math.round(((Number(payload.sleep || 0) + Number(payload.energy || 0)) / 10) * 100),
+      user_note: payload.notes || null,
+    });
+
+    if (result.error) {
+      setCheckIn({ ...next, persistence: "local" });
+      return { ok: false, message: `No se pudo guardar en Supabase: ${result.error.message}` };
+    }
+
+    return { ok: true, message: "Check-in guardado en Supabase." };
+  };
+
   useEffect(() => {
     const onHash = () => {
-      const next = window.location.hash.replace("#/", "") || "home";
+      const next = window.location.hash.replace("#/", "") || "coach";
       setRouteState(next);
     };
     window.addEventListener("hashchange", onHash);
@@ -702,9 +759,8 @@ function App() {
   const activeDiscipline = disciplines[discipline];
   const filteredSessions = useMemo(() => {
     const activeSessions = sessions.filter((session) => !isArchivedSession(session));
-    if (!query.trim()) return activeSessions;
-    return activeSessions.filter((session) => `${session.title} ${session.type}`.toLowerCase().includes(query.toLowerCase()));
-  }, [query, sessions]);
+    return activeSessions;
+  }, [sessions]);
 
   const openSessionDetail = async (selectedSession) => {
     if (selectedSession?.activityType === "hybrid") setDiscipline("hyrox");
@@ -722,23 +778,21 @@ function App() {
   return (
     <div className="appShell" style={{ "--discipline": activeDiscipline.color }}>
       <aside className="rail">
-        <button className="brandButton" onClick={() => setRoute("home")} aria-label="Home">
+        <button className="brandButton" onClick={() => setRoute("coach")} aria-label="Coach">
           <Sparkles size={20} />
-          <span>SE</span>
+          <span>EQ</span>
         </button>
-        <NavButton icon={Home} label="Home" route="home" active={route} setRoute={setRoute} />
-        <NavButton icon={HeartPulse} label="Health" route="health" active={route} setRoute={setRoute} />
-        <NavButton icon={Activity} label="Activities" route="activities" active={route} setRoute={setRoute} />
         <NavButton icon={Bot} label="Coach" route="coach" active={route} setRoute={setRoute} />
-        <NavButton icon={UserRound} label="Profile" route="profile" active={route} setRoute={setRoute} />
-        <NavButton icon={Database} label="Backoffice" route="backoffice" active={route} setRoute={setRoute} />
+        <NavButton icon={HeartPulse} label="Salud" route="health" active={route} setRoute={setRoute} />
+        <NavButton icon={Activity} label="Actividades" route="activities" active={route} setRoute={setRoute} />
+        <NavButton icon={UserRound} label="Perfil" route="profile" active={route} setRoute={setRoute} />
       </aside>
 
       <main className="phoneCanvas">
         <header className="appHeader">
           <div>
             <span>{route === "activityDetail" ? activitySubtitle(activityDetail) : routeLabel(route)}</span>
-            <h1>{route === "activityDetail" ? activityDetail?.session?.title || "Actividad" : "Sport Elements"}</h1>
+            <h1>{route === "activityDetail" ? activityDetail?.session?.title || "Actividad" : "ENQIDU"}</h1>
           </div>
           {route !== "activityDetail" && <div className="statusPill">
             {dataState.loading ? <RefreshCw size={14} className="spin" /> : <Watch size={14} />}
@@ -746,25 +800,15 @@ function App() {
           </div>}
         </header>
 
-        {route !== "activityDetail" && <div className="searchRow">
-          <label className="searchBox">
-            <Search size={16} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar actividad, metrica o bloque" />
-          </label>
-        </div>}
-
-        {route !== "activityDetail" && <DisciplineSwitch value={discipline} onChange={setDiscipline} />}
-
-        {route === "home" && (
-          <HomeView
-            discipline={activeDiscipline}
+        {route === "health" && (
+          <HealthView
             health={health}
-            sessions={filteredSessions}
-            setRoute={setRoute}
-            dataState={dataState}
+            healthSeries={healthSeries}
+            discipline={activeDiscipline}
+            checkIn={checkIn}
+            onSaveCheckIn={saveDailyCheckIn}
           />
         )}
-        {route === "health" && <HealthView health={health} healthSeries={healthSeries} discipline={activeDiscipline} />}
         {route === "activities" && (
           <ActivitiesOverview
             sessions={filteredSessions}
@@ -778,14 +822,24 @@ function App() {
             activityDetail={activityDetail}
           />
         )}
-        {route === "coach" && <CoachView messages={messages} setMessages={setMessages} discipline={activeDiscipline} health={health} />}
+        {route === "coach" && (
+          <CoachView
+            messages={messages}
+            setMessages={setMessages}
+            discipline={activeDiscipline}
+            health={health}
+            healthSeries={healthSeries}
+            sessions={filteredSessions}
+            setRoute={setRoute}
+          />
+        )}
         {route === "profile" && (
           <ProfileView
             profile={profile}
             setProfile={setProfile}
             fitImports={fitImports}
+            setFitImports={setFitImports}
             dataState={dataState}
-            projectUrl={SUPABASE_PROJECT_URL}
             session={session}
             authNotice={authNotice}
             setAuthNotice={setAuthNotice}
@@ -814,15 +868,13 @@ function App() {
 
 function routeLabel(route) {
   return {
-    home: "Human performance OS",
-    health: "Health smart cards",
-    activities: "Activity selector",
-    activityDetail: "Activity smart cards",
-    coach: "Conversational coach",
-    profile: "Profile and Garmin",
-    backoffice: "Backoffice data link",
+    health: "Salud y recuperacion",
+    activities: "Historial de actividades",
+    activityDetail: "Detalle Garmin/FIT",
+    coach: "Coach",
+    profile: "Cuenta, datos e ingesta",
     adminConversationEnrichmentDemo: "Admin conversation demo",
-  }[route] || "Dashboard";
+  }[route] || "Coach";
 }
 
 function activitySubtitle(detail) {
@@ -915,57 +967,132 @@ function HeroCard({ discipline }) {
   );
 }
 
-function HealthView({ health, healthSeries, discipline }) {
+function HealthView({ health, healthSeries, discipline, checkIn, onSaveCheckIn }) {
   const readiness = computeHealthReadiness(health);
   const sleep = buildSleepModel(health, healthSeries.sleep, healthSeries.hrv);
   const energyCurve = buildEnergyCurve(health, healthSeries.bodyBattery);
   const hrvTrend = buildHrvTrend(healthSeries.hrv, sleep.hrv);
+  const hasHealthData = Boolean(health?.calendar_date);
   const cards = [
-    ["Body Battery", health.body_battery_current ?? 72, "/100", "Energy", health.body_battery_current ?? 72],
-    ["Sleep Score", sleep.score, "/100", "Sleep", sleep.score],
-    ["HRV", sleep.hrv, "ms", "Balance", Math.min(100, (sleep.hrv / 70) * 100)],
-    ["Resting HR", health.resting_heart_rate_bpm ?? 54, "bpm", "Recovery", Math.max(20, 100 - (Number(health.resting_heart_rate_bpm ?? 54) - 42) * 2)],
-    ["Stress", health.average_stress_level ?? 31, "avg", "Low is good", 100 - Number(health.average_stress_level ?? 31)],
-    ["Respiration", health.respiration_avg_brpm ?? 13.8, "brpm", "Breath", 76],
-    ["SpO2", health.spo2_avg_pct ?? 97, "%", "Oxygen", health.spo2_avg_pct ?? 97],
-    ["Active Load", health.intensity_minutes ?? 126, "min", "Week", Math.min(100, ((health.intensity_minutes ?? 126) / 175) * 100)],
+    ["Body Battery", hasHealthData ? (health.body_battery_current ?? "N/D") : "N/D", "/100", "Energía", hasHealthData ? (health.body_battery_current ?? 0) : 0],
+    ["Sueño", hasHealthData ? sleep.score : "N/D", "/100", "Recuperación", hasHealthData ? sleep.score : 0],
+    ["HRV", hasHealthData ? sleep.hrv : "N/D", "ms", "Balance", hasHealthData ? Math.min(100, (sleep.hrv / 70) * 100) : 0],
+    ["FC reposo", hasHealthData ? (health.resting_heart_rate_bpm ?? "N/D") : "N/D", "ppm", "Cardio", hasHealthData ? Math.max(20, 100 - (Number(health.resting_heart_rate_bpm ?? 54) - 42) * 2) : 0],
+    ["Estrés", hasHealthData ? (health.average_stress_level ?? "N/D") : "N/D", "avg", "Carga", hasHealthData ? 100 - Number(health.average_stress_level ?? 31) : 0],
+    ["Respiración", hasHealthData ? (health.respiration_avg_brpm ?? "N/D") : "N/D", "rpm", "Respira", hasHealthData ? 76 : 0],
+    ["SpO2", hasHealthData ? (health.spo2_avg_pct ?? "N/D") : "N/D", "%", "Oxígeno", hasHealthData ? (health.spo2_avg_pct ?? 0) : 0],
+    ["Carga semanal", hasHealthData ? (health.intensity_minutes ?? "N/D") : "N/D", "min", "Semana", hasHealthData ? Math.min(100, ((health.intensity_minutes ?? 0) / 175) * 100) : 0],
   ];
 
   return (
     <section className="viewStack">
       <section className="healthHero">
         <div>
-          <span>Health command center</span>
-          <h2>{readiness.label}</h2>
-          <p>{readiness.copy}</p>
+          <span>Salud</span>
+          <h2>{hasHealthData ? readiness.label : "Aún no hay datos de salud para hoy."}</h2>
+          <p>{hasHealthData ? readiness.copy : "Cuando haya datos de Garmin o un check-in manual, ENQIDU mostrará recuperación, energía, HRV y señales de alerta aquí."}</p>
           <div className="healthTags">
-            <span>{discipline.label} bias</span>
+            <span>{discipline.label}</span>
             <span>{readiness.training}</span>
-            <span>{health.calendar_date || "today"}</span>
+            <span>{health.calendar_date || "sin lectura diaria"}</span>
           </div>
         </div>
         <div className="healthScore">
-          <strong>{readiness.score}</strong>
-          <span>body state</span>
+          <strong>{hasHealthData ? readiness.score : "N/D"}</strong>
+          <span>estado</span>
         </div>
       </section>
-      <GarminHighlights health={health} sleep={sleep} readiness={readiness} />
-      <GarminMetricGrid health={health} sleep={sleep} curve={energyCurve} hrvTrend={hrvTrend} />
+      <DailyCheckInCard checkIn={checkIn} onSave={onSaveCheckIn} />
       <div className="smartGrid">
         {cards.map(([title, value, unit, badge, progress]) => (
           <SmartCard key={title} title={title} value={value} unit={unit} badge={badge} progress={progress} />
         ))}
       </div>
-      <section className="healthLayout">
-        <SleepCard sleep={sleep} />
-        <EnergyTimeline curve={energyCurve} />
-      </section>
-      <section className="healthLayout">
-        <HealthDecision readiness={readiness} discipline={discipline} />
-        <SignalBoard health={health} sleep={sleep} series={healthSeries} />
-      </section>
-      <ReadinessMatrix title={`${discipline.label} readiness`} cards={discipline.cards} />
+      {hasHealthData ? (
+        <>
+          <GarminHighlights health={health} sleep={sleep} readiness={readiness} />
+          <GarminMetricGrid health={health} sleep={sleep} curve={energyCurve} hrvTrend={hrvTrend} />
+          <section className="healthLayout">
+            <SleepCard sleep={sleep} />
+            <EnergyTimeline curve={energyCurve} />
+          </section>
+          <section className="healthLayout">
+            <HealthDecision readiness={readiness} discipline={discipline} />
+            <SignalBoard health={health} sleep={sleep} series={healthSeries} />
+          </section>
+          <ReadinessMatrix title={`${discipline.label} readiness`} cards={discipline.cards} />
+        </>
+      ) : (
+        <section className="emptyHealthState">
+          <Moon size={20} />
+          <div>
+            <strong>Aún no hay datos de salud para hoy.</strong>
+            <span>Registra el check-in o conecta datos Garmin para activar sueño, HRV, Body Battery y señales.</span>
+          </div>
+        </section>
+      )}
     </section>
+  );
+}
+
+function DailyCheckInCard({ checkIn, onSave }) {
+  const [draft, setDraft] = useState(checkIn);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    setDraft(checkIn);
+  }, [checkIn]);
+
+  const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
+  const save = async () => {
+    setNotice("Guardando check-in...");
+    const result = await onSave(draft);
+    setNotice(result.message);
+  };
+
+  return (
+    <section className="dailyCheckInCard">
+      <PanelTitle label="Check-in diario" title="Cómo llegas hoy" />
+      <div className="checkInGrid">
+        <RangeField label="Sueño subjetivo" value={draft.sleep} min={1} max={5} onChange={(value) => update("sleep", value)} />
+        <RangeField label="Energía" value={draft.energy} min={1} max={5} onChange={(value) => update("energy", value)} />
+        <RangeField label="Estrés" value={draft.stress} min={1} max={10} onChange={(value) => update("stress", value)} />
+        <RangeField label="Dolor/molestias" value={draft.discomfort} min={0} max={10} onChange={(value) => update("discomfort", value)} />
+      </div>
+      <div className="checkInFields">
+        <label>
+          <span>Tiempo disponible</span>
+          <select value={draft.availableMinutes} onChange={(event) => update("availableMinutes", Number(event.target.value))}>
+            {[30, 45, 60, 90].map((value) => (
+              <option key={value} value={value}>{value} min</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Zona sensible</span>
+          <input value={draft.discomfortArea || ""} onChange={(event) => update("discomfortArea", event.target.value)} placeholder="Lumbar, peroneos, hombro..." />
+        </label>
+      </div>
+      <label className="checkInNotes">
+        <span>Notas</span>
+        <textarea value={draft.notes || ""} onChange={(event) => update("notes", event.target.value)} placeholder="Sensaciones, sueño, molestias o disposición para entrenar." />
+      </label>
+      <div className="checkInFooter">
+        <small>{draft.savedAt ? `Último guardado: ${new Date(draft.savedAt).toLocaleString("es-ES")} · ${draft.persistence}` : "Sin check-in guardado todavía."}</small>
+        <button type="button" onClick={save}>Guardar check-in</button>
+      </div>
+      {notice && <p className="notice">{notice}</p>}
+    </section>
+  );
+}
+
+function RangeField({ label, value, min, max, onChange }) {
+  return (
+    <label className="rangeField">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <input type="range" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+    </label>
   );
 }
 
@@ -1273,11 +1400,12 @@ function ActivitySummaryCard({ detail }) {
 }
 
 function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
-  const [selectedType, setSelectedType] = useState("all");
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
-  const visible = selectedType === "all" ? typedSessions : typedSessions.filter((item) => item.activityType === selectedType);
-  const week = buildActivityWeek(visible);
-  const totalSeconds = visible.reduce((sum, item) => sum + Number(item.duration_seconds || item.durationSeconds || 0), 0);
+  const week = buildActivityWeek(typedSessions);
+  const [selectedDate, setSelectedDate] = useState(() => week.find((day) => day.items.length)?.date?.toISOString().slice(0, 10) || "");
+  const visible = selectedDate ? typedSessions.filter((item) => sessionDateKey(item) === selectedDate) : typedSessions;
+  const grouped = groupSessionsByDay(visible);
+  const totalSeconds = typedSessions.reduce((sum, item) => sum + Number(item.duration_seconds || item.durationSeconds || 0), 0);
   const activeDays = week.filter((day) => day.items.length).length || 7;
   const weekTitle = formatWeekRange(week);
 
@@ -1293,47 +1421,103 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
     <section className="activitiesOverview viewStack">
       <section className="activitiesHero">
         <div>
-          <span>Selector de actividades</span>
-          <h2>{selectedType === "all" ? "Todas las actividades" : activityTypes[selectedType].label}</h2>
-          <p>Elige categoria y abre una sesion para ver sus smart cards generadas por metadata.</p>
+          <span>Actividades</span>
+          <h2>Historial Garmin/FIT</h2>
+          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existen.</p>
         </div>
-        <button onClick={() => visible[0] ? openDetail(visible[0]) : setRoute("activityDetail")}>Detalle</button>
+        <button onClick={() => visible[0] ? openDetail(visible[0]) : setRoute("profile")}>
+          <FileUp size={16} />
+          Importar FIT
+        </button>
       </section>
-      <div className="activityTypeRail">
-        {Object.entries(activityTypes).map(([id, type]) => (
-          <button key={id} className={selectedType === id ? "active" : ""} onClick={() => setSelectedType(id)} style={{ "--type": type.color }}>
-            <i />
-            {type.label}
-          </button>
-        ))}
-      </div>
       <section className="weeklyActivityCard">
-        <PanelTitle label={selectedType === "all" ? "Todas" : activityTypes[selectedType].label} title={weekTitle} />
+        <PanelTitle label="Semana" title={weekTitle} />
         <strong>{formatDurationLong(totalSeconds)}</strong>
-        <StackedWeekBars week={week} />
+        <ActivityDateSelector week={week} selectedDate={selectedDate} onSelect={setSelectedDate} />
         <div className="weekStats">
           <div><b>{formatDurationLong(totalSeconds)}</b><span>Tiempo total</span></div>
           <div><b>{formatDurationLong(Math.round(totalSeconds / activeDays))}</b><span>Media diaria</span></div>
         </div>
       </section>
       <section className="activityListPanel">
-        <PanelTitle label="Actividades" title={selectedType === "all" ? "Todas las sesiones" : `Actividades de ${activityTypes[selectedType].label}`} />
-        <div className="activityList">
-          {visible.map((item) => (
-            <button key={item.id} onClick={() => openDetail(item)} style={{ "--type": activityTypes[item.activityType].color }}>
-              <i />
-              <span>
-                <strong>{item.title}</strong>
-                <em>{item.date}</em>
-              </span>
-              <b>{formatDurationClock(item.duration_seconds || item.durationSeconds || 0)}</b>
-            </button>
-          ))}
-          {!visible.length && <p className="emptyText">No hay sesiones visibles para este filtro.</p>}
-        </div>
+        <PanelTitle label="Historial" title={selectedDate ? formatDateLong(selectedDate) : "Todas las sesiones"} />
+        {grouped.map((group) => (
+          <div className="activityDayGroup" key={group.date}>
+            <h3>{formatDateLong(group.date)}</h3>
+            <div className="activityList">
+              {group.items.map((item) => (
+                <ActivityHistoryCard key={item.id} item={item} onOpen={() => openDetail(item)} />
+              ))}
+            </div>
+          </div>
+        ))}
+        {!visible.length && <p className="emptyText">Importa un FIT desde Perfil para ver actividades.</p>}
       </section>
     </section>
   );
+}
+
+function ActivityDateSelector({ week, selectedDate, onSelect }) {
+  return (
+    <div className="activityDateSelector" aria-label="Selector de fecha">
+      <button type="button" className={!selectedDate ? "active" : ""} onClick={() => onSelect("")}>Todo</button>
+      {week.map((day) => {
+        const key = day.date.toISOString().slice(0, 10);
+        return (
+          <button key={key} type="button" className={selectedDate === key ? "active" : ""} onClick={() => onSelect(key)}>
+            <span>{day.label}</span>
+            <strong>{day.date.getDate()}</strong>
+            <small>{day.items.length}</small>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityHistoryCard({ item, onOpen }) {
+  const type = activityTypes[item.activityType] || activityTypes.hybrid;
+  return (
+    <button className="activityHistoryCard" onClick={onOpen} style={{ "--type": type.color }}>
+      <div className="activityBadge">
+        <Activity size={18} />
+      </div>
+      <div className="activityHistoryMain">
+        <span>{formatActivityTime(item)} · {type.label}</span>
+        <strong>{item.title}</strong>
+        <div className="activityMetrics">
+          <ActivityMetric icon={ClockIcon} label={formatDurationClock(item.duration_seconds || item.durationSeconds || 0)} />
+          {item.distance_meters > 0 && <ActivityMetric icon={MapDistanceIcon} label={`${(item.distance_meters / 1000).toFixed(1)} km`} />}
+          {item.avg_hr && <ActivityMetric icon={HeartPulse} label={`${Math.round(item.avg_hr)} ppm`} />}
+          {item.max_hr && <ActivityMetric icon={Gauge} label={`${Math.round(item.max_hr)} max`} />}
+          {item.calories_total && <ActivityMetric icon={Flame} label={`${Math.round(item.calories_total)} kcal`} />}
+        </div>
+      </div>
+      <div className="activityFlags">
+        <span>FIT</span>
+        {item.garmin_sets_total ? <span>{item.garmin_sets_total} series</span> : null}
+        {item.has_conversation ? <span>coach</span> : null}
+        <ChevronRight size={16} />
+      </div>
+    </button>
+  );
+}
+
+function ActivityMetric({ icon: Icon, label }) {
+  return (
+    <span>
+      <Icon size={13} />
+      {label}
+    </span>
+  );
+}
+
+function ClockIcon(props) {
+  return <CalendarDays {...props} />;
+}
+
+function MapDistanceIcon(props) {
+  return <ArrowUpRight {...props} />;
 }
 
 function StackedWeekBars({ week }) {
@@ -1401,24 +1585,24 @@ function GarminObjectiveSection({ detail }) {
             { label: "Tiempo total", value: formatOptionalDuration(session.duration_seconds) },
             { label: "Tiempo de trabajo", value: formatOptionalDuration(session.active_seconds) },
             { label: "Tiempo de descanso", value: formatOptionalDuration(session.rest_seconds) },
-            { label: "Calorías", value: session.calories_total == null ? "—" : `${session.calories_total} kcal` },
+            { label: "Calorías", value: session.calories_total == null ? "N/D" : `${session.calories_total} kcal` },
           ]}
         />
         <MetricListCard
           title="Fisiología"
           items={[
-            { label: "FC media", value: session.avg_hr == null ? "—" : `${session.avg_hr} ppm` },
-            { label: "FC máxima", value: session.max_hr == null ? "—" : `${session.max_hr} ppm` },
-            { label: "Training Effect aeróbico", value: session.training_effect_aerobic ?? "—" },
-            { label: "Training Effect anaeróbico", value: session.training_effect_anaerobic ?? "—" },
+            { label: "FC media", value: session.avg_hr == null ? "N/D" : `${session.avg_hr} ppm` },
+            { label: "FC máxima", value: session.max_hr == null ? "N/D" : `${session.max_hr} ppm` },
+            { label: "Training Effect aeróbico", value: session.training_effect_aerobic ?? "N/D" },
+            { label: "Training Effect anaeróbico", value: session.training_effect_anaerobic ?? "N/D" },
           ]}
         />
         <MetricListCard
           title="Fuerza Garmin"
           items={[
-            { label: "Series Garmin", value: session.garmin_sets_total ?? "—" },
-            { label: "Repeticiones Garmin", value: session.garmin_reps_total ?? "—" },
-            { label: "Carga de ejercicio", value: session.exercise_load ?? "—" },
+            { label: "Series Garmin", value: session.garmin_sets_total ?? "N/D" },
+            { label: "Repeticiones Garmin", value: session.garmin_reps_total ?? "N/D" },
+            { label: "Carga de ejercicio", value: session.exercise_load ?? "N/D" },
             { label: "Fuente", value: detail.summary?.fit_identity?.external_reference || "Garmin/FIT" },
           ]}
         />
@@ -1448,13 +1632,13 @@ function GarminSeriesTable({ series = [] }) {
         {series.map((item) => (
           <div className="garminSeriesRow" role="row" key={item.id || item.order}>
             <span>{item.order}</span>
-            <strong>{item.name || "—"}</strong>
+            <strong>{item.name || "N/D"}</strong>
             <span>{formatOptionalDuration(item.active_seconds ?? item.duration_seconds)}</span>
             <span>{formatOptionalDuration(item.rest_seconds)}</span>
-            <span>{item.repetitions ?? "—"}</span>
-            <span>{item.load_label || "—"}</span>
-            <span>{item.heart_rate_avg_bpm == null ? "—" : item.heart_rate_avg_bpm}</span>
-            <span>{item.heart_rate_max_bpm == null ? "—" : item.heart_rate_max_bpm}</span>
+            <span>{item.repetitions ?? "N/D"}</span>
+            <span>{item.load_label || "N/D"}</span>
+            <span>{item.heart_rate_avg_bpm == null ? "N/D" : item.heart_rate_avg_bpm}</span>
+            <span>{item.heart_rate_max_bpm == null ? "N/D" : item.heart_rate_max_bpm}</span>
           </div>
         ))}
       </div>
@@ -1550,8 +1734,8 @@ function ConversationBlockRow({ block }) {
             <MetricListCard
               title="FC reconciliada"
               items={[
-                { label: "Frecuencia cardíaca media", value: block.temporal.fcMedia === "—" ? "—" : `${block.temporal.fcMedia} ppm` },
-                { label: "Frecuencia cardíaca máxima", value: block.temporal.fcMax === "—" ? "—" : `${block.temporal.fcMax} ppm` },
+                { label: "Frecuencia cardíaca media", value: block.temporal.fcMedia === "N/D" ? "N/D" : `${block.temporal.fcMedia} ppm` },
+                { label: "Frecuencia cardíaca máxima", value: block.temporal.fcMax === "N/D" ? "N/D" : `${block.temporal.fcMax} ppm` },
               ]}
             />
           </div>
@@ -1601,7 +1785,7 @@ function ExerciseFlatRow({ exercise }) {
     <div className="exerciseRow">
       <span>{exercise.set}</span>
       <strong>{exercise.name}</strong>
-      <span>{exercise.active_seconds ? formatDurationClock(exercise.active_seconds) : "—"}</span>
+      <span>{exercise.active_seconds ? formatDurationClock(exercise.active_seconds) : "N/D"}</span>
       <span>{exercise.reps}</span>
       <span>{exercise.weight}</span>
       {exercise.rest_seconds > 0 && (
@@ -1639,8 +1823,8 @@ function TrainingEffectCard({ card, detail }) {
     <article className="activityElementCard">
       <PanelTitle title={card.title} />
       <div className="trainingEffectSummary">
-        <div><strong>{aerobicValue == null ? "—" : aerobicValue.toFixed(1)}</strong><span>Aerobica</span></div>
-        <div><strong>{anaerobicValue == null ? "—" : anaerobicValue.toFixed(1)}</strong><span>Anaerobico</span></div>
+        <div><strong>{aerobicValue == null ? "N/D" : aerobicValue.toFixed(1)}</strong><span>Aeróbica</span></div>
+        <div><strong>{anaerobicValue == null ? "N/D" : anaerobicValue.toFixed(1)}</strong><span>Anaeróbico</span></div>
       </div>
       <TrainingEffectGarminScale label="Aerobica" value={aerobic} type="aerobic" />
       <TrainingEffectGarminScale label="Anaerobico" value={anaerobic} type="anaerobic" />
@@ -1687,8 +1871,8 @@ function TimelineCard({ card, detail }) {
         </div>
       </div>
       <div className="timelineStats">
-        <div><strong>{avg == null ? "—" : avg}</strong><span>{card.unit} Media</span></div>
-        <div><strong>{max == null ? "—" : max}</strong><span>{card.unit} Maximo</span></div>
+        <div><strong>{avg == null ? "N/D" : avg}</strong><span>{card.unit} Media</span></div>
+        <div><strong>{max == null ? "N/D" : max}</strong><span>{card.unit} Máximo</span></div>
       </div>
       {card.sampleKey === "heart_rate_bpm" ? (
         <HeartRateGarminLikeChart
@@ -1829,9 +2013,14 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
   );
 }
 
-function CoachView({ messages, setMessages, discipline, health }) {
+function CoachView({ messages, setMessages, discipline, health, healthSeries, sessions, setRoute }) {
   const [draft, setDraft] = useState("");
+  const [micNotice, setMicNotice] = useState("");
   const endRef = useRef(null);
+  const smartCards = useMemo(
+    () => buildCoachSmartCards({ health, healthSeries, sessions }),
+    [health, healthSeries, sessions],
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1850,7 +2039,18 @@ function CoachView({ messages, setMessages, discipline, health }) {
 
   return (
     <section className="coachView">
-      <SectionLead icon={Bot} title="Coach IA" text="Asistente conversacional local: usa el contexto de disciplina, salud y carga para proponer el siguiente paso." />
+      <section className="coachHero">
+        <div>
+          <span>Coach</span>
+          <h2>Cuéntame cómo estás o qué has hecho hoy.</h2>
+          <p>ENQIDU funciona ahora como piloto conversacional local: recoge contexto, muestra señales y prepara el terreno para IA real sin depender de OpenAI API.</p>
+        </div>
+        <button type="button" onClick={() => setRoute("profile")}>
+          <FileUp size={16} />
+          Importar FIT
+        </button>
+      </section>
+      <SmartCardGrid cards={smartCards} />
       <div className="chatLog">
         {messages.map((message, index) => (
           <div key={`${message.role}-${index}`} className={`bubble ${message.role}`}>
@@ -1859,45 +2059,130 @@ function CoachView({ messages, setMessages, discipline, health }) {
         ))}
         <div ref={endRef} />
       </div>
-      <div className="coachComposer">
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => event.key === "Enter" && send()}
-          placeholder="Ej: que hago hoy si tengo HYROX en 3 semanas?"
-        />
-        <button onClick={send}>Enviar</button>
-      </div>
+      {micNotice && <p className="composerNotice">{micNotice}</p>}
+      <ChatComposer
+        value={draft}
+        onChange={setDraft}
+        onSend={send}
+        onMicResult={(value) => setDraft((current) => [current, value].filter(Boolean).join(" "))}
+        onMicNotice={setMicNotice}
+      />
     </section>
   );
 }
 
-function ProfileView({ profile, setProfile, fitImports, dataState, projectUrl, session, authNotice, setAuthNotice, onSync }) {
+function SmartCardGrid({ cards }) {
+  return (
+    <div className="coachSmartGrid">
+      {cards.map((card) => (
+        <article key={card.title} className={`coachSmartCard ${card.tone || ""}`}>
+          <div>
+            <span>{card.label}</span>
+            <strong>{card.title}</strong>
+          </div>
+          <p>{card.body}</p>
+          {card.meta && <small>{card.meta}</small>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ChatComposer({ value, onChange, onSend, onMicResult, onMicNotice }) {
+  return (
+    <div className="coachComposer">
+      <button type="button" className="iconAction" aria-label="Añadir contexto">
+        <Plus size={18} />
+      </button>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => event.key === "Enter" && onSend()}
+        placeholder="Escribe o dicta tu actualización..."
+      />
+      <MicrophoneButton onResult={onMicResult} onNotice={onMicNotice} />
+      <button type="button" className="sendAction" onClick={onSend} aria-label="Enviar">
+        <Send size={18} />
+      </button>
+    </div>
+  );
+}
+
+function MicrophoneButton({ onResult, onNotice }) {
+  const [listening, setListening] = useState(false);
+
+  const start = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      onNotice("Dictado próximamente.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "es-ES";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      setListening(true);
+      onNotice("Escuchando...");
+    };
+    recognition.onerror = () => {
+      setListening(false);
+      onNotice("No he podido capturar el dictado. Puedes escribirlo.");
+    };
+    recognition.onend = () => {
+      setListening(false);
+    };
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) {
+        onResult(transcript);
+        onNotice("Dictado añadido al mensaje.");
+      }
+    };
+    recognition.start();
+  };
+
+  return (
+    <button type="button" className={`iconAction ${listening ? "listening" : ""}`} onClick={start} aria-label="Dictar">
+      <Mic size={18} />
+    </button>
+  );
+}
+
+function ProfileView({ profile, setProfile, fitImports, setFitImports, dataState, session, authNotice, setAuthNotice, onSync, onImportedSession }) {
   return (
     <section className="viewStack">
       <section className="profileCard">
         <div className="avatar">{profile.avatar}</div>
         <div>
-          <span>Mi profile</span>
+          <span>Cuenta</span>
           <input value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />
-          <p>{profile.primaryGoal}</p>
+          <p>{session ? session.user.email : "Cuenta local / sesión pendiente"}</p>
         </div>
       </section>
       <AuthPanel session={session} notice={authNotice} setNotice={setAuthNotice} onSync={onSync} />
-      <section className="panel">
-        <PanelTitle label="Garmin" title="Conexion e ingestion" />
+      <section className="panel profileConnectionCard">
+        <PanelTitle label="Garmin" title="Conectar Garmin" />
         <div className="integrationRows">
-          <InfoRow label="Estado" value={profile.garminStatus} />
-          <InfoRow label="Modo actual" value={profile.garminMode} />
-          <InfoRow label="Supabase" value={`${SUPABASE_PROJECT_NAME} · ${projectUrl}`} />
-          <InfoRow label="Lectura app" value={dataState.detail} />
-          <InfoRow label="FIT cargados" value={`${fitImports.length}`} />
+          <InfoRow label="Estado" value="Pendiente - por ahora usa importación FIT." />
+          <InfoRow label="Modo actual" value="Importación manual FIT" />
         </div>
       </section>
-      <ActionPanel title="Pipeline operativo" cta="Marcar Garmin preparado" onClick={() => setProfile({ ...profile, garminStatus: "FIT OK · ready for Garmin official API" })}>
-        <span>Cargar .fit desde Garmin Connect/export del reloj</span>
-        <span>Normalizar a training_sessions + fit_message_payloads</span>
-        <span>Cuando Garmin API este aprobada, cambiar a integracion oficial</span>
+      <FitDropzone fitImports={fitImports} setFitImports={setFitImports} session={session} onSync={onSync} onImportedSession={onImportedSession} />
+      <section className="panel">
+        <PanelTitle label="Datos" title="Estado de datos" />
+        <div className="integrationRows">
+          <InfoRow label="Datos conectados" value={dataState.source} />
+          <InfoRow label="Último estado" value={dataState.detail} />
+          <InfoRow label="FIT importados" value={`${fitImports.length}`} />
+          <InfoRow label="Supabase" value={`${SUPABASE_PROJECT_NAME} - activo`} />
+        </div>
+      </section>
+      <ActionPanel title="App preparada para el piloto" cta="Actualizar estado" onClick={() => setProfile({ ...profile, garminStatus: "FIT OK - Garmin oficial pendiente" })}>
+        <span>Importar archivo FIT</span>
+        <span>Guardar salud manual</span>
+        <span>Coach conversacional visual</span>
       </ActionPanel>
     </section>
   );
@@ -3252,6 +3537,50 @@ function InfoRow({ label, value }) {
   );
 }
 
+function buildCoachSmartCards({ health, healthSeries, sessions }) {
+  const latestSession = sessions?.[0];
+  const sleep = buildSleepModel(health, healthSeries?.sleep, healthSeries?.hrv);
+  const readiness = computeHealthReadiness(health);
+  const hasHealthData = Boolean(health?.calendar_date);
+  const hasSession = Boolean(latestSession?.id);
+  const lastDuration = latestSession?.duration_seconds ? formatDurationClock(latestSession.duration_seconds) : "";
+  const garminSets = latestSession?.session_structure?.garmin_fit_summary?.strength_tracking?.garmin_sets_total;
+
+  return [
+    {
+      label: "Estado de hoy",
+      title: hasHealthData ? `${readiness.score}/100` : "Sin datos de hoy",
+      body: hasHealthData ? readiness.copy : "Aún no hay datos de salud para hoy.",
+      meta: hasHealthData ? health.calendar_date : "Añade un check-in en Salud.",
+      tone: readiness.score >= 78 ? "good" : readiness.score >= 62 ? "warn" : "care",
+    },
+    {
+      label: "Resumen de sesión",
+      title: hasSession ? latestSession.title : "Importa un FIT",
+      body: hasSession
+        ? [lastDuration, latestSession.meta, latestSession.date].filter(Boolean).join(" · ")
+        : "Importa un FIT desde Perfil para analizar tu sesión.",
+      meta: garminSets ? `${garminSets} series Garmin detectadas` : "Garmin/FIT listo",
+      tone: hasSession ? "good" : "warn",
+    },
+    {
+      label: "Señales de salud",
+      title: hasHealthData ? `${sleep.duration} · HRV ${sleep.hrv} ms` : "Sin señales",
+      body: hasHealthData ? sleep.note : "Sueño, HRV, Body Battery y FC aparecerán cuando Supabase entregue datos.",
+      meta: hasHealthData ? `Body Battery ${health.body_battery_current ?? "N/D"}` : "wearable_* preparado",
+    },
+    {
+      label: "Próxima acción",
+      title: readiness.training,
+      body: hasHealthData || hasSession
+        ? readiness.plan
+        : "El coach conversacional avanzado se activará más adelante.",
+      meta: "Piloto local, sin OpenAI API",
+      tone: "action",
+    },
+  ];
+}
+
 function buildCoachReply(input, discipline, health) {
   const stress = Number(health.average_stress_level ?? 31);
   const battery = Number(health.body_battery_current ?? 72);
@@ -3385,6 +3714,9 @@ function isArchivedSession(item) {
 
 function mapTrainingSession(item) {
   const summary = item.session_structure?.garmin_fit_summary || {};
+  const heartRate = summary.heart_rate || {};
+  const calories = summary.calories || {};
+  const strengthTracking = summary.strength_tracking || {};
   const durationMinutes = item.duration_seconds ? Math.round(item.duration_seconds / 60) : null;
   const distanceKm = item.distance_meters ? Number(item.distance_meters) / 1000 : null;
   const score = Math.max(48, Math.min(96, 64 + (durationMinutes ? Math.min(20, durationMinutes / 4) : 8)));
@@ -3396,6 +3728,12 @@ function mapTrainingSession(item) {
     title,
     type: item.session_kind || item.session_status || "session",
     duration_seconds: Number(item.duration_seconds || 0),
+    distance_meters: Number(item.distance_meters || summary.distance_meters || 0),
+    avg_hr: heartRate.avg_bpm ?? null,
+    max_hr: heartRate.max_bpm ?? null,
+    calories_total: calories.total_kcal ?? null,
+    garmin_sets_total: strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? null,
+    has_conversation: Boolean(item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
     started_at: item.started_at,
     local_date: item.local_date,
     created_at: item.created_at,
@@ -3460,6 +3798,44 @@ function buildActivityWeek(sessions) {
     target.totalSeconds += Number(session.duration_seconds || session.durationSeconds || 0);
   });
   return week;
+}
+
+function sessionDateKey(session) {
+  if (session.local_date) return session.local_date;
+  if (session.started_at) return new Date(session.started_at).toISOString().slice(0, 10);
+  if (session.created_at) return new Date(session.created_at).toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+}
+
+function groupSessionsByDay(sessions) {
+  const grouped = sessions.reduce((acc, item) => {
+    const key = sessionDateKey(item);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  return Object.entries(grouped)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, items]) => ({
+      date,
+      items: items.sort((a, b) => `${b.started_at || b.created_at || ""}`.localeCompare(`${a.started_at || a.created_at || ""}`)),
+    }));
+}
+
+function formatDateLong(value) {
+  if (!value) return "Sin fecha";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatActivityTime(item) {
+  const value = item.started_at || item.created_at;
+  if (!value) return item.date || "Sin hora";
+  return new Date(value).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
 function getWeekAnchor(sessions) {
@@ -3638,7 +4014,7 @@ function mapExercises(rows) {
     active_seconds: Number(row.duration_seconds || 0),
     rest_seconds: Number(row.reps_per_set?.rest_seconds || row.reps_per_set?.rest || 0),
     reps: extractReps(row.reps_per_set),
-    weight: row.load_value ? `${row.load_value} ${row.load_unit || "kg"}` : "—",
+    weight: row.load_value ? `${row.load_value} ${row.load_unit || "kg"}` : "N/D",
   }));
 }
 
@@ -3647,7 +4023,7 @@ function mapGarminSeries(rows = []) {
   return rows.map((row, index) => ({
     id: row.id || `garmin-series-${row.series_order || row.order || index + 1}`,
     order: row.series_order ?? row.set_order ?? row.order ?? index + 1,
-    name: row.garmin_exercise_name || row.exercise_name || row.name || "—",
+    name: row.garmin_exercise_name || row.exercise_name || row.name || "N/D",
     duration_seconds: optionalNumber(row.duration_seconds),
     active_seconds: optionalNumber(row.active_seconds ?? row.work_seconds),
     rest_seconds: optionalNumber(row.rest_seconds),
@@ -3798,7 +4174,7 @@ function buildConversationExerciseDetails(block, rows = []) {
     if (loadValue) parts.push(`${formatNumberValue(loadValue)} ${loadUnit}`);
     return {
       name,
-      detailText: parts.length ? parts.join(" · ") : "—",
+      detailText: parts.length ? parts.join(" · ") : "N/D",
       notes: normalizeNotes(item.notes ?? row.notes),
       stats: {
         sets: sets || 0,
@@ -3919,13 +4295,13 @@ function buildBlockExecution(block) {
   if (completed && format === "superserie") return `${formatNumberValue(completed)} superseries`;
   if (completed) return `${formatNumberValue(completed)} rondas suaves`;
   if (format) return format;
-  return cut ? "cortado" : "—";
+  return cut ? "cortado" : "N/D";
 }
 
 function buildBlockSummary(block, rows) {
   const prescriptionSummary = blockDescriptionFromPrescription(block.prescription);
   const summary = prescriptionSummary || rows.map((row) => simplifyExerciseName(row.reported_name)).filter(Boolean).join(" · ");
-  return compactBlockSummary(summary) || "—";
+  return compactBlockSummary(summary) || "N/D";
 }
 
 function buildBlockSensation(block, rows = []) {
@@ -3934,7 +4310,7 @@ function buildBlockSensation(block, rows = []) {
   if (block.execution_notes) parts.push(block.execution_notes);
   if (prescription.reason_for_cut) parts.push(prescription.reason_for_cut);
   if (Array.isArray(prescription.coach_interpretation)) parts.push(...prescription.coach_interpretation);
-  return compactSentences(parts) || "—";
+  return compactSentences(parts) || "N/D";
 }
 
 function getBlockTemporalMetrics(block) {
@@ -4004,7 +4380,7 @@ function blockTypeLabel(value) {
 
 function extractReps(value) {
   const formatted = formatRepsValue(value);
-  return formatted || "—";
+  return formatted || "N/D";
 }
 
 function formatRepsValue(value) {
@@ -4041,7 +4417,7 @@ function humanizeKey(value) {
   return `${value || ""}`.replaceAll("_", " ");
 }
 
-function safeValue(value, fallback = "—") {
+function safeValue(value, fallback = "N/D") {
   if (value == null || value === "") return fallback;
   if (typeof value === "number" && Number.isNaN(value)) return fallback;
   return `${value}`;
@@ -4053,17 +4429,23 @@ function optionalNumber(value) {
   return Number.isNaN(number) ? null : number;
 }
 
+function clampCheckIn(value, min, max) {
+  const number = Number(value);
+  if (Number.isNaN(number)) return min;
+  return Math.max(min, Math.min(max, Math.round(number)));
+}
+
 function formatOptionalDuration(value) {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "N/D";
   const seconds = Number(value);
-  if (Number.isNaN(seconds) || seconds <= 0) return "—";
+  if (Number.isNaN(seconds) || seconds <= 0) return "N/D";
   return formatDurationClock(seconds);
 }
 
 function formatBpm(value) {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "N/D";
   const bpm = Number(value);
-  if (Number.isNaN(bpm) || bpm <= 0) return "—";
+  if (Number.isNaN(bpm) || bpm <= 0) return "N/D";
   return `${Math.round(bpm)}`;
 }
 
@@ -4086,7 +4468,7 @@ function getPath(source, path) {
 function formatField(value, field) {
   const resolved = value ?? field.fallback ?? null;
   if (field.format === "duration") return formatOptionalDuration(resolved);
-  if (resolved == null || resolved === "" || (typeof resolved === "number" && Number.isNaN(resolved))) return "—";
+  if (resolved == null || resolved === "" || (typeof resolved === "number" && Number.isNaN(resolved))) return "N/D";
   return `${resolved}${field.suffix || ""}`;
 }
 
