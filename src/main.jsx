@@ -360,7 +360,7 @@ function App() {
   const [authNotice, setAuthNotice] = useState("");
   const [health, setHealth] = useState(demoHealth);
   const [healthSeries, setHealthSeries] = useState(demoHealthSeries);
-  const [sessions, setSessions] = useState(demoSessions);
+  const [sessions, setSessions] = useState(supabase ? [] : demoSessions);
   const [activityDetail, setActivityDetail] = useState(supabase ? null : demoActivityDetail);
   const [dataState, setDataState] = useState({
     loading: false,
@@ -374,7 +374,14 @@ function App() {
     if (!supabase || !latestSession?.id) return demoActivityDetail;
     const detailUserId = latestSession.user_id || session?.user?.id;
 
-    const [metricsResult, samplesResult, blocksResult, enrichmentResult, exercisesResult, zoneProfileResult] = await Promise.all([
+    const [
+      metricsResult,
+      samplesResult,
+      blocksResult,
+      enrichmentResult,
+      exercisesResult,
+      zoneProfileResult,
+    ] = await Promise.all([
       supabase
         .from("session_metrics")
         .select("metric_code, metric_name, value_numeric, value_text, value_json, unit")
@@ -494,10 +501,11 @@ function App() {
     const sessionQuery = supabase
       .from("training_sessions")
       .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, tags, session_structure")
-      .neq("session_status", "archived")
-      .order("created_at", { ascending: false, nullsFirst: false })
+      .or("session_status.is.null,session_status.neq.archived")
+      .order("local_date", { ascending: false, nullsFirst: false })
       .order("started_at", { ascending: false, nullsFirst: false })
-      .limit(20);
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(100);
 
     const profileQuery = userId
       ? supabase
@@ -603,8 +611,8 @@ function App() {
     ]);
 
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
-    if (sessionResult.data?.length) {
-      setSessions(sessionResult.data.map(mapTrainingSession));
+    if (!sessionResult.error) {
+      setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
@@ -1321,6 +1329,7 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
               <b>{formatDurationClock(item.duration_seconds || item.durationSeconds || 0)}</b>
             </button>
           ))}
+          {!visible.length && <p className="emptyText">No hay sesiones visibles para este filtro.</p>}
         </div>
       </section>
     </section>
@@ -2269,18 +2278,10 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
       .eq("external_reference", `fit:${checksum}`)
       .maybeSingle();
 
-    const { data: existingByFingerprint } = !existingByReference?.id && normalized.fitFingerprint
-      ? await supabase
-          .from("training_sessions")
-          .select("id, title, session_structure, tags")
-          .eq("user_id", userId)
-          .contains("tags", [`fit_fingerprint:${normalized.fitFingerprint}`])
-          .neq("session_status", "archived")
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
-
-    const existing = existingByReference || existingByFingerprint;
+    // FIT imports are only merged into an existing session when the strong
+    // file identity matches. Same-day Garmin sessions can be distinct workouts,
+    // so local_date/tags alone must never be used as an overwrite signal.
+    const existing = existingByReference;
 
     let sessionId = existing?.id;
     if (!sessionId) {
