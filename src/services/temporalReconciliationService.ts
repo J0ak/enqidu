@@ -23,7 +23,7 @@ export async function reconcileSessionTemporalBlocks(sessionId: string) {
     supabase.from("training_sessions").select("id,duration_seconds,session_structure").eq("id", sessionId).maybeSingle(),
     supabase
       .from("session_blocks")
-      .select("id,block_order,duration_seconds,active_seconds,rest_seconds,start_elapsed_seconds,end_elapsed_seconds,prescription")
+      .select("id,block_order,duration_seconds,active_seconds,rest_seconds,start_elapsed_seconds,end_elapsed_seconds,prescription,temporal_metrics_source,temporal_metrics_confidence")
       .eq("session_id", sessionId),
     supabase
       .from("session_samples")
