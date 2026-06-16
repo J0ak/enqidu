@@ -360,7 +360,7 @@ function App() {
   const [authNotice, setAuthNotice] = useState("");
   const [health, setHealth] = useState(demoHealth);
   const [healthSeries, setHealthSeries] = useState(demoHealthSeries);
-  const [sessions, setSessions] = useState(demoSessions);
+  const [sessions, setSessions] = useState(supabase ? [] : demoSessions);
   const [activityDetail, setActivityDetail] = useState(supabase ? null : demoActivityDetail);
   const [dataState, setDataState] = useState({
     loading: false,
@@ -374,7 +374,14 @@ function App() {
     if (!supabase || !latestSession?.id) return demoActivityDetail;
     const detailUserId = latestSession.user_id || session?.user?.id;
 
-    const [metricsResult, samplesResult, blocksResult, exercisesResult, zoneProfileResult] = await Promise.all([
+    const [
+      metricsResult,
+      samplesResult,
+      blocksResult,
+      enrichmentResult,
+      exercisesResult,
+      zoneProfileResult,
+    ] = await Promise.all([
       supabase
         .from("session_metrics")
         .select("metric_code, metric_name, value_numeric, value_text, value_json, unit")
@@ -408,10 +415,13 @@ function App() {
     const calories = summary.calories || {};
     const heartRate = summary.heart_rate || {};
     const strengthTracking = summary.strength_tracking || {};
+    const garminSeries = mapGarminSeries(summary.garmin_series || summary.sets || []);
     const blocks = mapExerciseBlocks(blocksResult.data || [], exercisesResult.data || []);
     const enrichmentBlocks = !blocks.length ? mapEnrichmentBlocks(enrichmentResult.data?.payload?.blocks || []) : [];
     const renderBlocks = blocks.length ? blocks : enrichmentBlocks;
     const conversationStats = buildConversationSessionStats(renderBlocks);
+    const garminRepsTotal = strengthTracking.garmin_repetitions_total ?? strengthTracking.repetitions_total ?? sumNumeric(garminSeries.map((item) => item.repetitions));
+    const garminSetsTotal = strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? garminSeries.length;
     const avgHr = average(samples.map((item) => item.heart_rate_bpm).filter(Boolean));
     const maxHr = Math.max(...samples.map((item) => Number(item.heart_rate_bpm || 0)), 0);
     const duration = Number(summary.duration_total_seconds || latestSession.duration_seconds || 0);
@@ -445,6 +455,8 @@ function App() {
         block_count: conversationStats.blockCount || undefined,
         total_reps: conversationStats.totalReps || strengthTracking.repetitions_total || undefined,
         total_sets: conversationStats.totalSets || strengthTracking.active_sets || undefined,
+        garmin_reps_total: garminRepsTotal || undefined,
+        garmin_sets_total: garminSetsTotal || undefined,
         avg_reps_per_set: conversationStats.avgRepsPerSet || undefined,
         isometric_seconds: conversationStats.isometricSeconds || undefined,
         volume_total: conversationStats.loadLabel || undefined,
@@ -457,6 +469,7 @@ function App() {
       },
       exercises: mapExercises(exercisesResult.data || []),
       blocks: renderBlocks,
+      garminSeries,
       hasConversationBlocks: renderBlocks.length > 0,
       samples,
       zones: mapReportedHeartRateZones(heartRateZones),
@@ -488,10 +501,11 @@ function App() {
     const sessionQuery = supabase
       .from("training_sessions")
       .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, tags, session_structure")
-      .neq("session_status", "archived")
-      .order("created_at", { ascending: false, nullsFirst: false })
+      .or("session_status.is.null,session_status.neq.archived")
+      .order("local_date", { ascending: false, nullsFirst: false })
       .order("started_at", { ascending: false, nullsFirst: false })
-      .limit(20);
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(100);
 
     const profileQuery = userId
       ? supabase
@@ -597,8 +611,8 @@ function App() {
     ]);
 
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
-    if (sessionResult.data?.length) {
-      setSessions(sessionResult.data.map(mapTrainingSession));
+    if (!sessionResult.error) {
+      setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
@@ -1202,6 +1216,7 @@ function ActivityView({ activityDetail }) {
   return (
     <section className="viewStack">
       <ActivitySummaryCard detail={activityDetail} />
+      <GarminObjectiveSection detail={activityDetail} />
       <ActivityElements detail={activityDetail} />
     </section>
   );
@@ -1314,6 +1329,7 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
               <b>{formatDurationClock(item.duration_seconds || item.durationSeconds || 0)}</b>
             </button>
           ))}
+          {!visible.length && <p className="emptyText">No hay sesiones visibles para este filtro.</p>}
         </div>
       </section>
     </section>
@@ -1372,20 +1388,94 @@ function ActivitySmartElement({ card, detail }) {
   return null;
 }
 
+function GarminObjectiveSection({ detail }) {
+  const session = detail.session || {};
+  const series = detail.garminSeries || [];
+  return (
+    <article className="activityElementCard wide">
+      <PanelTitle label="Garmin/FIT" title="Datos Garmin" />
+      <div className="blockMetricCards">
+        <MetricListCard
+          title="Tiempo y carga"
+          items={[
+            { label: "Tiempo total", value: formatOptionalDuration(session.duration_seconds) },
+            { label: "Tiempo de trabajo", value: formatOptionalDuration(session.active_seconds) },
+            { label: "Tiempo de descanso", value: formatOptionalDuration(session.rest_seconds) },
+            { label: "Calorías", value: session.calories_total == null ? "—" : `${session.calories_total} kcal` },
+          ]}
+        />
+        <MetricListCard
+          title="Fisiología"
+          items={[
+            { label: "FC media", value: session.avg_hr == null ? "—" : `${session.avg_hr} ppm` },
+            { label: "FC máxima", value: session.max_hr == null ? "—" : `${session.max_hr} ppm` },
+            { label: "Training Effect aeróbico", value: session.training_effect_aerobic ?? "—" },
+            { label: "Training Effect anaeróbico", value: session.training_effect_anaerobic ?? "—" },
+          ]}
+        />
+        <MetricListCard
+          title="Fuerza Garmin"
+          items={[
+            { label: "Series Garmin", value: session.garmin_sets_total ?? "—" },
+            { label: "Repeticiones Garmin", value: session.garmin_reps_total ?? "—" },
+            { label: "Carga de ejercicio", value: session.exercise_load ?? "—" },
+            { label: "Fuente", value: detail.summary?.fit_identity?.external_reference || "Garmin/FIT" },
+          ]}
+        />
+      </div>
+      <GarminSeriesTable series={series} />
+    </article>
+  );
+}
+
+function GarminSeriesTable({ series = [] }) {
+  if (!series.length) {
+    return (
+      <div className="blockReconciliationWarning">
+        Series Garmin no importadas todavía: el FIT actual conserva records/samples y métricas globales, pero no expone sets/laps mapeables en la base de datos.
+      </div>
+    );
+  }
+  return (
+    <>
+      <PanelTitle label="Garmin/FIT" title="Series Garmin" />
+      <div className="garminSeriesTable" role="table" aria-label="Series Garmin">
+        <div className="garminSeriesHeader" role="row">
+          {["Serie", "Ejercicio Garmin", "Tiempo", "Descanso", "Rep.", "Peso", "FC media", "FC máx."].map((column) => (
+            <span key={column} role="columnheader">{column}</span>
+          ))}
+        </div>
+        {series.map((item) => (
+          <div className="garminSeriesRow" role="row" key={item.id || item.order}>
+            <span>{item.order}</span>
+            <strong>{item.name || "—"}</strong>
+            <span>{formatOptionalDuration(item.active_seconds ?? item.duration_seconds)}</span>
+            <span>{formatOptionalDuration(item.rest_seconds)}</span>
+            <span>{item.repetitions ?? "—"}</span>
+            <span>{item.load_label || "—"}</span>
+            <span>{item.heart_rate_avg_bpm == null ? "—" : item.heart_rate_avg_bpm}</span>
+            <span>{item.heart_rate_max_bpm == null ? "—" : item.heart_rate_max_bpm}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function ExerciseTableCard({ title, blocks = [], exercises = [] }) {
   const hasBlocks = blocks.length > 0;
   const hasExercises = exercises.length > 0;
 
   return (
     <article className="activityElementCard wide">
-      <PanelTitle title={hasBlocks ? "Resumen por bloques" : title} />
+      <PanelTitle label="Conversacional / coach" title={hasBlocks ? "Bloques coach" : title} />
       {hasBlocks ? (
         <BlockSummaryTable blocks={blocks} />
       ) : !hasExercises ? (
-        <div className="blockReconciliationWarning">Sin bloques conversacionales registrados.</div>
+        <div className="blockReconciliationWarning">Sin bloques coach/conversacionales registrados.</div>
       ) : (
         <>
-          <div className="blockReconciliationWarning">Sin bloques conversacionales registrados.</div>
+          <div className="blockReconciliationWarning">Sin bloques coach/conversacionales registrados.</div>
           <ExerciseFlatTable exercises={exercises} />
         </>
       )}
@@ -1447,23 +1537,25 @@ function ConversationBlockRow({ block }) {
             </div>
           ))}
         </div>
-        <div className="blockMetricCards">
-          <MetricListCard
-            title="Tiempo"
-            items={[
-              { label: "Tiempo total", value: block.temporal.tiempo },
-              { label: "Tiempo de trabajo", value: block.temporal.activo },
-              { label: "Tiempo de descanso", value: block.temporal.descanso },
-            ]}
-          />
-          <MetricListCard
-            title="Frecuencia cardíaca"
-            items={[
-              { label: "Frecuencia cardíaca media", value: block.temporal.fcMedia === "—" ? "—" : `${block.temporal.fcMedia} ppm` },
-              { label: "Frecuencia cardíaca máxima", value: block.temporal.fcMax === "—" ? "—" : `${block.temporal.fcMax} ppm` },
-            ]}
-          />
-        </div>
+        {block.temporalReconciled && (
+          <div className="blockMetricCards">
+            <MetricListCard
+              title="Tiempo reconciliado"
+              items={[
+                { label: "Tiempo total", value: block.temporal.tiempo },
+                { label: "Tiempo de trabajo", value: block.temporal.activo },
+                { label: "Tiempo de descanso", value: block.temporal.descanso },
+              ]}
+            />
+            <MetricListCard
+              title="FC reconciliada"
+              items={[
+                { label: "Frecuencia cardíaca media", value: block.temporal.fcMedia === "—" ? "—" : `${block.temporal.fcMedia} ppm` },
+                { label: "Frecuencia cardíaca máxima", value: block.temporal.fcMax === "—" ? "—" : `${block.temporal.fcMax} ppm` },
+              ]}
+            />
+          </div>
+        )}
         <details className="blockDebugDetails">
           <summary>Detalle avanzado</summary>
           <p>{block.sourceText}</p>
@@ -2186,20 +2278,21 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
       .eq("external_reference", `fit:${checksum}`)
       .maybeSingle();
 
-    const { data: existingByDay } = !existingByReference?.id && normalized.localDate
+    // FIT imports are only merged into an existing session when a strong
+    // file identity matches. Same-day Garmin sessions can be distinct workouts,
+    // so local_date/tags alone must never be used as an overwrite signal.
+    const { data: existingByFingerprint } = !existingByReference?.id && normalized.fitFingerprint
       ? await supabase
           .from("training_sessions")
           .select("id, title, session_structure, tags")
           .eq("user_id", userId)
-          .eq("local_date", normalized.localDate)
+          .contains("tags", [`fit_fingerprint:${normalized.fitFingerprint}`])
           .neq("session_status", "archived")
-          .contains("tags", ["garmin_fit"])
-          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle()
       : { data: null };
 
-    const existing = existingByReference || existingByDay;
+    const existing = existingByReference || existingByFingerprint;
 
     let sessionId = existing?.id;
     if (!sessionId) {
@@ -2217,7 +2310,7 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
           duration_seconds: normalized.durationSeconds,
           distance_meters: normalized.distanceMeters,
           session_structure: mergeGarminFitSummary(null, normalized.summary),
-          tags: mergeTags([normalized.activityType], ["garmin_fit", "parsed"]),
+          tags: mergeTags([normalized.activityType], ["garmin_fit", "parsed", `fit_checksum:${checksum}`, normalized.fitFingerprint ? `fit_fingerprint:${normalized.fitFingerprint}` : null]),
         })
         .select("id")
         .single();
@@ -2236,7 +2329,7 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
           duration_seconds: normalized.durationSeconds,
           distance_meters: normalized.distanceMeters,
           session_structure: mergeGarminFitSummary(existing.session_structure, normalized.summary),
-          tags: mergeTags(existing.tags, ["garmin_fit", "parsed"]),
+          tags: mergeTags(existing.tags, ["garmin_fit", "parsed", `fit_checksum:${checksum}`, normalized.fitFingerprint ? `fit_fingerprint:${normalized.fitFingerprint}` : null]),
         })
         .eq("id", sessionId);
       if (updateError) throw updateError;
@@ -2250,6 +2343,10 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
     });
 
     await insertFitMessagePayloadRows(sessionId, sourceId, normalized.fitMessages);
+    await backfillGarminRelationalRows(sessionId, {
+      garminSets: normalized.garminSets,
+      sessionLaps: normalized.sessionLaps,
+    });
 
     if (!existing?.id) {
       await insertMetricRows(sessionId, normalized.metrics);
@@ -2268,6 +2365,8 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
         samples: normalized.samples.length,
         exercises: normalized.exercises.length,
         fit_messages: normalized.fitMessages.length,
+        garmin_sets: normalized.garminSets.length,
+        session_laps: normalized.sessionLaps.length,
         temporal_segments: normalized.summary.temporal_segments?.length || 0,
       },
       error: null,
@@ -2297,10 +2396,13 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
   const splitSummaries = messageRows(rawMessages, "split_summary", fit.split_summaries || fit.split_summary);
   const zonesTarget = firstItem(fit.zones_targets || fit.zones_target);
   const userProfile = firstItem(fit.user_profiles || fit.user_profile);
+  const fileId = firstItem(messageRows(rawMessages, "file_id", fit.file_id || fit.file_ids));
   const startedAt = toIso(session.start_time || session.start_date || firstItem(records)?.timestamp || fit.timestamp);
   const durationSeconds = Math.round(Number(session.total_timer_time || session.total_elapsed_time || fit.active_time || 0));
   const activityType = activityLabel(session.sport || sport.sport, session.sub_sport || sport.sub_sport);
   const temporalSegments = normalizeFitTemporalSegments({ laps, sets, splits, events, records, startedAt });
+  const garminSeries = normalizeGarminSeriesFromFit({ sets, laps, splits, workoutSteps, startedAt });
+  const sessionLaps = normalizeSessionLapsFromFit({ laps, splits, splitSummaries, startedAt });
   const fitMessages = buildFitMessagePayloads({
     sessions,
     laps,
@@ -2312,6 +2414,7 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
     lengths,
     splits,
     split_summaries: splitSummaries,
+    file_id: messageRows(rawMessages, "file_id", fit.file_id || fit.file_ids),
     sports: messageRows(rawMessages, "sport", fit.sports || fit.sport),
     hr_zone: messageRows(rawMessages, "hr_zone", fit.hr_zone),
     power_zone: messageRows(rawMessages, "power_zone", fit.power_zone),
@@ -2381,9 +2484,11 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
     },
     training_effect: trainingEffect,
     strength_tracking: {
-      active_sets: exercises.length || nullableNumber(session.num_active_sets) || 0,
+      active_sets: exercises.length || nullableNumber(session.num_active_sets) || garminSeries.length || 0,
       set_messages: sets.length,
-      repetitions_total: repsTotal,
+      repetitions_total: repsTotal || sumNumeric(garminSeries.map((item) => item.repetitions)),
+      garmin_sets_total: garminSeries.length || sets.length || nullableNumber(session.num_active_sets) || 0,
+      garmin_repetitions_total: sumNumeric(garminSeries.map((item) => item.repetitions)) || repsTotal || 0,
     },
     fit_debug: buildFitDebugSummary({ records, laps, sessions, events, sets, workoutSteps, lengths, splits, splitSummaries }),
     laps,
@@ -2395,8 +2500,27 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
     splits,
     split_summaries: splitSummaries,
     temporal_segments: temporalSegments,
+    garmin_series: garminSeries,
     heart_rate_zones_reported: reportedZones,
     checksum,
+    fit_identity: {
+      external_reference: `fit:${checksum}`,
+      checksum_sha256: checksum,
+      fingerprint: buildFitFingerprint({ fileId, session, activity: fit.activity, sport, checksum }),
+      fingerprint_fields: {
+        file_id_serial_number: fileId?.serial_number,
+        file_id_time_created: toIso(fileId?.time_created),
+        activity_timestamp: toIso(fit.activity?.timestamp),
+        session_start_time: startedAt,
+        total_timer_time: nullableNumber(session.total_timer_time),
+        total_elapsed_time: nullableNumber(session.total_elapsed_time),
+        total_distance: nullableNumber(session.total_distance),
+        sport: session.sport || sport.sport,
+        sub_sport: session.sub_sport || sport.sub_sport,
+        manufacturer: fileId?.manufacturer,
+        product: fileId?.product,
+      },
+    },
   };
 
   return {
@@ -2408,10 +2532,31 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
     distanceMeters: nullableNumber(session.total_distance),
     samples,
     exercises,
+    garminSets: garminSeries,
+    sessionLaps,
     fitMessages,
     summary,
+    fitFingerprint: summary.fit_identity.fingerprint,
     metrics: buildSessionMetrics(summary),
   };
+}
+
+function buildFitFingerprint({ fileId = {}, session = {}, activity = {}, sport = {}, checksum }) {
+  const fields = [
+    fileId.serial_number,
+    toIso(fileId.time_created),
+    toIso(activity?.timestamp),
+    toIso(session.start_time || session.start_date),
+    session.total_timer_time,
+    session.total_elapsed_time,
+    session.total_distance,
+    session.sport || sport.sport,
+    session.sub_sport || sport.sub_sport,
+    fileId.manufacturer,
+    fileId.product,
+  ].map((value) => (value == null || value === "" ? "-" : `${value}`));
+  const strongFieldCount = fields.filter((value) => value !== "-").length;
+  return strongFieldCount >= 4 ? btoa(unescape(encodeURIComponent(fields.join("|")))).replace(/=+$/g, "").slice(0, 96) : checksum;
 }
 
 function arrayFromFitValue(value) {
@@ -2516,6 +2661,95 @@ function normalizeFitTemporalSegments({ laps = [], sets = [], splits = [], event
   return segmentsFromTimerEvents(events, records, startedAt);
 }
 
+function normalizeGarminSeriesFromFit({ sets = [], laps = [], splits = [], workoutSteps = [], startedAt }) {
+  const setSeries = seriesFromRows(sets, "garmin_fit_set", startedAt);
+  if (setSeries.length) return setSeries;
+  const lapSeries = seriesFromRows(laps, "garmin_fit_lap", startedAt);
+  if (lapSeries.length) return lapSeries;
+  const splitSeries = seriesFromRows(splits, "garmin_fit_split", startedAt);
+  if (splitSeries.length) return splitSeries;
+  return seriesFromRows(workoutSteps, "garmin_fit_workout_step", startedAt);
+}
+
+function seriesFromRows(rows, source, startedAt) {
+  const baseTime = startedAt ? new Date(startedAt).getTime() : null;
+  let cursor = 0;
+  return rows
+    .map((row, index) => {
+      const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
+      const work = nullableNumber(row.active_seconds ?? row.work_seconds ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
+      const rest = nullableNumber(row.rest_seconds ?? row.total_rest_time ?? row.elapsed_rest_time);
+      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? (work != null && rest != null ? work + rest : work);
+      const start = explicitStart ?? cursor;
+      const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
+      if (end != null) cursor = Math.max(cursor, end);
+      const repetitions = nullableNumber(row.repetitions ?? row.reps ?? row.num_reps);
+      return {
+        source,
+        series_order: fitMessageOrder(row.message_index ?? row.message_number ?? row.lap_index ?? row.set_index) ?? index + 1,
+        garmin_exercise_name: row.exercise_name || row.name || row.category || row.sport || null,
+        start_elapsed_seconds: start,
+        end_elapsed_seconds: end,
+        duration_seconds: total == null ? null : Math.round(total),
+        active_seconds: work == null ? null : Math.round(work),
+        rest_seconds: rest == null ? null : Math.round(rest),
+        repetitions,
+        load_value: nullableNumber(row.weight ?? row.load_value),
+        load_unit: row.weight || row.load_value ? row.load_unit || "kg" : null,
+        heart_rate_avg_bpm: nullableNumber(row.avg_heart_rate ?? row.average_heart_rate ?? row.heart_rate_avg_bpm),
+        heart_rate_max_bpm: nullableNumber(row.max_heart_rate ?? row.maximum_heart_rate ?? row.heart_rate_max_bpm),
+        confidence: source === "garmin_fit_set" ? "reported" : "derived",
+        raw_payload: row,
+      };
+    })
+    .filter((row) =>
+      row.duration_seconds != null ||
+      row.active_seconds != null ||
+      row.rest_seconds != null ||
+      row.repetitions != null ||
+      row.garmin_exercise_name,
+    )
+    .sort((a, b) => a.series_order - b.series_order);
+}
+
+function normalizeSessionLapsFromFit({ laps = [], splits = [], splitSummaries = [], startedAt }) {
+  const lapRows = lapRowsFromRows(laps, "garmin_fit_lap", startedAt);
+  if (lapRows.length) return lapRows;
+  const splitRows = lapRowsFromRows(splits, "garmin_fit_split", startedAt);
+  if (splitRows.length) return splitRows;
+  return lapRowsFromRows(splitSummaries, "garmin_fit_split_summary", startedAt);
+}
+
+function lapRowsFromRows(rows, source, startedAt) {
+  const baseTime = startedAt ? new Date(startedAt).getTime() : null;
+  let cursor = 0;
+  return rows
+    .map((row, index) => {
+      const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
+      const active = nullableNumber(row.active_seconds ?? row.active_time ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
+      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? active;
+      const start = explicitStart ?? cursor;
+      const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
+      if (end != null) cursor = Math.max(cursor, end);
+      const rest = nullableNumber(row.rest_seconds) ?? (active != null && total != null && total >= active ? total - active : null);
+      return {
+        lap_index: fitMessageOrder(row.message_index ?? row.message_number ?? row.lap_index ?? row.split_index) ?? index + 1,
+        source,
+        start_elapsed_seconds: start == null ? null : Math.round(start),
+        end_elapsed_seconds: end == null ? null : Math.round(end),
+        duration_seconds: total == null ? null : Math.round(total),
+        active_seconds: active == null ? null : Math.round(active),
+        rest_seconds: rest == null ? null : Math.round(rest),
+        distance_meters: nullableNumber(row.total_distance ?? row.distance),
+        heart_rate_avg_bpm: nullableNumber(row.avg_heart_rate ?? row.average_heart_rate ?? row.heart_rate_avg_bpm),
+        heart_rate_max_bpm: nullableNumber(row.max_heart_rate ?? row.maximum_heart_rate ?? row.heart_rate_max_bpm),
+        raw_payload: row,
+      };
+    })
+    .filter((row) => row.duration_seconds != null || (row.start_elapsed_seconds != null && row.end_elapsed_seconds != null))
+    .sort((a, b) => a.lap_index - b.lap_index);
+}
+
 function segmentsFromRows(rows, source, startedAt) {
   const baseTime = startedAt ? new Date(startedAt).getTime() : null;
   return rows
@@ -2610,6 +2844,11 @@ function nullableNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function nullableInteger(value) {
+  const number = nullableNumber(value);
+  return number == null ? null : Math.round(number);
 }
 
 function activityLabel(sport, subSport) {
@@ -2891,6 +3130,71 @@ async function insertSampleRows(sessionId, sourceId, rows) {
 async function insertExerciseRows(sessionId, rows) {
   if (!rows.length) return;
   await supabase.from("session_exercises").insert(rows.map((row) => ({ ...row, session_id: sessionId })));
+}
+
+async function backfillGarminRelationalRows(sessionId, { garminSets = [], sessionLaps = [] } = {}) {
+  await insertGarminSetRowsIfEmpty(sessionId, garminSets);
+  await insertSessionLapRowsIfEmpty(sessionId, sessionLaps);
+}
+
+async function insertGarminSetRowsIfEmpty(sessionId, rows) {
+  if (!rows.length) return;
+  const { count, error: countError } = await supabase
+    .from("session_garmin_sets")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
+
+  const prepared = rows.map((row) => ({
+    session_id: sessionId,
+    source: row.source || "garmin_fit",
+    series_order: row.series_order,
+    garmin_exercise_name: row.garmin_exercise_name,
+    start_elapsed_seconds: nullableInteger(row.start_elapsed_seconds),
+    end_elapsed_seconds: nullableInteger(row.end_elapsed_seconds),
+    duration_seconds: nullableInteger(row.duration_seconds),
+    active_seconds: nullableInteger(row.active_seconds),
+    rest_seconds: nullableInteger(row.rest_seconds),
+    repetitions: nullableInteger(row.repetitions),
+    load_value: nullableNumber(row.load_value),
+    load_unit: row.load_unit || null,
+    heart_rate_avg_bpm: nullableInteger(row.heart_rate_avg_bpm),
+    heart_rate_max_bpm: nullableInteger(row.heart_rate_max_bpm),
+    raw_payload: row.raw_payload || {},
+    confidence: row.confidence || "derived",
+  }));
+
+  const { error } = await supabase.from("session_garmin_sets").insert(prepared);
+  if (error) throw error;
+}
+
+async function insertSessionLapRowsIfEmpty(sessionId, rows) {
+  if (!rows.length) return;
+  const { count, error: countError } = await supabase
+    .from("session_laps")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
+
+  const prepared = rows.map((row) => ({
+    session_id: sessionId,
+    lap_index: row.lap_index,
+    source: row.source || "garmin_fit",
+    start_elapsed_seconds: nullableInteger(row.start_elapsed_seconds),
+    end_elapsed_seconds: nullableInteger(row.end_elapsed_seconds),
+    duration_seconds: nullableInteger(row.duration_seconds),
+    active_seconds: nullableInteger(row.active_seconds),
+    rest_seconds: nullableInteger(row.rest_seconds),
+    distance_meters: nullableNumber(row.distance_meters),
+    heart_rate_avg_bpm: nullableInteger(row.heart_rate_avg_bpm),
+    heart_rate_max_bpm: nullableInteger(row.heart_rate_max_bpm),
+    raw_payload: row.raw_payload || {},
+  }));
+
+  const { error } = await supabase.from("session_laps").insert(prepared);
+  if (error) throw error;
 }
 
 async function insertFitMessagePayloadRows(sessionId, sourceId, rows) {
@@ -3420,6 +3724,23 @@ function mapExercises(rows) {
   }));
 }
 
+function mapGarminSeries(rows = []) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  return rows.map((row, index) => ({
+    id: row.id || `garmin-series-${row.series_order || row.order || index + 1}`,
+    order: row.series_order ?? row.set_order ?? row.order ?? index + 1,
+    name: row.garmin_exercise_name || row.exercise_name || row.name || "—",
+    duration_seconds: optionalNumber(row.duration_seconds),
+    active_seconds: optionalNumber(row.active_seconds ?? row.work_seconds),
+    rest_seconds: optionalNumber(row.rest_seconds),
+    repetitions: optionalNumber(row.repetitions ?? row.reps),
+    load_label: row.load_value ? `${formatNumberValue(row.load_value)} ${row.load_unit || "kg"}` : null,
+    heart_rate_avg_bpm: optionalNumber(row.heart_rate_avg_bpm ?? row.avg_heart_rate),
+    heart_rate_max_bpm: optionalNumber(row.heart_rate_max_bpm ?? row.max_heart_rate),
+    confidence: row.confidence || row.temporal_metrics_confidence || "reported",
+  }));
+}
+
 function mapExerciseBlocks(blockRows, exerciseRows) {
   if (!blockRows.length) return [];
   const exercisesByBlock = exerciseRows.reduce((acc, row) => {
@@ -3444,6 +3765,7 @@ function mapExerciseBlocks(blockRows, exerciseRows) {
         start: optionalNumber(block.start_elapsed_seconds),
         end: optionalNumber(block.end_elapsed_seconds),
       },
+      temporalReconciled: isBlockTemporallyReconciled(block),
       summaryText: buildBlockSummary(block, rows),
       sensationText: buildBlockSensation(block, rows),
       exerciseDetails,
@@ -3510,9 +3832,25 @@ function buildTemporalSourceText(block) {
   return `${source} · ${confidence}`;
 }
 
+function isBlockTemporallyReconciled(block) {
+  const source = `${block.temporal_metrics_source || ""}`.toLowerCase();
+  const confidence = `${block.temporal_metrics_confidence || ""}`.toLowerCase();
+  if (!source || source === "fit_unavailable_or_unmapped") return false;
+  return ["user_confirmed", "exact", "high", "derived"].some((item) => confidence.includes(item));
+}
+
 function buildTemporalWarningText(block) {
   const reconciliation = block.prescription?.temporal_reconciliation;
   if (reconciliation?.warning) return reconciliation.warning;
+  const hasBlockMetrics =
+    optionalNumber(block.duration_seconds) != null ||
+    optionalNumber(block.active_seconds) != null ||
+    optionalNumber(block.rest_seconds) != null ||
+    optionalNumber(block.heart_rate_avg_bpm) != null ||
+    optionalNumber(block.heart_rate_max_bpm) != null;
+  if (!hasBlockMetrics && block.temporal_metrics_source === "fit_unavailable_or_unmapped") {
+    return "Métricas Garmin por bloque no disponibles: falta ventana temporal FIT para este bloque.";
+  }
   return "";
 }
 
@@ -4131,4 +4469,3 @@ function compact(value) {
 }
 
 createRoot(document.getElementById("root")).render(<App />);
-
