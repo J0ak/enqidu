@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import fs from "node:fs";
 
 const DEFAULT_SESSION_ID = "eedf9854-3176-4d82-b8df-c2bdf1ab1df3";
 const SET_MESSAGE_TYPES = ["set", "sets", "workout_step", "workout_steps"];
@@ -6,11 +7,23 @@ const LAP_MESSAGE_TYPES = ["lap", "laps", "split", "splits", "split_summary", "s
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`Usage: npm run backfill:garmin -- [session-id]\n\nDefaults to session ${DEFAULT_SESSION_ID}.\nRequires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment.`);
+  console.log(`Usage: npm run backfill:garmin -- [session-id] [--fit-file path/to/activity.fit]\n\nDefaults to session ${DEFAULT_SESSION_ID}.\nRequires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment.\n--fit-file augments existing record payloads with Garmin record field 108 respiration data when present.`);
   process.exit(0);
 }
 
-const sessionId = args[0] || DEFAULT_SESSION_ID;
+const fitFileIndex = args.findIndex((arg) => arg === "--fit-file" || arg === "--fitFile");
+const fitFilePath = fitFileIndex >= 0 ? args[fitFileIndex + 1] : null;
+if (fitFileIndex >= 0 && (!fitFilePath || fitFilePath.startsWith("--"))) {
+  console.error("Missing FIT file path after --fit-file.");
+  process.exit(1);
+}
+const positionalArgs = args.filter((arg, index) => (
+  index !== fitFileIndex &&
+  index !== fitFileIndex + 1 &&
+  arg !== "--fit-file" &&
+  arg !== "--fitFile"
+));
+const sessionId = positionalArgs[0] || DEFAULT_SESSION_ID;
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -43,7 +56,19 @@ async function main() {
   const before = await getCounts(sessionId);
   printCounts("Before", before);
 
-  const messages = await fetchFitMessages(sessionId);
+  let messages = await fetchFitMessages(sessionId);
+  let updatedSampleRespiration = 0;
+  let updatedPayloadRespiration = 0;
+  if (fitFilePath) {
+    const respirationSeries = extractFitRecordRespirationSeriesFromFile(fitFilePath);
+    if (respirationSeries.some((value) => value != null)) {
+      messages = mergeRespirationIntoFitMessages(messages, respirationSeries);
+      updatedSampleRespiration = await backfillSessionSampleRespiration(sessionId, respirationSeries);
+      updatedPayloadRespiration = await backfillFitRecordPayloadRespiration(sessionId, respirationSeries);
+    } else {
+      console.log(`No temporal respiration field 108 values found in ${fitFilePath}.`);
+    }
+  }
   const samples = mergeTemporalSamples(await fetchSessionSamples(sessionId), samplesFromFitRecordMessages(messages));
   const messageCounts = countBy(messages, "message_type");
   printMessageCounts(messageCounts);
@@ -81,6 +106,10 @@ async function main() {
   console.log(`Inserted session_laps: ${insertedLaps}`);
   console.log(`Inserted session_garmin_sets: ${insertedGarminSets}`);
   console.log(`Inserted session_metrics: ${insertedMetrics}`);
+  if (fitFilePath) {
+    console.log(`Updated session_samples respiration payloads: ${updatedSampleRespiration}`);
+    console.log(`Updated fit_message_payloads respiration payloads: ${updatedPayloadRespiration}`);
+  }
 
   const after = await getCounts(sessionId);
   printCounts("After", after);
@@ -132,6 +161,55 @@ async function fetchSessionSamples(id) {
   }
 
   return rows;
+}
+
+async function backfillSessionSampleRespiration(id, respirationSeries) {
+  const rows = await fetchRowsForPayloadUpdate("session_samples", id, "id,sample_order,raw_payload", "sample_order");
+  return updateJsonPayloadRows("session_samples", rows, respirationSeries, "raw_payload");
+}
+
+async function backfillFitRecordPayloadRespiration(id, respirationSeries) {
+  const { data, error } = await supabase
+    .from("fit_message_payloads")
+    .select("id,message_order,payload")
+    .eq("session_id", id)
+    .in("message_type", ["record", "records"])
+    .order("message_order", { ascending: true });
+  if (error) throw error;
+  return updateJsonPayloadRows("fit_message_payloads", data || [], respirationSeries, "payload");
+}
+
+async function fetchRowsForPayloadUpdate(table, id, columns, orderColumn) {
+  const { data, error } = await supabase
+    .from(table)
+    .select(columns)
+    .eq("session_id", id)
+    .order(orderColumn, { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function updateJsonPayloadRows(table, rows, respirationSeries, payloadColumn) {
+  let updated = 0;
+  for (let index = 0; index < rows.length && index < respirationSeries.length; index += 1) {
+    const respiration = respirationSeries[index];
+    if (respiration == null) continue;
+    const currentPayload = rows[index][payloadColumn] || {};
+    if (numberOrNull(firstValue(currentPayload, ["enhanced_respiration_rate", "respiration_rate", "respiration_brpm"])) != null) continue;
+    const nextPayload = {
+      ...currentPayload,
+      enhanced_respiration_rate: respiration,
+      respiration_rate: respiration,
+      respiration_brpm: respiration,
+    };
+    const { error } = await supabase
+      .from(table)
+      .update({ [payloadColumn]: nextPayload })
+      .eq("id", rows[index].id);
+    if (error) throw error;
+    updated += 1;
+  }
+  return updated;
 }
 
 async function getCounts(id) {
@@ -191,17 +269,22 @@ async function insertMissingSessionMetrics(id, messages, samples) {
 function buildSessionMetricRows(messages, samples) {
   const sessionPayload = firstMessagePayload(messages, ["session", "sessions"]);
   const time = timeMetricsFromFitSessionPayload(sessionPayload);
+  const sessionRespiration = respirationFromFitSessionPayload(sessionPayload);
   const respirationValues = samples
     .map(sampleRespirationValue)
     .filter((value) => value != null && value > 0 && value < 80);
-  const respirationAvg = respirationValues.length ? Math.round(average(respirationValues)) : null;
-  const respirationMax = respirationValues.length ? Math.round(Math.max(...respirationValues)) : null;
+  const respirationSource = respirationValues.length ? "fit_record_samples" : "fit_session_message";
+  const respirationConfidence = respirationValues.length ? "derived_from_fit_records" : "reported";
+  const respirationAvg = respirationValues.length ? Math.round(average(respirationValues)) : sessionRespiration.avg;
+  const respirationMax = respirationValues.length ? Math.round(Math.max(...respirationValues)) : sessionRespiration.max;
+  const respirationMin = respirationValues.length ? Math.round(Math.min(...respirationValues)) : sessionRespiration.min;
   const rows = [
     ["duration_total_seconds", "Tiempo total", time.totalSeconds, "s", "fit_session_message", "reported"],
     ["active_time", "Tiempo de trabajo", time.activeSeconds, "s", "fit_session_message", "reported"],
     ["rest_time", "Tiempo de descanso", time.restSeconds, "s", "fit_session_message", "reported"],
-    ["respiration_avg_brpm", "Frecuencia respiratoria media", respirationAvg, "brpm", "fit_record_samples", "derived_from_fit_records"],
-    ["respiration_max_brpm", "Frecuencia respiratoria maxima", respirationMax, "brpm", "fit_record_samples", "derived_from_fit_records"],
+    ["respiration_avg_brpm", "Frecuencia respiratoria media", respirationAvg, "brpm", respirationSource, respirationConfidence],
+    ["respiration_max_brpm", "Frecuencia respiratoria maxima", respirationMax, "brpm", respirationSource, respirationConfidence],
+    ["respiration_min_brpm", "Frecuencia respiratoria minima", respirationMin, "brpm", respirationSource, respirationConfidence],
   ];
   return rows
     .filter(([, , value]) => value !== null && value !== undefined && value !== "")
@@ -214,6 +297,14 @@ function buildSessionMetricRows(messages, samples) {
       source_path,
       confidence,
     }));
+}
+
+function respirationFromFitSessionPayload(payload = {}) {
+  return {
+    avg: integerOrNull(firstValue(payload, ["enhanced_avg_respiration_rate", "avg_respiration_rate", "average_respiration_rate"])),
+    max: integerOrNull(firstValue(payload, ["enhanced_max_respiration_rate", "max_respiration_rate", "maximum_respiration_rate"])),
+    min: integerOrNull(firstValue(payload, ["enhanced_min_respiration_rate", "min_respiration_rate", "minimum_respiration_rate"])),
+  };
 }
 
 function firstMessagePayload(messages, types) {
@@ -244,6 +335,126 @@ function samplesFromFitRecordMessages(messages) {
         raw_payload: payload,
       };
     });
+}
+
+function mergeRespirationIntoFitMessages(messages, respirationSeries) {
+  let recordIndex = 0;
+  return messages.map((row) => {
+    if (row.message_type !== "record" && row.message_type !== "records") return row;
+    const respiration = respirationSeries[recordIndex];
+    recordIndex += 1;
+    if (respiration == null) return row;
+    return {
+      ...row,
+      payload: {
+        ...(row.payload || {}),
+        enhanced_respiration_rate: row.payload?.enhanced_respiration_rate ?? respiration,
+        respiration_rate: row.payload?.respiration_rate ?? respiration,
+        respiration_brpm: row.payload?.respiration_brpm ?? respiration,
+      },
+    };
+  });
+}
+
+function extractFitRecordRespirationSeriesFromFile(filePath) {
+  if (!fs.existsSync(filePath)) throw new Error(`FIT file not found: ${filePath}`);
+  const blob = new Uint8Array(fs.readFileSync(filePath));
+  return extractFitRecordRespirationSeries(blob);
+}
+
+function extractFitRecordRespirationSeries(blob) {
+  const headerLength = blob[0];
+  const protocolVersion = blob[1];
+  if (protocolVersion < 16 || headerLength < 12) return [];
+  const dataLength = blob[4] | (blob[5] << 8) | (blob[6] << 16) | (blob[7] << 24);
+  const crcStart = headerLength + dataLength;
+  const messageTypes = [];
+  const values = [];
+  let loopIndex = headerLength;
+
+  while (loopIndex < crcStart) {
+    const recordHeader = blob[loopIndex];
+    if ((recordHeader & 0x40) === 0x40) {
+      const definition = parseFitDefinition(blob, loopIndex);
+      if (!definition) break;
+      messageTypes[definition.localMessageType] = definition;
+      loopIndex = definition.nextIndex;
+      continue;
+    }
+
+    const compressed = (recordHeader & 0x80) === 0x80;
+    const localMessageType = compressed ? (recordHeader >> 5) & 0x03 : recordHeader & 0x0f;
+    const definition = messageTypes[localMessageType];
+    if (!definition) break;
+    let readIndex = loopIndex + 1;
+    let respiration = null;
+    for (const field of definition.fields) {
+      if (definition.globalMessageNumber === 20 && field.fieldNumber === 108) {
+        const raw = readFitNumber(blob, readIndex, field.size, field.baseType, definition.littleEndian);
+        if (raw != null && raw > 0 && raw < 8000) respiration = Math.round(raw) / 100;
+      }
+      readIndex += field.size;
+    }
+    for (const field of definition.developerFields) readIndex += field.size;
+    if (definition.globalMessageNumber === 20) values.push(respiration);
+    loopIndex = readIndex;
+  }
+
+  return values;
+}
+
+function parseFitDefinition(blob, startIndex) {
+  const recordHeader = blob[startIndex];
+  const hasDeveloperData = (recordHeader & 0x20) === 0x20;
+  const localMessageType = recordHeader & 0x0f;
+  const littleEndian = blob[startIndex + 2] === 0;
+  const globalMessageNumber = littleEndian
+    ? blob[startIndex + 3] | (blob[startIndex + 4] << 8)
+    : (blob[startIndex + 3] << 8) | blob[startIndex + 4];
+  const numberOfFields = blob[startIndex + 5];
+  const fields = [];
+  let readIndex = startIndex + 6;
+  for (let index = 0; index < numberOfFields; index += 1) {
+    fields.push({
+      fieldNumber: blob[readIndex],
+      size: blob[readIndex + 1],
+      baseType: blob[readIndex + 2],
+    });
+    readIndex += 3;
+  }
+  const developerFields = [];
+  if (hasDeveloperData) {
+    const numberOfDeveloperFields = blob[readIndex];
+    readIndex += 1;
+    for (let index = 0; index < numberOfDeveloperFields; index += 1) {
+      developerFields.push({
+        fieldNumber: blob[readIndex],
+        size: blob[readIndex + 1],
+        developerDataIndex: blob[readIndex + 2],
+      });
+      readIndex += 3;
+    }
+  }
+  return { localMessageType, globalMessageNumber, littleEndian, fields, developerFields, nextIndex: readIndex };
+}
+
+function readFitNumber(blob, index, size, baseType, littleEndian) {
+  const type = baseType & 0xff;
+  const view = new DataView(blob.buffer, blob.byteOffset + index, size);
+  if (size === 1) {
+    const value = view.getUint8(0);
+    return value === 0xff ? null : value;
+  }
+  if (size === 2) {
+    const value = view.getUint16(0, littleEndian);
+    return value === 0xffff ? null : value;
+  }
+  if (size === 4 && type === 0x88) return view.getFloat32(0, littleEndian);
+  if (size === 4) {
+    const value = view.getUint32(0, littleEndian);
+    return value === 0xffffffff ? null : value;
+  }
+  return null;
 }
 
 function mergeTemporalSamples(sessionSamples = [], fitRecordSamples = []) {

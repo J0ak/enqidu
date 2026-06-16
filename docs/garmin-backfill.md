@@ -27,11 +27,19 @@ To run a different session:
 npm run backfill:garmin -- <session-id>
 ```
 
+To backfill temporal respiration from the original local FIT file for an already-imported session:
+
+```powershell
+npm run backfill:garmin -- eedf9854-3176-4d82-b8df-c2bdf1ab1df3 --fit-file "C:\Users\Joaqu\AppData\Local\Temp\23253420650_ACTIVITY.fit"
+```
+
 ## What it does
 
 - Checks current counts for `fit_message_payloads`, `session_laps`, `session_garmin_sets`, and `session_blocks`.
 - Prints `fit_message_payloads` counts grouped by `message_type`.
 - Inserts missing `session_metrics` for total time, active time, rest time, and respiration average/max when those values can be derived from FIT `session` and `record` messages.
+- With `--fit-file`, reads Garmin FIT `record` field `108` as temporal respiration, scaled as `raw / 100` brpm, and additively stores it in existing JSON payloads.
+- With `--fit-file`, updates only missing respiration fields in `session_samples.raw_payload` and `fit_message_payloads.payload`.
 - Inserts `session_laps` only when the session currently has zero lap rows.
 - Uses only `lap`, `laps`, `split`, `splits`, `split_summary`, or `split_summaries` messages for `session_laps`.
 - Computes `heart_rate_avg_bpm` and `heart_rate_max_bpm` for each inserted lap/split from existing `session_samples` when the FIT payload does not already provide them.
@@ -50,12 +58,13 @@ npm run backfill:garmin -- <session-id>
 - Does not overwrite coach/conversational blocks.
 - Does not insert split/lap rows into `session_garmin_sets`.
 - Does not insert set/workout-step rows into `session_laps`.
+- Does not overwrite existing respiration values already present in JSON payloads.
 
 ## UI expectations
 
 The activity detail screen keeps Garmin objective blocks separate from coach blocks:
 
-- Garmin objective blocks come from FIT `laps`, `splits`, or `split_summaries` and render in the `Bloques` tab inside `Frecuencia cardíaca y respiración`.
+- Garmin objective blocks come from FIT `laps`, `splits`, or `split_summaries` and render in the `Bloques` tab inside `Frecuencia cardiaca y respiracion`.
 - Coach blocks continue to render only in `Registro del coach`.
 - Respiratory data is rendered as a continuous metric, not zones.
 - Heart-rate zones render below/next to the heart-rate chart and are used to color the chart and calculate per-block zone time.
@@ -68,3 +77,10 @@ For `eedf9854-3176-4d82-b8df-c2bdf1ab1df3`, the existing FIT payload contains Ga
 - `session_laps` should become `3`.
 - `session_garmin_sets` may remain `0`.
 - `session_blocks` must remain `4`.
+
+For `23253420650_ACTIVITY.fit`, temporal respiration is present in FIT record field `108`. The expected extracted series is:
+
+- `3939` respiration points.
+- Minimum: `12.49` brpm.
+- Average: `22.63` brpm.
+- Maximum: `41.05` brpm.

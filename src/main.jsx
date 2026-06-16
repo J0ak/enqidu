@@ -491,6 +491,7 @@ function App() {
     });
     const zones = mapReportedHeartRateZones(heartRateZones, latestSession.id);
     const respiration = buildRespirationModel(samples, summary, metrics);
+    const fitSessionRespiration = respirationFromFitSessionPayload(fitSessionPayload);
     const garminBlocks = mapGarminObjectiveBlocks({
       laps: lapsResult.error ? [] : lapsResult.data || [],
       summary,
@@ -534,8 +535,9 @@ function App() {
         benefit: textMetric(metrics, ["benefit", "primary_benefit", "training_benefit"], benefitFromTrainingEffect(trainingEffect)),
         avg_hr: roundOptionalMetric(numberMetric(metrics, ["avg_heart_rate", "average_heart_rate"], (heartRate.avg_bpm ?? avgHr) || null)),
         max_hr: roundOptionalMetric(numberMetric(metrics, ["max_heart_rate", "maximum_heart_rate"], (heartRate.max_bpm ?? maxHr) || null)),
-        respiration_avg_brpm: respiration.avg,
-        respiration_max_brpm: respiration.max,
+        respiration_avg_brpm: respiration.avg ?? fitSessionRespiration.avg,
+        respiration_max_brpm: respiration.max ?? fitSessionRespiration.max,
+        respiration_min_brpm: respiration.min ?? fitSessionRespiration.min,
       },
       exercises: mapExercises(exercisesResult.data || []),
       blocks: renderBlocks,
@@ -2930,7 +2932,9 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
 function normalizeParsedFit(fit, checksum, rawMessages = {}) {
   const session = firstItem(fit.sessions) || {};
   const sport = firstItem(fit.sports) || {};
-  const records = Array.isArray(fit.records) ? fit.records : collectNestedRecords(fit.sessions);
+  const parsedRecords = Array.isArray(fit.records) ? fit.records : collectNestedRecords(fit.sessions);
+  const rawRecordMessages = messageRows(rawMessages, "record", rawMessages.records);
+  const records = parsedRecords.map((record, index) => mergeRecordRespiration(record, rawRecordMessages[index]));
   const sets = messageRows(rawMessages, "set", fit.sets || fit.set);
   const laps = messageRows(rawMessages, "lap", fit.laps || fit.lap || fit.activity?.sessions?.flatMap((item) => item.laps || []));
   const events = messageRows(rawMessages, "event", fit.events || fit.event || fit.activity?.events);
@@ -3022,10 +3026,12 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
       max_bpm: nullableNumber(session.max_heart_rate) ?? (heartValues.length ? Math.round(Math.max(...heartValues)) : null),
     },
     respiration: {
-      avg_brpm: nullableNumber(session.avg_respiration_rate ?? session.average_respiration_rate ?? session.avg_breathing_rate) ??
+      avg_brpm: nullableNumber(session.enhanced_avg_respiration_rate ?? session.avg_respiration_rate ?? session.average_respiration_rate ?? session.avg_breathing_rate) ??
         (respirationValues.length ? Math.round(average(respirationValues)) : null),
-      max_brpm: nullableNumber(session.max_respiration_rate ?? session.maximum_respiration_rate ?? session.max_breathing_rate) ??
+      max_brpm: nullableNumber(session.enhanced_max_respiration_rate ?? session.max_respiration_rate ?? session.maximum_respiration_rate ?? session.max_breathing_rate) ??
         (respirationValues.length ? Math.round(Math.max(...respirationValues)) : null),
+      min_brpm: nullableNumber(session.enhanced_min_respiration_rate ?? session.min_respiration_rate ?? session.minimum_respiration_rate ?? session.min_breathing_rate) ??
+        (respirationValues.length ? Math.round(Math.min(...respirationValues)) : null),
     },
     calories: {
       total_kcal: nullableNumber(session.total_calories),
@@ -3128,6 +3134,17 @@ function messageRows(rawMessages, messageType, fallback) {
   return rawMessages?.[messageType]?.length ? rawMessages[messageType] : arrayFromFitValue(fallback);
 }
 
+function mergeRecordRespiration(record = {}, rawRecord = {}) {
+  const respiration = sampleRespirationValue(rawRecord);
+  if (respiration == null) return record;
+  return {
+    ...record,
+    enhanced_respiration_rate: record.enhanced_respiration_rate ?? respiration,
+    respiration_rate: record.respiration_rate ?? respiration,
+    respiration_brpm: record.respiration_brpm ?? respiration,
+  };
+}
+
 function parseFitMessageGroups(buffer) {
   try {
     const blob = new Uint8Array(getArrayBuffer(buffer));
@@ -3166,11 +3183,134 @@ function parseFitMessageGroups(buffer) {
       groups[messageType].push(message);
     }
 
-    return groups;
+    return augmentRecordMessagesWithRespiration(groups, buffer);
   } catch (error) {
     console.warn("FIT raw message grouping failed", error);
     return {};
   }
+}
+
+function augmentRecordMessagesWithRespiration(groups, buffer) {
+  const records = groups.record || groups.records || [];
+  if (!records.length) return groups;
+  const respirationSeries = extractFitRecordRespirationSeries(buffer);
+  if (!respirationSeries.some((value) => value != null)) return groups;
+  const enhancedRecords = records.map((record, index) => {
+    const respiration = respirationSeries[index];
+    if (respiration == null) return record;
+    return {
+      ...record,
+      enhanced_respiration_rate: respiration,
+      respiration_rate: respiration,
+      respiration_brpm: respiration,
+    };
+  });
+  return {
+    ...groups,
+    record: groups.record ? enhancedRecords : groups.record,
+    records: groups.records ? enhancedRecords : groups.records,
+  };
+}
+
+function extractFitRecordRespirationSeries(buffer) {
+  try {
+    const blob = new Uint8Array(getArrayBuffer(buffer));
+    const headerLength = blob[0];
+    const protocolVersion = blob[1];
+    if (protocolVersion < 16 || headerLength < 12) return [];
+    const dataLength = blob[4] | (blob[5] << 8) | (blob[6] << 16) | (blob[7] << 24);
+    const crcStart = headerLength + dataLength;
+    const messageTypes = [];
+    const values = [];
+    let loopIndex = headerLength;
+
+    while (loopIndex < crcStart) {
+      const recordHeader = blob[loopIndex];
+      if ((recordHeader & 0x40) === 0x40) {
+        const definition = parseFitDefinition(blob, loopIndex);
+        if (!definition) break;
+        messageTypes[definition.localMessageType] = definition;
+        loopIndex = definition.nextIndex;
+        continue;
+      }
+
+      const compressed = (recordHeader & 0x80) === 0x80;
+      const localMessageType = compressed ? (recordHeader >> 5) & 0x03 : recordHeader & 0x0f;
+      const definition = messageTypes[localMessageType];
+      if (!definition) break;
+      let readIndex = loopIndex + 1;
+      let respiration = null;
+      for (const field of definition.fields) {
+        if (definition.globalMessageNumber === 20 && field.fieldNumber === 108) {
+          const raw = readFitNumber(blob, readIndex, field.size, field.baseType, definition.littleEndian);
+          if (raw != null && raw > 0 && raw < 8000) respiration = Math.round(raw) / 100;
+        }
+        readIndex += field.size;
+      }
+      for (const field of definition.developerFields) readIndex += field.size;
+      if (definition.globalMessageNumber === 20) values.push(respiration);
+      loopIndex = readIndex;
+    }
+
+    return values;
+  } catch (error) {
+    console.warn("FIT respiration extraction failed", error);
+    return [];
+  }
+}
+
+function parseFitDefinition(blob, startIndex) {
+  const recordHeader = blob[startIndex];
+  const hasDeveloperData = (recordHeader & 0x20) === 0x20;
+  const localMessageType = recordHeader & 0x0f;
+  const littleEndian = blob[startIndex + 2] === 0;
+  const globalMessageNumber = littleEndian
+    ? blob[startIndex + 3] | (blob[startIndex + 4] << 8)
+    : (blob[startIndex + 3] << 8) | blob[startIndex + 4];
+  const numberOfFields = blob[startIndex + 5];
+  const fields = [];
+  let readIndex = startIndex + 6;
+  for (let index = 0; index < numberOfFields; index += 1) {
+    fields.push({
+      fieldNumber: blob[readIndex],
+      size: blob[readIndex + 1],
+      baseType: blob[readIndex + 2],
+    });
+    readIndex += 3;
+  }
+  const developerFields = [];
+  if (hasDeveloperData) {
+    const numberOfDeveloperFields = blob[readIndex];
+    readIndex += 1;
+    for (let index = 0; index < numberOfDeveloperFields; index += 1) {
+      developerFields.push({
+        fieldNumber: blob[readIndex],
+        size: blob[readIndex + 1],
+        developerDataIndex: blob[readIndex + 2],
+      });
+      readIndex += 3;
+    }
+  }
+  return { localMessageType, globalMessageNumber, littleEndian, fields, developerFields, nextIndex: readIndex };
+}
+
+function readFitNumber(blob, index, size, baseType, littleEndian) {
+  const type = baseType & 0xff;
+  const view = new DataView(blob.buffer, blob.byteOffset + index, size);
+  if (size === 1) {
+    const value = view.getUint8(0);
+    return value === 0xff ? null : value;
+  }
+  if (size === 2) {
+    const value = view.getUint16(0, littleEndian);
+    return value === 0xffff ? null : value;
+  }
+  if (size === 4 && type === 0x88) return view.getFloat32(0, littleEndian);
+  if (size === 4) {
+    const value = view.getUint32(0, littleEndian);
+    return value === 0xffffffff ? null : value;
+  }
+  return null;
 }
 
 function buildFitMessagePayloads(groups) {
@@ -3688,6 +3828,7 @@ function buildSessionMetrics(summary) {
     ["max_heart_rate", "Frecuencia cardiaca maxima", summary.heart_rate.max_bpm, "bpm"],
     ["respiration_avg_brpm", "Frecuencia respiratoria media", summary.respiration?.avg_brpm, "brpm"],
     ["respiration_max_brpm", "Frecuencia respiratoria maxima", summary.respiration?.max_brpm, "brpm"],
+    ["respiration_min_brpm", "Frecuencia respiratoria minima", summary.respiration?.min_brpm, "brpm"],
     ["calories_total", "Calorias totales", summary.calories.total_kcal, "kcal"],
     ["active_calories", "Calorias activas", summary.calories.active_kcal, "kcal"],
     ["resting_calories", "Calorias en reposo", summary.calories.rest_kcal, "kcal"],
@@ -4512,11 +4653,37 @@ function buildRespirationModel(samples = [], summary = {}, metrics = {}) {
   const summaryRespiration = summary.respiration || {};
   const avg = values.length
     ? Math.round(average(values))
-    : roundOptionalMetric(numberMetric(metrics, ["respiration_avg_brpm", "avg_respiration_rate", "average_respiration_rate"], summaryRespiration.avg_brpm ?? summaryRespiration.average_brpm ?? null));
+    : roundOptionalMetric(numberMetric(metrics, [
+      "respiration_avg_brpm",
+      "avg_respiration_rate",
+      "average_respiration_rate",
+      "enhanced_avg_respiration_rate",
+    ], summaryRespiration.avg_brpm ?? summaryRespiration.average_brpm ?? summaryRespiration.enhanced_avg_brpm ?? null));
   const max = values.length
     ? Math.round(Math.max(...values))
-    : roundOptionalMetric(numberMetric(metrics, ["respiration_max_brpm", "max_respiration_rate", "maximum_respiration_rate"], summaryRespiration.max_brpm ?? summaryRespiration.maximum_brpm ?? null));
-  return { samples: respirationSamples, avg, max };
+    : roundOptionalMetric(numberMetric(metrics, [
+      "respiration_max_brpm",
+      "max_respiration_rate",
+      "maximum_respiration_rate",
+      "enhanced_max_respiration_rate",
+    ], summaryRespiration.max_brpm ?? summaryRespiration.maximum_brpm ?? summaryRespiration.enhanced_max_brpm ?? null));
+  const min = values.length
+    ? Math.round(Math.min(...values))
+    : roundOptionalMetric(numberMetric(metrics, [
+      "respiration_min_brpm",
+      "min_respiration_rate",
+      "minimum_respiration_rate",
+      "enhanced_min_respiration_rate",
+    ], summaryRespiration.min_brpm ?? summaryRespiration.minimum_brpm ?? summaryRespiration.enhanced_min_brpm ?? null));
+  return { samples: respirationSamples, avg, max, min };
+}
+
+function respirationFromFitSessionPayload(payload = {}) {
+  return {
+    avg: roundOptionalMetric(firstPresent(payload, ["enhanced_avg_respiration_rate", "avg_respiration_rate", "average_respiration_rate"])),
+    max: roundOptionalMetric(firstPresent(payload, ["enhanced_max_respiration_rate", "max_respiration_rate", "maximum_respiration_rate"])),
+    min: roundOptionalMetric(firstPresent(payload, ["enhanced_min_respiration_rate", "min_respiration_rate", "minimum_respiration_rate"])),
+  };
 }
 
 function sampleRespirationValue(sample = {}) {
