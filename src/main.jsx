@@ -2230,10 +2230,21 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
       .eq("external_reference", `fit:${checksum}`)
       .maybeSingle();
 
-    // FIT imports are only merged into an existing session when the strong
+    // FIT imports are only merged into an existing session when a strong
     // file identity matches. Same-day Garmin sessions can be distinct workouts,
     // so local_date/tags alone must never be used as an overwrite signal.
-    const existing = existingByReference;
+    const { data: existingByFingerprint } = !existingByReference?.id && normalized.fitFingerprint
+      ? await supabase
+          .from("training_sessions")
+          .select("id, title, session_structure, tags")
+          .eq("user_id", userId)
+          .contains("tags", [`fit_fingerprint:${normalized.fitFingerprint}`])
+          .neq("session_status", "archived")
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+    const existing = existingByReference || existingByFingerprint;
 
     let sessionId = existing?.id;
     if (!sessionId) {
@@ -2284,7 +2295,10 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
     });
 
     await insertFitMessagePayloadRows(sessionId, sourceId, normalized.fitMessages);
-    await upsertGarminSetRows(sessionId, normalized.summary.garmin_series || [], normalized.samples || []);
+    await backfillGarminRelationalRows(sessionId, {
+      garminSets: normalized.garminSets,
+      sessionLaps: normalized.sessionLaps,
+    });
 
     if (!existing?.id) {
       await insertMetricRows(sessionId, normalized.metrics);
@@ -2303,6 +2317,8 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
         samples: normalized.samples.length,
         exercises: normalized.exercises.length,
         fit_messages: normalized.fitMessages.length,
+        garmin_sets: normalized.garminSets.length,
+        session_laps: normalized.sessionLaps.length,
         temporal_segments: normalized.summary.temporal_segments?.length || 0,
       },
       error: null,
@@ -2337,7 +2353,8 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
   const durationSeconds = Math.round(Number(session.total_timer_time || session.total_elapsed_time || fit.active_time || 0));
   const activityType = activityLabel(session.sport || sport.sport, session.sub_sport || sport.sub_sport);
   const temporalSegments = normalizeFitTemporalSegments({ laps, sets, splits, events, records, startedAt });
-  const garminSeries = normalizeGarminSeriesFromFit({ sets, laps, workoutSteps, startedAt });
+  const garminSeries = normalizeGarminSeriesFromFit({ sets, laps, splits, workoutSteps, startedAt });
+  const sessionLaps = normalizeSessionLapsFromFit({ laps, splits, splitSummaries, startedAt });
   const fitMessages = buildFitMessagePayloads({
     sessions,
     laps,
@@ -2467,6 +2484,8 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
     distanceMeters: nullableNumber(session.total_distance),
     samples,
     exercises,
+    garminSets: garminSeries,
+    sessionLaps,
     fitMessages,
     summary,
     fitFingerprint: summary.fit_identity.fingerprint,
@@ -2594,23 +2613,28 @@ function normalizeFitTemporalSegments({ laps = [], sets = [], splits = [], event
   return segmentsFromTimerEvents(events, records, startedAt);
 }
 
-function normalizeGarminSeriesFromFit({ sets = [], laps = [], workoutSteps = [], startedAt }) {
+function normalizeGarminSeriesFromFit({ sets = [], laps = [], splits = [], workoutSteps = [], startedAt }) {
   const setSeries = seriesFromRows(sets, "garmin_fit_set", startedAt);
   if (setSeries.length) return setSeries;
   const lapSeries = seriesFromRows(laps, "garmin_fit_lap", startedAt);
   if (lapSeries.length) return lapSeries;
+  const splitSeries = seriesFromRows(splits, "garmin_fit_split", startedAt);
+  if (splitSeries.length) return splitSeries;
   return seriesFromRows(workoutSteps, "garmin_fit_workout_step", startedAt);
 }
 
 function seriesFromRows(rows, source, startedAt) {
   const baseTime = startedAt ? new Date(startedAt).getTime() : null;
+  let cursor = 0;
   return rows
     .map((row, index) => {
-      const start = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time", "elapsed_time"], "start_time", baseTime);
+      const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
       const work = nullableNumber(row.active_seconds ?? row.work_seconds ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
       const rest = nullableNumber(row.rest_seconds ?? row.total_rest_time ?? row.elapsed_rest_time);
       const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? (work != null && rest != null ? work + rest : work);
+      const start = explicitStart ?? cursor;
       const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
+      if (end != null) cursor = Math.max(cursor, end);
       const repetitions = nullableNumber(row.repetitions ?? row.reps ?? row.num_reps);
       return {
         source,
@@ -2639,6 +2663,45 @@ function seriesFromRows(rows, source, startedAt) {
     )
     .sort((a, b) => a.series_order - b.series_order);
 }
+
+function normalizeSessionLapsFromFit({ laps = [], splits = [], splitSummaries = [], startedAt }) {
+  const lapRows = lapRowsFromRows(laps, "garmin_fit_lap", startedAt);
+  if (lapRows.length) return lapRows;
+  const splitRows = lapRowsFromRows(splits, "garmin_fit_split", startedAt);
+  if (splitRows.length) return splitRows;
+  return lapRowsFromRows(splitSummaries, "garmin_fit_split_summary", startedAt);
+}
+
+function lapRowsFromRows(rows, source, startedAt) {
+  const baseTime = startedAt ? new Date(startedAt).getTime() : null;
+  let cursor = 0;
+  return rows
+    .map((row, index) => {
+      const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
+      const active = nullableNumber(row.active_seconds ?? row.active_time ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
+      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? active;
+      const start = explicitStart ?? cursor;
+      const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
+      if (end != null) cursor = Math.max(cursor, end);
+      const rest = nullableNumber(row.rest_seconds) ?? (active != null && total != null && total >= active ? total - active : null);
+      return {
+        lap_index: fitMessageOrder(row.message_index ?? row.message_number ?? row.lap_index ?? row.split_index) ?? index + 1,
+        source,
+        start_elapsed_seconds: start == null ? null : Math.round(start),
+        end_elapsed_seconds: end == null ? null : Math.round(end),
+        duration_seconds: total == null ? null : Math.round(total),
+        active_seconds: active == null ? null : Math.round(active),
+        rest_seconds: rest == null ? null : Math.round(rest),
+        distance_meters: nullableNumber(row.total_distance ?? row.distance),
+        heart_rate_avg_bpm: nullableNumber(row.avg_heart_rate ?? row.average_heart_rate ?? row.heart_rate_avg_bpm),
+        heart_rate_max_bpm: nullableNumber(row.max_heart_rate ?? row.maximum_heart_rate ?? row.heart_rate_max_bpm),
+        raw_payload: row,
+      };
+    })
+    .filter((row) => row.duration_seconds != null || (row.start_elapsed_seconds != null && row.end_elapsed_seconds != null))
+    .sort((a, b) => a.lap_index - b.lap_index);
+}
+
 
 function segmentsFromRows(rows, source, startedAt) {
   const baseTime = startedAt ? new Date(startedAt).getTime() : null;
@@ -2734,6 +2797,11 @@ function nullableNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function nullableInteger(value) {
+  const number = nullableNumber(value);
+  return number == null ? null : Math.round(number);
 }
 
 function activityLabel(sport, subSport) {
@@ -3017,54 +3085,69 @@ async function insertExerciseRows(sessionId, rows) {
   await supabase.from("session_exercises").insert(rows.map((row) => ({ ...row, session_id: sessionId })));
 }
 
+async function backfillGarminRelationalRows(sessionId, { garminSets = [], sessionLaps = [] } = {}) {
+  await insertGarminSetRowsIfEmpty(sessionId, garminSets);
+  await insertSessionLapRowsIfEmpty(sessionId, sessionLaps);
+}
 
-async function upsertGarminSetRows(sessionId, rows, samples = []) {
+async function insertGarminSetRowsIfEmpty(sessionId, rows) {
   if (!rows.length) return;
-  const prepared = rows.map((row, index) => {
-    const start = nullableNumber(row.start_elapsed_seconds);
-    const end = nullableNumber(row.end_elapsed_seconds);
-    const hr = heartRateForGarminSetWindow(samples, start, end);
-    return {
-      session_id: sessionId,
-      source: "garmin_fit",
-      series_order: index + 1,
-      garmin_exercise_name: row.garmin_exercise_name || null,
-      start_elapsed_seconds: start == null ? null : Math.round(start),
-      end_elapsed_seconds: end == null ? null : Math.round(end),
-      duration_seconds: row.duration_seconds == null ? null : Math.round(Number(row.duration_seconds)),
-      active_seconds: row.active_seconds == null ? null : Math.round(Number(row.active_seconds)),
-      rest_seconds: row.rest_seconds == null ? null : Math.round(Number(row.rest_seconds)),
-      repetitions: row.repetitions == null ? null : Math.round(Number(row.repetitions)),
-      load_value: nullableNumber(row.load_value),
-      load_unit: row.load_unit || null,
-      heart_rate_avg_bpm: row.heart_rate_avg_bpm == null ? hr.avg : Math.round(Number(row.heart_rate_avg_bpm)),
-      heart_rate_max_bpm: row.heart_rate_max_bpm == null ? hr.max : Math.round(Number(row.heart_rate_max_bpm)),
-      raw_payload: row.raw_payload || row,
-      confidence: row.confidence || "reported",
-      updated_at: new Date().toISOString(),
-    };
-  });
+  const { count, error: countError } = await supabase
+    .from("session_garmin_sets")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
 
-  const { error } = await supabase.from("session_garmin_sets").upsert(prepared, {
-    onConflict: "session_id,source,series_order",
-  });
+  const prepared = rows.map((row) => ({
+    session_id: sessionId,
+    source: row.source || "garmin_fit",
+    series_order: row.series_order,
+    garmin_exercise_name: row.garmin_exercise_name,
+    start_elapsed_seconds: nullableInteger(row.start_elapsed_seconds),
+    end_elapsed_seconds: nullableInteger(row.end_elapsed_seconds),
+    duration_seconds: nullableInteger(row.duration_seconds),
+    active_seconds: nullableInteger(row.active_seconds),
+    rest_seconds: nullableInteger(row.rest_seconds),
+    repetitions: nullableInteger(row.repetitions),
+    load_value: nullableNumber(row.load_value),
+    load_unit: row.load_unit || null,
+    heart_rate_avg_bpm: nullableInteger(row.heart_rate_avg_bpm),
+    heart_rate_max_bpm: nullableInteger(row.heart_rate_max_bpm),
+    raw_payload: row.raw_payload || {},
+    confidence: row.confidence || "derived",
+  }));
+
+  const { error } = await supabase.from("session_garmin_sets").insert(prepared);
   if (error) throw error;
 }
 
-function heartRateForGarminSetWindow(samples, start, end) {
-  if (start == null || end == null || end < start) return { avg: null, max: null };
-  const values = samples
-    .filter((sample) => {
-      const elapsed = nullableNumber(sample.elapsed_seconds);
-      return elapsed != null && elapsed >= start && elapsed <= end && sample.heart_rate_bpm != null;
-    })
-    .map((sample) => Number(sample.heart_rate_bpm))
-    .filter(Number.isFinite);
-  if (!values.length) return { avg: null, max: null };
-  return {
-    avg: Math.round(average(values)),
-    max: Math.round(Math.max(...values)),
-  };
+async function insertSessionLapRowsIfEmpty(sessionId, rows) {
+  if (!rows.length) return;
+  const { count, error: countError } = await supabase
+    .from("session_laps")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
+
+  const prepared = rows.map((row) => ({
+    session_id: sessionId,
+    lap_index: row.lap_index,
+    source: row.source || "garmin_fit",
+    start_elapsed_seconds: nullableInteger(row.start_elapsed_seconds),
+    end_elapsed_seconds: nullableInteger(row.end_elapsed_seconds),
+    duration_seconds: nullableInteger(row.duration_seconds),
+    active_seconds: nullableInteger(row.active_seconds),
+    rest_seconds: nullableInteger(row.rest_seconds),
+    distance_meters: nullableNumber(row.distance_meters),
+    heart_rate_avg_bpm: nullableInteger(row.heart_rate_avg_bpm),
+    heart_rate_max_bpm: nullableInteger(row.heart_rate_max_bpm),
+    raw_payload: row.raw_payload || {},
+  }));
+
+  const { error } = await supabase.from("session_laps").insert(prepared);
+  if (error) throw error;
 }
 
 async function insertFitMessagePayloadRows(sessionId, sourceId, rows) {
