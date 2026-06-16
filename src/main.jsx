@@ -2613,13 +2613,9 @@ function normalizeFitTemporalSegments({ laps = [], sets = [], splits = [], event
   return segmentsFromTimerEvents(events, records, startedAt);
 }
 
-function normalizeGarminSeriesFromFit({ sets = [], laps = [], splits = [], workoutSteps = [], startedAt }) {
+function normalizeGarminSeriesFromFit({ sets = [], workoutSteps = [], startedAt }) {
   const setSeries = seriesFromRows(sets, "garmin_fit_set", startedAt);
   if (setSeries.length) return setSeries;
-  const lapSeries = seriesFromRows(laps, "garmin_fit_lap", startedAt);
-  if (lapSeries.length) return lapSeries;
-  const splitSeries = seriesFromRows(splits, "garmin_fit_split", startedAt);
-  if (splitSeries.length) return splitSeries;
   return seriesFromRows(workoutSteps, "garmin_fit_workout_step", startedAt);
 }
 
