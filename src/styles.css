@@ -1187,9 +1187,8 @@ button:disabled {
 
 .hrSessionGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(270px, 0.8fr);
-  gap: 24px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 
 .chartPane,
@@ -1234,21 +1233,22 @@ button:disabled {
 }
 
 .heartZonePanel {
-  border-left: 1px solid var(--border);
-  padding-left: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
 }
 
 .heartZoneRows {
   display: grid;
-  gap: 18px;
-  margin-top: 26px;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .heartZoneRow {
   display: grid;
-  grid-template-columns: 18px 34px minmax(82px, 1fr) auto 38px;
-  gap: 9px;
+  grid-template-columns: 18px 70px minmax(150px, 1fr) 74px 46px;
+  gap: 10px;
   align-items: center;
+  min-height: 38px;
 }
 
 .heartZoneRow i {

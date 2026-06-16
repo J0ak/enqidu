@@ -1362,7 +1362,7 @@ function SessionPhysiologyTab({ detail }) {
             height={300}
           />
         </div>
-        <HeartRateZoneList zones={detail.zones} title="Tiempo en zonas de FC" />
+        <HeartRateZoneList zones={detail.zones} title="Zonas de frecuencia cardiaca por tiempo" />
       </section>
       <section className="respirationPane">
         <PhysioSectionHeader title="Frecuencia respiratoria" unit="brpm" avg={session.respiration_avg_brpm} max={session.respiration_max_brpm} />
