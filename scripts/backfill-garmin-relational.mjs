@@ -44,12 +44,13 @@ async function main() {
   printCounts("Before", before);
 
   const messages = await fetchFitMessages(sessionId);
-  const samples = await fetchSessionSamples(sessionId);
+  const samples = mergeTemporalSamples(await fetchSessionSamples(sessionId), samplesFromFitRecordMessages(messages));
   const messageCounts = countBy(messages, "message_type");
   printMessageCounts(messageCounts);
 
   let insertedLaps = 0;
   let insertedGarminSets = 0;
+  const insertedMetrics = await insertMissingSessionMetrics(sessionId, messages, samples);
 
   if (before.session_laps === 0) {
     const lapRows = chooseRowsByPriority(messages, LAP_MESSAGE_TYPES);
@@ -79,6 +80,7 @@ async function main() {
 
   console.log(`Inserted session_laps: ${insertedLaps}`);
   console.log(`Inserted session_garmin_sets: ${insertedGarminSets}`);
+  console.log(`Inserted session_metrics: ${insertedMetrics}`);
 
   const after = await getCounts(sessionId);
   printCounts("After", after);
@@ -133,15 +135,17 @@ async function fetchSessionSamples(id) {
 }
 
 async function getCounts(id) {
-  const [laps, sets, blocks, payloads] = await Promise.all([
+  const [laps, sets, blocks, metrics, payloads] = await Promise.all([
     countRows("session_laps", id),
     countRows("session_garmin_sets", id),
     countRows("session_blocks", id),
+    countRows("session_metrics", id),
     countRows("fit_message_payloads", id),
   ]);
 
   return {
     fit_message_payloads: payloads,
+    session_metrics: metrics,
     session_laps: laps,
     session_garmin_sets: sets,
     session_blocks: blocks,
@@ -162,6 +166,109 @@ async function insertInChunks(table, rows, size) {
     const { error } = await supabase.from(table).insert(rows.slice(index, index + size));
     if (error) throw error;
   }
+}
+
+async function insertMissingSessionMetrics(id, messages, samples) {
+  const rows = buildSessionMetricRows(messages, samples);
+  if (!rows.length) return 0;
+  const codes = rows.map((row) => row.metric_code);
+  const { data, error } = await supabase
+    .from("session_metrics")
+    .select("metric_code")
+    .eq("session_id", id)
+    .in("metric_code", codes);
+  if (error) throw error;
+
+  const existing = new Set((data || []).map((row) => row.metric_code));
+  const missing = rows
+    .filter((row) => !existing.has(row.metric_code))
+    .map((row) => ({ ...row, session_id: id }));
+  if (!missing.length) return 0;
+  await insertInChunks("session_metrics", missing, 500);
+  return missing.length;
+}
+
+function buildSessionMetricRows(messages, samples) {
+  const sessionPayload = firstMessagePayload(messages, ["session", "sessions"]);
+  const time = timeMetricsFromFitSessionPayload(sessionPayload);
+  const respirationValues = samples
+    .map(sampleRespirationValue)
+    .filter((value) => value != null && value > 0 && value < 80);
+  const respirationAvg = respirationValues.length ? Math.round(average(respirationValues)) : null;
+  const respirationMax = respirationValues.length ? Math.round(Math.max(...respirationValues)) : null;
+  const rows = [
+    ["duration_total_seconds", "Tiempo total", time.totalSeconds, "s", "fit_session_message", "reported"],
+    ["active_time", "Tiempo de trabajo", time.activeSeconds, "s", "fit_session_message", "reported"],
+    ["rest_time", "Tiempo de descanso", time.restSeconds, "s", "fit_session_message", "reported"],
+    ["respiration_avg_brpm", "Frecuencia respiratoria media", respirationAvg, "brpm", "fit_record_samples", "derived_from_fit_records"],
+    ["respiration_max_brpm", "Frecuencia respiratoria maxima", respirationMax, "brpm", "fit_record_samples", "derived_from_fit_records"],
+  ];
+  return rows
+    .filter(([, , value]) => value !== null && value !== undefined && value !== "")
+    .map(([metric_code, metric_name, value_numeric, unit, source_path, confidence]) => ({
+      metric_code,
+      metric_name,
+      value_numeric,
+      unit,
+      metric_scope: "session",
+      source_path,
+      confidence,
+    }));
+}
+
+function firstMessagePayload(messages, types) {
+  return messages.find((row) => types.includes(row.message_type))?.payload || {};
+}
+
+function timeMetricsFromFitSessionPayload(payload = {}) {
+  const elapsed = numberOrNull(firstValue(payload, ["total_elapsed_time", "total_elapsed_time_seconds", "elapsed_time", "duration_seconds"]));
+  const active = numberOrNull(firstValue(payload, ["total_timer_time", "total_timer_time_seconds", "timer_time", "active_time"]));
+  const total = elapsed ?? active;
+  const rest = numberOrNull(firstValue(payload, ["total_rest_time", "elapsed_rest_time", "rest_seconds"])) ??
+    (total != null && active != null && total >= active ? total - active : null);
+  return {
+    totalSeconds: integerOrNull(total),
+    activeSeconds: integerOrNull(active),
+    restSeconds: integerOrNull(rest),
+  };
+}
+
+function samplesFromFitRecordMessages(messages) {
+  return messages
+    .filter((row) => row.message_type === "record" || row.message_type === "records")
+    .map((row, index) => {
+      const payload = row.payload || {};
+      return {
+        elapsed_seconds: numberOrNull(firstValue(payload, ["elapsed_seconds", "elapsed_time", "timer_time"])) ?? numberOrNull(row.message_order) ?? index,
+        heart_rate_bpm: numberOrNull(firstValue(payload, ["heart_rate", "heart_rate_bpm"])),
+        raw_payload: payload,
+      };
+    });
+}
+
+function mergeTemporalSamples(sessionSamples = [], fitRecordSamples = []) {
+  const byPosition = new Map();
+  const put = (sample, preferExisting = false) => {
+    const elapsed = numberOrNull(sample.elapsed_seconds);
+    const key = elapsed != null ? `t:${Math.round(elapsed * 10) / 10}` : `o:${byPosition.size}`;
+    const current = byPosition.get(key);
+    if (!current) {
+      byPosition.set(key, sample);
+      return;
+    }
+    byPosition.set(key, {
+      ...current,
+      ...sample,
+      heart_rate_bpm: preferExisting ? current.heart_rate_bpm ?? sample.heart_rate_bpm : sample.heart_rate_bpm ?? current.heart_rate_bpm,
+      raw_payload: {
+        ...(current.raw_payload || {}),
+        ...(sample.raw_payload || {}),
+      },
+    });
+  };
+  fitRecordSamples.forEach((sample) => put(sample, false));
+  sessionSamples.forEach((sample) => put(sample, true));
+  return [...byPosition.values()].sort((a, b) => Number(a.elapsed_seconds || 0) - Number(b.elapsed_seconds || 0));
 }
 
 function chooseRowsByPriority(messages, priorities) {
@@ -268,20 +375,24 @@ function heartRateForWindow(samples, start, end, fallback = {}) {
 function respirationForWindow(samples, start, end) {
   const values = samples
     .filter((sample) => isWithinWindow(sample.elapsed_seconds, start, end))
-    .map((sample) => numberOrNull(firstValue(sample.raw_payload || {}, [
-      "respiration_brpm",
-      "respiration_rate",
-      "respiratory_rate",
-      "breathing_rate",
-      "breaths_per_minute",
-      "enhanced_respiration_rate",
-      "respiration_rate_bpm",
-    ])))
+    .map(sampleRespirationValue)
     .filter((value) => value != null && value > 0 && value < 80);
   return {
-    avg: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null,
+    avg: values.length ? Math.round(average(values)) : null,
     max: values.length ? Math.round(Math.max(...values)) : null,
   };
+}
+
+function sampleRespirationValue(sample = {}) {
+  return numberOrNull(firstValue(sample.raw_payload || sample || {}, [
+    "respiration_brpm",
+    "respiration_rate",
+    "respiratory_rate",
+    "breathing_rate",
+    "breaths_per_minute",
+    "enhanced_respiration_rate",
+    "respiration_rate_bpm",
+  ]));
 }
 
 function isWithinWindow(value, start, end) {
@@ -354,6 +465,11 @@ function numberOrNull(value) {
 function integerOrNull(value) {
   const number = numberOrNull(value);
   return number == null ? null : Math.round(number);
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length;
 }
 
 function assertUuid(value) {
