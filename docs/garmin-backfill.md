@@ -4,7 +4,7 @@ PR #5 added the existing Garmin/FIT relational tables. This runner backfills an 
 
 ## Required environment
 
-Set these locally before running the script:
+Set these locally before running the script, either in the terminal or in `.env.local`:
 
 ```powershell
 $env:SUPABASE_URL="https://<project-ref>.supabase.co"
@@ -12,6 +12,7 @@ $env:SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
 ```
 
 The service role key is read from the environment only. The runner never prints it and no secrets should be committed.
+If a key exists both in the terminal environment and `.env.local`, the terminal environment wins.
 
 ## Command
 
