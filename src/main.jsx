@@ -1362,7 +1362,7 @@ function SessionPhysiologyTab({ detail }) {
             height={300}
           />
         </div>
-        <HeartRateZoneList zones={detail.zones} title="Zonas de frecuencia cardiaca por tiempo" />
+        <HeartRateZoneList zones={detail.zones} title="Zonas de frecuencia cardíaca por tiempo" />
       </section>
       <section className="respirationPane">
         <PhysioSectionHeader title="Frecuencia respiratoria" unit="brpm" avg={session.respiration_avg_brpm} max={session.respiration_max_brpm} />
@@ -1385,11 +1385,12 @@ function PhysioSectionHeader({ title, unit, avg, max }) {
 }
 
 function HeartRateZoneList({ zones = [], title }) {
+  const displayZones = displayHeartRateZones(zones);
   return (
     <aside className="heartZonePanel">
       <h3>{title} <CircleGauge size={15} /></h3>
       <div className="heartZoneRows">
-        {zones.length ? zones.map((zone) => (
+        {displayZones.length ? displayZones.map((zone) => (
           <div className="heartZoneRow" key={zone.key || zone.label}>
             <i style={{ background: zone.color }} />
             <strong>{zone.label}</strong>
@@ -4790,7 +4791,7 @@ function average(values) {
 function mapReportedHeartRateZones(reported, sessionId) {
   const sourceZones = reported?.zones || [];
   const useSnapshot = sessionId === TARGET_BACKFILL_SESSION_ID;
-  if (!sourceZones.length && useSnapshot) return garminHrZoneSnapshot.map(normalizeSnapshotZone);
+  if (useSnapshot) return garminHrZoneSnapshot.map(normalizeSnapshotZone);
   if (!sourceZones.length) return [];
   const reportedTotal = optionalNumber(reported?.total_seconds);
   const totalSeconds = Math.max(1, reportedTotal ?? sourceZones.reduce((sum, zone) => sum + Number(zone.seconds || 0), 0));
@@ -4821,6 +4822,14 @@ function mapReportedHeartRateZones(reported, sessionId) {
       percent: useSnapshot ? snapshot.percent : Math.round((seconds / totalSeconds) * 100),
     };
   }).filter(Boolean);
+}
+
+function displayHeartRateZones(zones = []) {
+  return [...zones].sort((a, b) => {
+    const zoneA = Number(`${a.key || a.label || ""}`.match(/\d+/)?.[0] || 0);
+    const zoneB = Number(`${b.key || b.label || ""}`.match(/\d+/)?.[0] || 0);
+    return zoneB - zoneA;
+  });
 }
 
 function normalizeSnapshotZone(zone) {
