@@ -44,6 +44,7 @@ async function main() {
   printCounts("Before", before);
 
   const messages = await fetchFitMessages(sessionId);
+  const samples = await fetchSessionSamples(sessionId);
   const messageCounts = countBy(messages, "message_type");
   printMessageCounts(messageCounts);
 
@@ -53,7 +54,7 @@ async function main() {
   if (before.session_laps === 0) {
     const lapRows = chooseRowsByPriority(messages, LAP_MESSAGE_TYPES);
     if (lapRows.length) {
-      const prepared = normalizeLapRows(lapRows);
+      const prepared = normalizeLapRows(lapRows, samples);
       if (prepared.length) {
         await insertInChunks("session_laps", prepared, 500);
         insertedLaps = prepared.length;
@@ -108,6 +109,29 @@ async function fetchFitMessages(id) {
   }));
 }
 
+async function fetchSessionSamples(id) {
+  const pageSize = 1000;
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("session_samples")
+      .select("elapsed_seconds,heart_rate_bpm,raw_payload")
+      .eq("session_id", id)
+      .order("elapsed_seconds", { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 async function getCounts(id) {
   const [laps, sets, blocks, payloads] = await Promise.all([
     countRows("session_laps", id),
@@ -151,22 +175,37 @@ function chooseRowsByPriority(messages, priorities) {
   return [];
 }
 
-function normalizeLapRows(rows) {
+function normalizeLapRows(rows, samples = []) {
   return withElapsedWindows(rows)
-    .map(({ row, index, start, end, duration, active, rest }) => ({
-      session_id: row.session_id,
-      lap_index: fitOrder(row.payload, row.message_order, index + 1, ["lap_index", "split_index"]),
-      source: lapSource(row.message_type),
-      start_elapsed_seconds: integerOrNull(start),
-      end_elapsed_seconds: integerOrNull(end),
-      duration_seconds: integerOrNull(duration),
-      active_seconds: integerOrNull(active),
-      rest_seconds: integerOrNull(rest),
-      distance_meters: numberOrNull(firstValue(row.payload, ["total_distance", "distance"])),
-      heart_rate_avg_bpm: integerOrNull(firstValue(row.payload, ["avg_heart_rate", "average_heart_rate", "heart_rate_avg_bpm"])),
-      heart_rate_max_bpm: integerOrNull(firstValue(row.payload, ["max_heart_rate", "maximum_heart_rate", "heart_rate_max_bpm"])),
-      raw_payload: row.payload,
-    }))
+    .map(({ row, index, start, end, duration, active, rest }) => {
+      const hr = heartRateForWindow(samples, start, end, {
+        avg: firstValue(row.payload, ["avg_heart_rate", "average_heart_rate", "heart_rate_avg_bpm"]),
+        max: firstValue(row.payload, ["max_heart_rate", "maximum_heart_rate", "heart_rate_max_bpm"]),
+      });
+      const respiration = respirationForWindow(samples, start, end);
+      return {
+        session_id: row.session_id,
+        lap_index: fitOrder(row.payload, row.message_order, index + 1, ["lap_index", "split_index"]),
+        source: lapSource(row.message_type),
+        start_elapsed_seconds: integerOrNull(start),
+        end_elapsed_seconds: integerOrNull(end),
+        duration_seconds: integerOrNull(duration),
+        active_seconds: integerOrNull(active),
+        rest_seconds: integerOrNull(rest),
+        distance_meters: numberOrNull(firstValue(row.payload, ["total_distance", "distance"])),
+        heart_rate_avg_bpm: integerOrNull(hr.avg),
+        heart_rate_max_bpm: integerOrNull(hr.max),
+        raw_payload: {
+          ...row.payload,
+          _enqidu_computed: {
+            heart_rate_avg_bpm: integerOrNull(hr.avg),
+            heart_rate_max_bpm: integerOrNull(hr.max),
+            respiration_avg_brpm: integerOrNull(respiration.avg),
+            respiration_max_brpm: integerOrNull(respiration.max),
+          },
+        },
+      };
+    })
     .filter((row) => row.duration_seconds != null || (row.start_elapsed_seconds != null && row.end_elapsed_seconds != null));
 }
 
@@ -213,6 +252,44 @@ function withElapsedWindows(rows) {
     if (end != null) cursor = Math.max(cursor, end);
     return { row, index, start, end, duration, active, rest };
   });
+}
+
+function heartRateForWindow(samples, start, end, fallback = {}) {
+  const values = samples
+    .filter((sample) => isWithinWindow(sample.elapsed_seconds, start, end))
+    .map((sample) => numberOrNull(sample.heart_rate_bpm))
+    .filter((value) => value != null && value >= 30 && value <= 230);
+  return {
+    avg: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : numberOrNull(fallback.avg),
+    max: values.length ? Math.round(Math.max(...values)) : numberOrNull(fallback.max),
+  };
+}
+
+function respirationForWindow(samples, start, end) {
+  const values = samples
+    .filter((sample) => isWithinWindow(sample.elapsed_seconds, start, end))
+    .map((sample) => numberOrNull(firstValue(sample.raw_payload || {}, [
+      "respiration_brpm",
+      "respiration_rate",
+      "respiratory_rate",
+      "breathing_rate",
+      "breaths_per_minute",
+      "enhanced_respiration_rate",
+      "respiration_rate_bpm",
+    ])))
+    .filter((value) => value != null && value > 0 && value < 80);
+  return {
+    avg: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null,
+    max: values.length ? Math.round(Math.max(...values)) : null,
+  };
+}
+
+function isWithinWindow(value, start, end) {
+  const elapsed = numberOrNull(value);
+  if (elapsed == null) return false;
+  if (start != null && elapsed < Number(start)) return false;
+  if (end != null && elapsed > Number(end)) return false;
+  return true;
 }
 
 function firstValue(source, keys) {

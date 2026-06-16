@@ -33,6 +33,8 @@ npm run backfill:garmin -- <session-id>
 - Prints `fit_message_payloads` counts grouped by `message_type`.
 - Inserts `session_laps` only when the session currently has zero lap rows.
 - Uses only `lap`, `laps`, `split`, `splits`, `split_summary`, or `split_summaries` messages for `session_laps`.
+- Computes `heart_rate_avg_bpm` and `heart_rate_max_bpm` for each inserted lap/split from existing `session_samples` when the FIT payload does not already provide them.
+- Stores computed respiration summary inside `session_laps.raw_payload._enqidu_computed` when respiration values are available in existing sample payloads, without requiring new columns.
 - Inserts `session_garmin_sets` only when the session currently has zero Garmin set rows.
 - Uses only `set`, `sets`, `workout_step`, or `workout_steps` messages for `session_garmin_sets`.
 - Prints final counts after the run.
@@ -44,8 +46,19 @@ npm run backfill:garmin -- <session-id>
 - Does not update `training_sessions`.
 - Does not create duplicate sessions.
 - Does not touch `session_blocks`.
+- Does not overwrite coach/conversational blocks.
 - Does not insert split/lap rows into `session_garmin_sets`.
 - Does not insert set/workout-step rows into `session_laps`.
+
+## UI expectations
+
+The activity detail screen keeps Garmin objective blocks separate from coach blocks:
+
+- Garmin objective blocks come from FIT `laps`, `splits`, or `split_summaries` and render in the `Bloques` tab inside `Frecuencia cardíaca y respiración`.
+- Coach blocks continue to render only in `Registro del coach`.
+- Respiratory data is rendered as a continuous metric, not zones.
+- Heart-rate zones render below/next to the heart-rate chart and are used to color the chart and calculate per-block zone time.
+- The editable activity title is user-facing only. FIT identity remains based on checksum, fingerprint, `external_reference`, and source metadata.
 
 ## Expected target result
 
