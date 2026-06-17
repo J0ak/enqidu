@@ -1,0 +1,27 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Running intervalos 400 m", "session_type": "running", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    {
+      "order_index": 1,
+      "block_type": "warmup",
+      "block_format": "continuous",
+      "primary_measurement_type": "duration",
+      "duration_s": 600,
+      "items": [{ "order_index": 1, "item_type": "segment", "item_name": "Calentamiento", "exercises": [{ "exercise_id": "running", "display_name": "Correr suave", "measurement_type": "duration", "target_duration_s": 600 }] }]
+    },
+    {
+      "order_index": 2,
+      "block_type": "intervals",
+      "block_format": "interval",
+      "primary_measurement_type": "intervals",
+      "items": [{ "order_index": 1, "item_type": "interval_task", "item_name": "6 x 400 m", "exercises": [{ "exercise_id": "running", "display_name": "400 m rapido", "measurement_type": "intervals", "target_distance_m": 400, "missing_fields": ["pace_s_per_km"] }] }]
+    }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

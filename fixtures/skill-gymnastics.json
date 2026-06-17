@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Tecnica anillas", "session_type": "gymnastics_skill", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "skill", "block_format": "skill_practice", "primary_measurement_type": "skill_attempts", "items": [{ "order_index": 1, "item_type": "skill_task", "item_name": "False grip hang", "exercises": [{ "exercise_id": "false_grip_hang", "display_name": "False grip hang", "measurement_type": "duration", "target_duration_s": 20 }] }, { "order_index": 2, "item_type": "skill_task", "item_name": "Low ring transition", "exercises": [{ "exercise_id": "low_ring_transition", "display_name": "Low ring transition", "measurement_type": "skill_attempts", "target_reps": 3 }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

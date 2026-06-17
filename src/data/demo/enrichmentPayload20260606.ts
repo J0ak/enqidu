@@ -44,8 +44,8 @@ export const enrichmentPayload20260606 = {
             { name: "Dead bug", execution: "performed", notes: "Core suave." },
             { name: "Bird dog", execution: "performed", notes: "Control motor lumbar-friendly." },
             { name: "Puente gluteo bilateral", execution: "performed", notes: "Bilateral, evitando carga unilateral fuerte." },
-            { name: "Movilidad toracica", execution: "performed", notes: "Con añadido de movilidad de cadera en cuadrupedia." },
-            { name: "Respiracion", execution: "performed", notes: "Bajar tono y proteccion lumbar/glutea." },
+            { name: "Movilidad torácica", execution: "performed", notes: "Con añadido de movilidad de cadera en cuadrupedia." },
+            { name: "Respiración", execution: "performed", notes: "Bajar tono y proteccion lumbar/glutea." },
             { name: "Apertura de cadera en cuadrupedia/grupe", execution: "performed", reps: "6 por lado", notes: "Apertura hacia un lado." },
             {
               name: "Rotaciones de cadera en cuadrupedia",
@@ -62,12 +62,12 @@ export const enrichmentPayload20260606 = {
           ],
           coach_interpretation: [
             "Bloque completo y util para activacion.",
-            "Pudo generar algo de tension inicial, pero ayudo a movilizar.",
+            "Pudo generar algo de tensión inicial, pero ayudó a móvilizar.",
           ],
         },
         {
           block_order: 2,
-          block_name: "Anillas/barra tecnica",
+          block_name: "Anillas/barra técnica",
           block_type: "technical_calisthenics",
           rounds_planned: 4,
           rounds_completed: 2,
@@ -82,7 +82,7 @@ export const enrichmentPayload20260606 = {
               notes: [
                 "Primera serie con cuerpo algo horizontal.",
                 "Luego mas vertical.",
-                "Posible contribucion a tension glutea/lumbar por rigidez corporal/core.",
+                "Posible contribucion a tensión glutea/lumbar por rigidez corporal/core.",
               ],
             },
             { name: "Scap pull-up", execution: "performed", sets_completed: 2, notes: "Realizado bien." },
@@ -109,7 +109,7 @@ export const enrichmentPayload20260606 = {
               ],
             },
             {
-              name: "Dominada tecnica",
+              name: "Dominada técnica",
               execution: "performed",
               sets_completed: 2,
               reps_per_set: [3, 3],
@@ -121,7 +121,7 @@ export const enrichmentPayload20260606 = {
             },
           ],
           coach_interpretation: [
-            "Tolerancia parcial a calistenia tecnica.",
+            "Tolerancia parcial a calistenia técnica.",
             "Ring row horizontal y dead hang pueden aumentar demanda global de core/pelvis.",
             "Cortar al notar gluteo fue correcto.",
           ],
@@ -150,7 +150,7 @@ export const enrichmentPayload20260606 = {
           format: "superserie",
           rounds_completed: 2,
           exercises: [
-            { name: "Respiracion 90/90", execution: "performed", sets_completed: 2, notes: "Bajar tono y control respiratorio." },
+            { name: "Respiración 90/90", execution: "performed", sets_completed: 2, notes: "Bajar tono y control respiratorio." },
             { name: "Dead bug corto", execution: "performed", sets_completed: 2, reps_per_side: 5, notes: "Se notaba, pero tolerable." },
             { name: "McGill curl-up suave", execution: "performed", sets_completed: 2, reps_per_side: 5, notes: "Muy buena tolerancia; alivio." },
             { name: "Bird dog", execution: "performed", sets_completed: 2, reps_per_side: 5, notes: "Ya hecho al inicio; sin problema." },
@@ -184,7 +184,7 @@ export const enrichmentPayload20260606 = {
           "bird dog",
           "side plank desde rodillas",
           "gemelo/tibial/peroneo",
-          "dominada tecnica dosificada",
+          "dominada técnica dosificada",
         ],
       },
     },

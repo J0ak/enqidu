@@ -1137,6 +1137,321 @@ button:disabled {
   letter-spacing: -0.04em;
 }
 
+.trainingSessionCard {
+  display: grid;
+  gap: 18px;
+}
+
+.trainingSessionCardHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.trainingSessionCardHead h2 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.1;
+}
+
+.trainingSessionCardHead p {
+  margin: 6px 0 0;
+  color: color-mix(in srgb, var(--text) 70%, var(--muted));
+}
+
+.completionScoreBadge,
+.measurementTypeBadge,
+.missingFieldsBadge {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  white-space: nowrap;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 12px;
+}
+
+.completionScoreBadge {
+  border-color: rgba(141, 240, 24, 0.42);
+  color: #d6ff35;
+  background: rgba(141, 240, 24, 0.1);
+}
+
+.missingFieldsBadge {
+  color: #ffd19b;
+  border-color: rgba(240, 163, 85, 0.42);
+  background: rgba(240, 163, 85, 0.1);
+}
+
+.missingFieldsBadge.complete {
+  color: #9df7c5;
+  border-color: rgba(62, 214, 141, 0.35);
+  background: rgba(62, 214, 141, 0.1);
+}
+
+.trainingMetricStrip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trainingMetricStrip div {
+  min-width: 0;
+  min-height: 72px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.trainingMetricStrip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.trainingMetricStrip strong {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.trainingTwoLevelGrid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.trainingBlockSummaryList,
+.blockItemRows,
+.exerciseMetricLines {
+  display: grid;
+  gap: 10px;
+}
+
+.trainingBlockSummaryList button {
+  width: 100%;
+  min-width: 0;
+  min-height: 82px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 20px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+
+.trainingBlockSummaryList button.active {
+  border-color: rgba(141, 240, 24, 0.48);
+  background: rgba(141, 240, 24, 0.09);
+}
+
+.trainingBlockSummaryList button > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #07100f;
+  background: #d6ff35;
+  font-weight: 900;
+}
+
+.trainingBlockSummaryList div {
+  min-width: 0;
+}
+
+.trainingBlockSummaryList strong,
+.trainingBlockSummaryList small,
+.trainingBlockSummaryList em {
+  display: block;
+  min-width: 0;
+}
+
+.trainingBlockSummaryList strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trainingBlockSummaryList small,
+.trainingBlockSummaryList em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.trainingBlockDetail {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.trainingBlockDetail header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.trainingBlockDetail header span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.trainingBlockDetail h3 {
+  margin: 4px 0;
+  font-size: 22px;
+}
+
+.trainingBlockDetail p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 72%, var(--muted));
+}
+
+.blockItemRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  grid-template-columns: minmax(110px, 0.36fr) minmax(0, 1fr);
+  gap: 14px;
+  padding-top: 12px;
+}
+
+.blockItemLabel span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.blockItemLabel strong {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.25;
+}
+
+.exerciseMetricLine {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.exerciseMetricLine strong,
+.exerciseMetricLine span {
+  display: block;
+}
+
+.exerciseMetricLine > div:first-child {
+  min-width: 0;
+}
+
+.exerciseMetricLine > div:first-child span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.performedSetList {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.performedSetList span {
+  min-height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+}
+
+.missingFieldEditor {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(78px, 1fr)) auto auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 2px;
+}
+
+.missingFieldEditor label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.missingFieldEditor label span,
+.missingFieldEditor small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.missingFieldEditor input {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0 8px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.missingFieldEditor button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 12px;
+  color: #07100f;
+  background: #d6ff35;
+  font-weight: 850;
+}
+
+.missingFieldEditor button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.missingFieldEditor .fieldError,
+.trainingSaveStatus {
+  color: #ffd19b;
+}
+
+.trainingSaveStatus {
+  display: block;
+  margin-top: -4px;
+  font-size: 12px;
+}
+
 .activityMainCard {
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -1153,6 +1468,166 @@ button:disabled {
   margin: 0;
   font-size: clamp(22px, 3vw, 30px);
   letter-spacing: -0.035em;
+}
+
+.conversationActivityCard {
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.conversationSummary {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.conversationSummary span,
+.conversationBlocks h2 {
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.conversationSummary p {
+  margin: 0;
+  max-width: 72ch;
+  font-size: clamp(18px, 2.4vw, 24px);
+  line-height: 1.28;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.conversationSummary small {
+  color: color-mix(in srgb, var(--text) 68%, var(--muted));
+}
+
+.conversationKeyData {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.conversationKeyData span {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  color: #d7f7ff;
+  background: rgba(34, 184, 255, 0.1);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.conversationBlocks {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.conversationBlocks > div {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.conversationBlockCard {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  overflow: hidden;
+}
+
+.conversationBlockCard summary {
+  min-width: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 24px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.conversationBlockCard summary::-webkit-details-marker {
+  display: none;
+}
+
+.conversationBlockCard summary > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: inline-grid;
+  place-items: center;
+  color: #06100d;
+  background: var(--discipline);
+  font-weight: 900;
+}
+
+.conversationBlockCard summary div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.conversationBlockCard strong {
+  font-size: 16px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.conversationBlockCard p,
+.conversationBlockCard small {
+  margin: 0;
+  min-width: 0;
+  color: color-mix(in srgb, var(--text) 70%, var(--muted));
+  overflow-wrap: anywhere;
+}
+
+.conversationBlockCard summary svg {
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.conversationBlockCard[open] summary svg {
+  transform: rotate(90deg);
+}
+
+.conversationBlockDetail {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 14px 14px 60px;
+}
+
+.conversationBlockDetail section {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.conversationBlockDetail span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.conversationBlockDetail p {
+  color: var(--text);
+}
+
+.conversationPendingNote {
+  color: #ffd19b;
 }
 
 .detailSegmented {
@@ -1561,12 +2036,11 @@ button:disabled {
 .activitiesHero {
   border: 1px solid var(--border);
   border-radius: 22px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  padding: 20px;
-  background: #202020;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(35, 230, 193, 0.1), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.064), rgba(255, 255, 255, 0.02)),
+    #202020;
 }
 
 .activitiesOverview {
@@ -1588,6 +2062,7 @@ button:disabled {
 }
 
 .activitiesHero p {
+  max-width: 760px;
   margin: 0;
   color: var(--muted);
 }
@@ -1601,28 +2076,6 @@ button:disabled {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.activityTypeRail {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 3px;
-}
-
-.activityTypeRail button {
-  flex: 0 0 auto;
-  min-width: 116px;
-  min-height: 42px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.activityTypeRail button i,
 .activityList button > i {
   width: 10px;
   height: 10px;
@@ -1630,89 +2083,294 @@ button:disabled {
   background: var(--type);
 }
 
-.activityTypeRail button.active {
-  color: #07100f;
-  border-color: transparent;
-  background: var(--type);
-  font-weight: 850;
-}
-
-.activityTypeRail button.active i {
-  background: #07100f;
-}
-
-.weeklyActivityCard,
+.activityTimeControlCard,
 .activityListPanel {
   border: 1px solid var(--border);
   border-radius: 22px;
   padding: 18px;
-  background: #202020;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    #202020;
 }
 
-.weeklyActivityCard > strong {
-  display: block;
-  margin: 6px 0 18px;
-  font-size: 40px;
-  letter-spacing: -0.05em;
-}
-
-.stackedWeek {
-  height: 220px;
+.activityTimeControlCard {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
   gap: 16px;
-  align-items: end;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 0 8px 10px;
 }
 
-.weekDay {
-  height: 100%;
+.activityViewSwitch {
+  width: min(430px, 100%);
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.activityViewSwitch button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 800;
+}
+
+.activityViewSwitch button.active {
+  color: #06100d;
+  background: var(--discipline);
+}
+
+.activityPeriodNav {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto 42px;
+  gap: 10px;
+  align-items: center;
+}
+
+.activityPeriodNav > div {
+  min-width: 0;
+}
+
+.activityPeriodNav span,
+.selectedDayHeader span {
+  display: block;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.activityPeriodNav strong {
+  display: block;
+  margin-top: 3px;
+  font-size: clamp(20px, 3vw, 28px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.periodArrow,
+.todayButton {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.periodArrow {
+  width: 42px;
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.periodArrow:first-child svg {
+  transform: rotate(180deg);
+}
+
+.todayButton {
+  border-radius: 999px;
+  padding: 0 14px;
+  font-weight: 850;
+}
+
+.activityPeriodSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.activityPeriodSummary section {
+  min-width: 0;
+  min-height: 92px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  display: grid;
+  align-content: center;
   gap: 8px;
-  align-items: end;
-  justify-items: center;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.stackTrack {
-  width: 32px;
-  height: 100%;
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-start;
-  gap: 3px;
+.activityPeriodSummary svg {
+  color: var(--discipline);
 }
 
-.stackTrack i {
-  display: block;
-  width: 100%;
-  border-radius: 16px 16px 4px 4px;
-}
-
-.weekDay span {
+.activityPeriodSummary span {
   color: var(--muted);
+  font-size: 12px;
 }
 
-.weekStats {
+.activityPeriodSummary strong {
+  font-size: clamp(21px, 3vw, 28px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.activityFilterStack {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 22px;
-  margin-top: 24px;
+  gap: 8px;
 }
 
-.weekStats b,
-.weekStats span {
-  display: block;
+.activityChipRow {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
-.weekStats b {
-  font-size: 34px;
-  letter-spacing: -0.05em;
-}
-
-.weekStats span {
+.activityChipRow button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 12px;
   color: var(--muted);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.activityChipRow button.active {
+  color: #06100d;
+  border-color: transparent;
+  background: var(--discipline);
+}
+
+.activityWeekStrip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.activityWeekStrip button {
+  position: relative;
+  min-width: 0;
+  min-height: 112px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 5px;
+  padding: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+  overflow: hidden;
+}
+
+.activityWeekStrip button.selected {
+  border-color: color-mix(in srgb, var(--discipline) 70%, white 10%);
+  background: color-mix(in srgb, var(--discipline) 13%, rgba(255, 255, 255, 0.04));
+}
+
+.activityWeekStrip button.today {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--discipline) 60%, transparent);
+}
+
+.activityWeekStrip span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.activityWeekStrip strong {
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.activityWeekStrip small {
+  color: color-mix(in srgb, var(--text) 70%, var(--muted));
+  font-size: 11px;
+}
+
+.activityWeekStrip em {
+  min-height: 20px;
+  border-radius: 999px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  color: #06100d;
+  background: var(--discipline);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.activityWeekStrip i,
+.activityMonthGrid button::after {
+  content: "";
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.activityWeekStrip button.hasItems i,
+.activityMonthGrid button.hasItems::after {
+  background: var(--discipline);
+}
+
+.activityMonthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.activityMonthGrid > span {
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.activityMonthGrid > i,
+.activityMonthGrid button {
+  min-height: 62px;
+  border-radius: 14px;
+}
+
+.activityMonthGrid > i {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.activityMonthGrid button {
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.activityMonthGrid button.selected,
+.activityMonthGrid button.today {
+  border-color: color-mix(in srgb, var(--discipline) 65%, white 8%);
+}
+
+.activityMonthGrid button.today {
+  background: color-mix(in srgb, var(--discipline) 12%, rgba(255, 255, 255, 0.04));
+}
+
+.activityMonthGrid small {
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: #06100d;
+  background: var(--discipline);
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .activityList {
@@ -1754,55 +2412,57 @@ button:disabled {
   font-size: 20px;
 }
 
-.activityDateSelector {
-  display: grid;
-  grid-template-columns: 74px repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 18px;
+.selectedDayHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
-.activityDateSelector button {
-  min-width: 0;
-  min-height: 76px;
+.selectedDayHeader h3 {
+  margin: 4px 0 0;
+  font-size: clamp(20px, 3vw, 26px);
+  letter-spacing: -0.035em;
+}
+
+.selectedDayHeader small {
+  min-height: 28px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+}
+
+.selectedDayChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 14px;
+}
+
+.selectedDayChips button {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  color: var(--text);
   background: rgba(255, 255, 255, 0.045);
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.activityDateSelector button:first-child {
-  font-weight: 850;
-}
-
-.activityDateSelector button.active {
-  color: #06100d;
-  border-color: transparent;
-  background: var(--discipline);
-}
-
-.activityDateSelector span,
-.activityDateSelector small {
-  font-size: 11px;
-}
-
-.activityDateSelector strong {
-  font-size: 22px;
-}
-
-.activityDayGroup {
-  display: grid;
-  gap: 10px;
-}
-
-.activityDayGroup + .activityDayGroup {
-  margin-top: 18px;
-}
-
-.activityDayGroup h3 {
-  margin: 0;
+.selectedDayChips b {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .activityList .activityHistoryCard {
@@ -2769,10 +3429,14 @@ button:disabled {
 }
 
 .bubble {
+  position: relative;
   max-width: min(82%, 640px);
   padding: 13px 15px;
   border-radius: 18px;
   line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
 }
 
 .bubble.assistant {
@@ -2788,42 +3452,138 @@ button:disabled {
   font-weight: 650;
 }
 
+.copyToast {
+  position: absolute;
+  right: 10px;
+  bottom: -22px;
+  z-index: 1;
+  min-height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--text);
+  background: rgba(5, 7, 10, 0.9);
+  font-size: 11px;
+  font-weight: 850;
+  pointer-events: none;
+}
+
 .coachComposer {
   position: sticky;
   bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 7;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 22px;
-  padding: 8px;
+  padding: 10px;
   background: rgba(5, 7, 10, 0.92);
   backdrop-filter: blur(18px);
 }
 
-.coachComposer input,
+.coachComposer textarea,
 .profileCard input {
-  min-height: 48px;
   border: 1px solid var(--border);
   border-radius: 17px;
   outline: 0;
   color: var(--text);
   background: var(--surface);
+}
+
+.coachComposer textarea {
+  width: 100%;
+  min-height: 72px;
+  max-height: 260px;
+  resize: none;
+  overflow-y: auto;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.profileCard input {
+  min-height: 48px;
   padding: 0 14px;
+}
+
+.dictationStatusLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.dictationStatusLine span {
+  min-height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dictationStatusLine span.active {
+  color: #06100d;
+  border-color: transparent;
+  background: var(--discipline);
+}
+
+.dictationStatusLine small {
+  color: #ffd19b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.interimTranscript {
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.interimTranscript span {
+  display: block;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.interimTranscript p {
+  margin: 5px 0 0;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+}
+
+.composerActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .coachComposer .iconAction,
 .coachComposer .sendAction {
-  width: 44px;
-  height: 44px;
   min-height: 44px;
   border: 0;
   border-radius: 15px;
-  display: grid;
-  place-items: center;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  font-weight: 850;
+}
+
+.coachComposer .iconAction span,
+.coachComposer .sendAction span {
+  font-size: 12px;
 }
 
 .coachComposer .iconAction {
@@ -3212,6 +3972,14 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .trainingMetricStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .trainingTwoLevelGrid {
+    grid-template-columns: 1fr;
+  }
+
   .hrSessionGrid,
   .trainingEffectDetailGrid {
     grid-template-columns: 1fr;
@@ -3231,10 +3999,6 @@ button:disabled {
 
   .coachBlockTable {
     overflow-x: auto;
-  }
-
-  .activityTypeRail {
-    margin-inline: -2px;
   }
 
   .healthLayout {
@@ -3301,6 +4065,57 @@ button:disabled {
   .activityMainCard {
     padding: 16px;
     border-radius: 18px;
+  }
+
+  .conversationActivityCard {
+    gap: 14px;
+  }
+
+  .conversationSummary p {
+    font-size: 19px;
+  }
+
+  .conversationBlockCard summary {
+    grid-template-columns: 30px minmax(0, 1fr) 20px;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .conversationBlockCard summary > span {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
+
+  .conversationBlockDetail {
+    padding: 0 12px 12px;
+  }
+
+  .trainingSessionCardHead,
+  .trainingBlockDetail header {
+    display: grid;
+  }
+
+  .trainingMetricStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trainingMetricStrip div {
+    min-height: 64px;
+  }
+
+  .blockItemRow,
+  .exerciseMetricLine,
+  .missingFieldEditor {
+    grid-template-columns: 1fr;
+  }
+
+  .missingFieldsBadge {
+    justify-self: start;
+  }
+
+  .missingFieldEditor button {
+    width: 100%;
   }
 
   .detailSegmented {
@@ -3533,11 +4348,59 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .activityDateSelector {
-    grid-template-columns: 72px repeat(7, 58px);
-    overflow-x: auto;
-    max-width: 100%;
-    padding-bottom: 4px;
+  .activityTimeControlCard,
+  .activityListPanel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .activityViewSwitch {
+    width: 100%;
+  }
+
+  .activityPeriodNav {
+    grid-template-columns: 40px minmax(0, 1fr) 64px 40px;
+    gap: 8px;
+  }
+
+  .activityPeriodNav strong {
+    font-size: 19px;
+  }
+
+  .periodArrow {
+    width: 40px;
+  }
+
+  .todayButton {
+    padding: 0 10px;
+  }
+
+  .activityPeriodSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activityPeriodSummary section {
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  .activityWeekStrip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .activityWeekStrip button {
+    min-height: 96px;
+    padding: 11px;
+  }
+
+  .activityMonthGrid {
+    gap: 6px;
+  }
+
+  .activityMonthGrid > i,
+  .activityMonthGrid button {
+    min-height: 48px;
+    border-radius: 12px;
   }
 
   .activityList .activityHistoryCard {
@@ -3557,10 +4420,6 @@ button:disabled {
     width: 24px;
   }
 
-  .weekStats {
-    grid-template-columns: 1fr;
-  }
-
   .actionPanel,
   .fitDropzone {
     grid-template-columns: 1fr;
@@ -3573,8 +4432,20 @@ button:disabled {
   }
 
   .coachComposer {
-    grid-template-columns: minmax(0, 1fr) 42px 42px;
     bottom: calc(94px + env(safe-area-inset-bottom));
+  }
+
+  .composerActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dictationStatusLine {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dictationStatusLine small {
+    text-align: left;
   }
 
   .authForm,

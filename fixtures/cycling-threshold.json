@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Ciclismo umbral", "session_type": "cycling", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "bike_interval", "block_format": "interval", "primary_measurement_type": "power", "items": [{ "order_index": 1, "item_type": "interval_task", "item_name": "4 x 8 min Z4", "rest_s": 240, "exercises": [{ "exercise_id": "cycling", "display_name": "Bici Z4", "measurement_type": "power", "target_duration_s": 480, "missing_fields": ["power_w"] }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

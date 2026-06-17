@@ -1,0 +1,25 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "EMOM 20", "session_type": "functional_fitness", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    {
+      "order_index": 1,
+      "block_type": "emom",
+      "block_format": "emom",
+      "primary_measurement_type": "emom",
+      "duration_s": 1200,
+      "items": [
+        { "order_index": 1, "item_type": "emom_minute", "minute_slot": 1, "item_name": "Row 12 cal", "exercises": [{ "exercise_id": "rowing_ergometer", "display_name": "Row", "measurement_type": "calories", "target_reps": 12 }] },
+        { "order_index": 2, "item_type": "emom_minute", "minute_slot": 2, "item_name": "Push-ups", "exercises": [{ "exercise_id": "push_up", "display_name": "Push-ups", "measurement_type": "reps_only", "target_reps": 10 }] },
+        { "order_index": 3, "item_type": "emom_minute", "minute_slot": 3, "item_name": "KB swings", "exercises": [{ "exercise_id": "kettlebell_swing", "display_name": "KB swings", "measurement_type": "reps_only", "target_reps": 12 }] },
+        { "order_index": 4, "item_type": "rest", "minute_slot": 4, "item_name": "Rest", "exercises": [] }
+      ]
+    }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

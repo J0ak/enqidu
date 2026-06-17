@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Prehab core", "session_type": "prehab", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": { "pain_score_before": null, "pain_score_after": null },
+  "blocks": [
+    { "order_index": 1, "block_type": "prehab", "block_format": "circuit", "primary_measurement_type": "reps_per_side", "items": [{ "order_index": 1, "item_type": "exercise_direct", "item_name": "Bird dog", "exercises": [{ "exercise_id": "bird_dog", "display_name": "Bird dog", "measurement_type": "reps_per_side", "target_reps_per_side": 8 }] }, { "order_index": 2, "item_type": "exercise_direct", "item_name": "Dead bug", "exercises": [{ "exercise_id": "dead_bug", "display_name": "Dead bug", "measurement_type": "reps_per_side", "target_reps_per_side": 8 }] }, { "order_index": 3, "item_type": "exercise_direct", "item_name": "Pallof press", "exercises": [{ "exercise_id": "pallof_press", "display_name": "Pallof press", "measurement_type": "reps_per_side", "target_reps_per_side": 10 }] }] }
+  ],
+  "missing_fields": ["pain_score_before", "pain_score_after"],
+  "summary_metrics": {},
+  "source_links": []
+}

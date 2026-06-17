@@ -38,7 +38,7 @@ export default function ConversationEnrichmentDemo() {
           <p className="adminEyebrow">ENQIDU · Admin demo</p>
           <h1>Conversational enrichment pilot</h1>
           <p>
-            Enriquece la sesion FIT de fuerza del 06/06 con bloques,
+            Enriquece la sesión FIT de fuerza del 06/06 con bloques,
             ejercicios, notas conversacionales y coste estimado IA.
           </p>
         </header>

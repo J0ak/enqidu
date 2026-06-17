@@ -1,0 +1,151 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": {
+    "title": "Sesión mixta suave",
+    "session_type": "mixed",
+    "status": "performed",
+    "total_duration_s": 1140
+  },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    {
+      "order_index": 1,
+      "block_type": "mobility",
+      "block_format": "mobility_flow",
+      "primary_measurement_type": "duration",
+      "duration_s": 480,
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "exercise_direct",
+          "item_name": "Respiración diafragmática",
+          "exercises": [
+            {
+              "exercise_id": "diaphragmatic_breathing",
+              "display_name": "Respiración diafragmática",
+              "measurement_type": "breathing",
+              "target_duration_s": 120,
+              "performed_sets": [{ "set_index": 1, "duration_s": 120, "completed": true }]
+            }
+          ]
+        },
+        {
+          "order_index": 2,
+          "item_type": "exercise_direct",
+          "item_name": "Puente de gluteo",
+          "exercises": [
+            {
+              "exercise_id": "glute_bridge",
+              "display_name": "Puente de gluteo",
+              "measurement_type": "reps_only",
+              "missing_fields": ["sets", "reps"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_index": 2,
+      "block_type": "mixed",
+      "block_format": "circuit",
+      "primary_measurement_type": "rounds",
+      "rounds": 2,
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "station",
+          "station_label": "Estación 1",
+          "item_name": "Monster walk lateral",
+          "exercises": [
+            {
+              "exercise_id": "lateral_monster_walk",
+              "display_name": "Monster walk lateral",
+              "measurement_type": "reps_per_side",
+              "missing_fields": ["reps_per_side"]
+            }
+          ]
+        },
+        {
+          "order_index": 2,
+          "item_type": "station",
+          "station_label": "Estación 2",
+          "item_name": "Remo unilateral",
+          "exercises": [
+            {
+              "exercise_id": "single_arm_row",
+              "display_name": "Remo unilateral",
+              "measurement_type": "sets_reps_load",
+              "missing_fields": ["reps", "load_kg"]
+            }
+          ]
+        },
+        {
+          "order_index": 3,
+          "item_type": "station",
+          "station_label": "Estación 3",
+          "item_name": "Press anti-rotacion",
+          "exercises": [
+            {
+              "exercise_id": "pallof_press",
+              "display_name": "Press anti-rotacion",
+              "measurement_type": "reps_per_side",
+              "missing_fields": ["reps_per_side"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_index": 3,
+      "block_type": "conditioning",
+      "block_format": "continuous",
+      "primary_measurement_type": "cardio_duration_distance",
+      "duration_s": 360,
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "exercise_direct",
+          "item_name": "Remo ergometro",
+          "exercises": [
+            {
+              "exercise_id": "rowing_ergometer",
+              "display_name": "Remo ergometro",
+              "measurement_type": "cardio_duration_distance",
+              "target_duration_s": 360,
+              "missing_fields": ["distance_m"],
+              "performed_sets": [{ "set_index": 1, "duration_s": 360, "completed": true }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order_index": 4,
+      "block_type": "cooldown",
+      "block_format": "breathing_flow",
+      "primary_measurement_type": "duration",
+      "duration_s": 300,
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "breathing_task",
+          "item_name": "Respiración suave",
+          "exercises": [
+            {
+              "exercise_id": "diaphragmatic_breathing",
+              "display_name": "Respiración suave",
+              "measurement_type": "breathing",
+              "target_duration_s": 300,
+              "performed_sets": [{ "set_index": 1, "duration_s": 300, "completed": true }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

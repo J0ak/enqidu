@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Natación main set", "session_type": "swimming", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "swim_main_set", "block_format": "laps", "primary_measurement_type": "swim_set", "items": [{ "order_index": 1, "item_type": "lap", "item_name": "10 x 100 m crol", "rest_s": 20, "exercises": [{ "exercise_id": "freestyle_swim", "display_name": "Crol", "measurement_type": "swim_set", "target_reps": 10, "target_distance_m": 100, "performed_sets": [{ "set_index": 1, "distance_m": 1000, "duration_s": 1200, "completed": true }] }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

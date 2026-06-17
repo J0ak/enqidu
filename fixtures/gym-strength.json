@@ -1,0 +1,55 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Fuerza principal", "session_type": "strength", "status": "performed" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    {
+      "order_index": 1,
+      "block_type": "strength_main",
+      "block_format": "straight_sets",
+      "primary_measurement_type": "sets_reps_load",
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "exercise_direct",
+          "item_name": "Front squat",
+          "exercises": [
+            {
+              "exercise_id": "front_squat",
+              "display_name": "Front squat",
+              "measurement_type": "sets_reps_load",
+              "performed_sets": [
+                { "set_index": 1, "reps": 5, "load_kg": 55, "completed": true },
+                { "set_index": 2, "reps": 5, "load_kg": 55, "completed": true },
+                { "set_index": 3, "reps": 5, "load_kg": 55, "completed": true },
+                { "set_index": 4, "reps": 5, "load_kg": 55, "completed": true }
+              ]
+            }
+          ]
+        },
+        {
+          "order_index": 2,
+          "item_type": "exercise_direct",
+          "item_name": "RDL",
+          "exercises": [
+            {
+              "exercise_id": "romanian_deadlift",
+              "display_name": "RDL",
+              "measurement_type": "sets_reps_load",
+              "performed_sets": [
+                { "set_index": 1, "reps": 8, "load_kg": 70, "completed": true },
+                { "set_index": 2, "reps": 8, "load_kg": 70, "completed": true },
+                { "set_index": 3, "reps": 8, "load_kg": 70, "completed": true }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

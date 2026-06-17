@@ -1,0 +1,32 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Hipertrofia torso", "session_type": "hypertrophy", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    {
+      "order_index": 1,
+      "block_type": "hypertrophy",
+      "block_format": "straight_sets",
+      "primary_measurement_type": "sets_reps_load",
+      "items": [
+        {
+          "order_index": 1,
+          "item_type": "exercise_direct",
+          "item_name": "Press banca",
+          "exercises": [{ "exercise_id": "bench_press", "display_name": "Press banca", "measurement_type": "sets_reps_load", "target_reps": 8, "missing_fields": ["load_kg"] }]
+        },
+        {
+          "order_index": 2,
+          "item_type": "exercise_direct",
+          "item_name": "Remo unilateral",
+          "exercises": [{ "exercise_id": "single_arm_row", "display_name": "Remo unilateral", "measurement_type": "sets_reps_load", "target_reps": 10, "missing_fields": ["load_kg"] }]
+        }
+      ]
+    }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

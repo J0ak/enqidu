@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Movilidad recuperación", "session_type": "mobility", "status": "planned", "total_duration_s": 1500 },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "mobility", "block_format": "mobility_flow", "primary_measurement_type": "duration", "duration_s": 1500, "items": [{ "order_index": 1, "item_type": "mobility_task", "item_name": "Hip flexor stretch", "exercises": [{ "exercise_id": "hip_flexor_stretch", "display_name": "Hip flexor stretch", "measurement_type": "mobility_hold", "target_duration_s": 120 }] }, { "order_index": 2, "item_type": "mobility_task", "item_name": "Cat-cow", "exercises": [{ "exercise_id": "cat_cow", "display_name": "Cat-cow", "measurement_type": "reps_only", "missing_fields": ["reps"] }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

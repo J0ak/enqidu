@@ -1,0 +1,14 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Sesión híbrida", "session_type": "hybrid", "status": "planned" },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "strength_main", "block_format": "straight_sets", "primary_measurement_type": "sets_reps_load", "items": [{ "order_index": 1, "item_type": "exercise_direct", "item_name": "Front squat", "exercises": [{ "exercise_id": "front_squat", "display_name": "Front squat", "measurement_type": "sets_reps_load", "target_reps": 5, "missing_fields": ["load_kg"] }] }] },
+    { "order_index": 2, "block_type": "conditioning", "block_format": "interval", "primary_measurement_type": "cardio_duration_distance", "items": [{ "order_index": 1, "item_type": "interval_task", "item_name": "Row intervals", "exercises": [{ "exercise_id": "rowing_ergometer", "display_name": "Remo ergometro", "measurement_type": "cardio_duration_distance", "target_duration_s": 360, "missing_fields": ["distance_m"] }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

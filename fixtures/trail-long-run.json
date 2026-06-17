@@ -1,0 +1,13 @@
+{
+  "schema_version": "enqidu_training_session_v1",
+  "session": { "title": "Trail Z2 largo", "session_type": "trail_running", "status": "planned", "total_duration_s": 5400 },
+  "planned": {},
+  "performed": {},
+  "interpreted": {},
+  "blocks": [
+    { "order_index": 1, "block_type": "z2", "block_format": "continuous", "primary_measurement_type": "cardio_duration_distance", "duration_s": 5400, "items": [{ "order_index": 1, "item_type": "segment", "item_name": "Trail Z2", "exercises": [{ "exercise_id": "trail_running", "display_name": "Trail Z2", "measurement_type": "cardio_duration_distance", "target_duration_s": 5400, "missing_fields": ["distance_m", "elevation_gain_m"] }] }] }
+  ],
+  "missing_fields": [],
+  "summary_metrics": {},
+  "source_links": []
+}

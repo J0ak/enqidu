@@ -8,4 +8,5 @@ vite.out.log
 .codex-remote-attachments/
 .vite/
 .cache/
+.cert/
 .DS_Store

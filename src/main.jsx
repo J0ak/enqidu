@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import JSZip from "jszip";
 import FitParser from "fit-file-parser";
@@ -6,6 +6,8 @@ import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
+import { buildTrainingSessionCardView } from "@/training/smartCardView";
+import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import {
   Activity,
   ArrowLeft,
@@ -37,6 +39,7 @@ import {
   MoreVertical,
   Mountain,
   Moon,
+  Pause,
   Plus,
   Play,
   RefreshCw,
@@ -44,6 +47,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   Trophy,
   UserRound,
   Watch,
@@ -60,16 +64,17 @@ const storageKeys = {
   fitImports: "enqidu.fit-imports",
   messages: "enqidu.messages",
   backoffice: "enqidu.backoffice",
+  coachDraft: "enqidu.coach-dictation-draft",
 };
 
 const profileSeed = {
-  name: "Joaquin",
-  avatar: "JQ",
-  primaryGoal: "Boyle base -> HYROX race engine",
-  readinessBias: "Performance with recovery guardrails",
+  name: "Usuario",
+  avatar: "EQ",
+  primaryGoal: "Entrenamiento multimodal sostenible",
+  readinessBias: "Rendimiento con margen de recuperación",
   garminMode: "FIT assisted capture",
   garminStatus: "Pending official Garmin integration",
-  weekTarget: "4 strength + 2 engine + 1 trail",
+  weekTarget: "Fuerza + cardio + movilidad",
 };
 
 const disciplineOrder = ["boyle", "hyrox", "deka", "trail", "crossfit"];
@@ -83,7 +88,7 @@ const disciplines = {
     focus: "Movement quality, strength hygiene, durable engine.",
     score: 86,
     cards: [
-      ["Readiness", "86", "/100", "Prime", 86, "Alta ventana de adaptacion"],
+      ["Readiness", "86", "/100", "Prime", 86, "Alta ventana de adaptación"],
       ["Tissue Load", "Low", "", "Safe", 32, "Sin alarmas de impacto"],
       ["Mobility", "14", "min", "Due", 58, "Cadera y T-spine"],
       ["Strength Base", "78", "%", "Build", 78, "Bisagra + unilateral"],
@@ -144,7 +149,7 @@ const disciplines = {
     score: 77,
     cards: [
       ["Metcon Load", "77", "%", "Go", 77, "Ventana moderada"],
-      ["Skill Freshness", "61", "%", "Build", 61, "Gimnastico tecnico"],
+      ["Skill Freshness", "61", "%", "Build", 61, "Gimnástico técnico"],
       ["Barbell Speed", "0.72", "m/s", "OK", 70, "Mantener forma"],
       ["Recovery Cost", "18", "h", "Fine", 58, "No competir hoy"],
     ],
@@ -155,12 +160,43 @@ const disciplines = {
 const activityTypes = {
   all: { label: "Todas", color: "#9ca3af" },
   run: { label: "Correr", color: "#42a5ff" },
-  swim: { label: "Natacion", color: "#25d7e6" },
+  trail: { label: "Trail running", color: "#6ee36b" },
+  swim: { label: "Natación", color: "#25d7e6" },
   hiit: { label: "HIIT", color: "#d6ff35" },
-  hybrid: { label: "Hibrido", color: "#d6ff35" },
+  hybrid: { label: "Híbrido", color: "#d6ff35" },
   strength: { label: "Fuerza", color: "#ff8a1f" },
   pilates: { label: "Pilates", color: "#c47dff" },
+  cycling: { label: "Ciclismo", color: "#f5c84b" },
+  multisport: { label: "Multideporte", color: "#8df018" },
+  other: { label: "Otro", color: "#9ca3af" },
 };
+
+const GARMIN_PRIMARY_ACTIVITY_FILTERS = [
+  ["hiit", "HIIT"],
+  ["strength", "Fuerza"],
+  ["pilates", "Pilates"],
+  ["running", "Carrera"],
+  ["trail_running", "Trail running"],
+  ["lap_swimming", "Natación en piscina"],
+  ["multisport", "Multideporte"],
+  ["cycling", "Ciclismo"],
+  ["other", "Otro"],
+];
+
+const GARMIN_NUMERIC_ACTIVITY_TYPES = {
+  62: "hiit",
+};
+
+const GARMIN_ACTIVITY_ALIASES = [
+  ["trail_running", ["trail_running", "trail_run", "trailrunning", "trail"]],
+  ["lap_swimming", ["lap_swimming", "lapswimming", "pool_swimming", "swimming_pool", "pool_swim", "lap_swim", "natacion_piscina", "natacion_en_piscina", "natacion", "piscina", "swimming"]],
+  ["cycling", ["cycling", "cycle", "bike", "biking", "ciclismo", "road_biking", "mountain_biking", "mountain_bike", "e_biking"]],
+  ["multisport", ["multisport", "multi_sport", "multideporte"]],
+  ["strength", ["strength_training", "strength", "entreno_de_fuerza", "fuerza", "weight_training", "weights", "training", "fitness_equipment"]],
+  ["pilates", ["pilates"]],
+  ["hiit", ["hiit", "interval_training", "interval", "workout", "cardio_training", "cardio"]],
+  ["running", ["running", "run", "carrera", "correr"]],
+];
 
 const TARGET_BACKFILL_SESSION_ID = "eedf9854-3176-4d82-b8df-c2bdf1ab1df3";
 const garminHrZoneSnapshot = [
@@ -185,12 +221,12 @@ const activityCardMetadata = [
   },
   {
     id: "heart",
-    title: "Frecuencia cardiaca",
+    title: "Frecuencia cardíaca",
     hiddenWhenTimeline: true,
     type: "keyValue",
     fields: [
-      { label: "Frecuencia cardiaca media", path: "session.avg_hr", suffix: " ppm" },
-      { label: "Frecuencia cardiaca maxima", path: "session.max_hr", suffix: " ppm" },
+      { label: "Frecuencia cardíaca media", path: "session.avg_hr", suffix: " ppm" },
+      { label: "Frecuencia cardíaca maxima", path: "session.max_hr", suffix: " ppm" },
     ],
   },
   { id: "hr_timeline", title: "Frecuencia cardíaca", type: "timeline", sampleKey: "heart_rate_bpm", unit: "ppm" },
@@ -199,9 +235,9 @@ const activityCardMetadata = [
     title: "Training Effect",
     type: "trainingEffect",
     fields: [
-      { label: "Beneficio principal", path: "session.benefit", fallback: "Sprint (Anaerobico)" },
-      { label: "Aerobica", path: "session.training_effect_aerobic" },
-      { label: "Anaerobico", path: "session.training_effect_anaerobic" },
+      { label: "Beneficio principal", path: "session.benefit", fallback: "Sprint (Anaeróbico)" },
+      { label: "Aeróbica", path: "session.training_effect_aerobic" },
+      { label: "Anaeróbico", path: "session.training_effect_anaerobic" },
       { label: "Carga de ejercicio", path: "session.exercise_load" },
     ],
   },
@@ -211,9 +247,9 @@ const activityCardMetadata = [
     title: "Nutrición e hidratación",
     type: "keyValue",
     fields: [
-      { label: "Calorias en reposo", path: "session.calories_resting" },
-      { label: "Calorias activas", path: "session.calories_active" },
-      { label: "Calorias totales", path: "session.calories_total" },
+      { label: "Calorías en reposo", path: "session.calories_resting" },
+      { label: "Calorías activas", path: "session.calories_active" },
+      { label: "Calorías totales", path: "session.calories_total" },
       { label: "Perdida de liquidos estimada", path: "session.fluid_loss_ml", suffix: " ml" },
     ],
   },
@@ -388,6 +424,201 @@ async function fetchHeartRateZoneProfile(userId) {
   return { data: result.data, error: null };
 }
 
+async function fetchCanonicalTrainingSession(latestSession) {
+  if (!supabase || !latestSession?.id) return { ready: false, session: null, reason: "missing_session" };
+
+  const sessionResult = await supabase
+    .from("training_sessions")
+    .select("id,title,session_kind,duration_seconds,canonical_session,summary_metrics,completion_score,universal_schema_version")
+    .eq("id", latestSession.id)
+    .maybeSingle();
+
+  if (sessionResult.error) {
+    return { ready: false, session: null, reason: "canonical_columns_unavailable", error: sessionResult.error.message };
+  }
+
+  const canonicalJson = sessionResult.data?.canonical_session;
+  if (canonicalJson?.schema_version === "enqidu_training_session_v1" && Array.isArray(canonicalJson.blocks) && canonicalJson.blocks.length) {
+    return {
+      ready: true,
+      source: "training_sessions.canonical_session",
+      session: {
+        ...canonicalJson,
+        session: {
+          ...(canonicalJson.session || {}),
+          id: latestSession.id,
+          title: canonicalJson.session?.title || latestSession.title,
+          total_duration_s: canonicalJson.session?.total_duration_s ?? latestSession.duration_seconds,
+        },
+      },
+    };
+  }
+
+  const blocksResult = await supabase
+    .from("session_blocks")
+    .select("id,order_index,block_order,block_type,block_format,primary_measurement_type,name,duration_seconds,rounds,rounds_completed,time_cap_s,summary_metrics")
+    .eq("session_id", latestSession.id)
+    .order("order_index", { ascending: true, nullsFirst: false })
+    .order("block_order", { ascending: true, nullsFirst: false });
+
+  if (blocksResult.error) {
+    return { ready: false, session: null, reason: "canonical_block_columns_unavailable", error: blocksResult.error.message };
+  }
+
+  const blockRows = blocksResult.data || [];
+  if (!blockRows.length) return { ready: false, session: null, reason: "no_blocks" };
+
+  const blockIds = blockRows.map((block) => block.id).filter(Boolean);
+  if (!blockIds.length) return { ready: false, session: null, reason: "no_block_ids" };
+
+  const itemsResult = await supabase
+    .from("block_items")
+    .select("id,block_id,order_index,item_type,item_name,station_label,round_index,minute_slot,duration_s,rest_s,summary_metrics")
+    .in("block_id", blockIds)
+    .order("order_index", { ascending: true });
+
+  if (itemsResult.error) {
+    return { ready: false, session: null, reason: "canonical_items_unavailable", error: itemsResult.error.message };
+  }
+
+  const itemRows = itemsResult.data || [];
+  if (!itemRows.length) return { ready: false, session: null, reason: "no_canonical_items" };
+
+  const itemIds = itemRows.map((item) => item.id).filter(Boolean);
+  const exercisesResult = itemIds.length
+    ? await supabase
+        .from("item_exercises")
+        .select("id,block_item_id,exercise_id,order_index,display_name,measurement_type,target_reps,target_reps_per_side,target_load_kg,target_duration_s,target_distance_m,missing_fields,summary_metrics")
+        .in("block_item_id", itemIds)
+        .order("order_index", { ascending: true })
+    : { data: [], error: null };
+
+  if (exercisesResult.error) {
+    return { ready: false, session: null, reason: "canonical_exercises_unavailable", error: exercisesResult.error.message };
+  }
+
+  const exerciseRows = exercisesResult.data || [];
+  const exerciseIds = exerciseRows.map((exercise) => exercise.id).filter(Boolean);
+  const [setsResult, metricsResult] = exerciseIds.length
+    ? await Promise.all([
+        supabase
+          .from("performed_sets")
+          .select("id,item_exercise_id,set_index,reps,reps_left,reps_right,load_kg,duration_s,distance_m,rpe,rir,rest_s,completed")
+          .in("item_exercise_id", exerciseIds)
+          .order("set_index", { ascending: true }),
+        supabase
+          .from("performed_metrics")
+          .select("id,item_exercise_id,metric_name,metric_value,metric_unit,confidence")
+          .in("item_exercise_id", exerciseIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+
+  if (setsResult.error || metricsResult.error) {
+    return {
+      ready: false,
+      session: null,
+      reason: "canonical_performed_data_unavailable",
+      error: setsResult.error?.message || metricsResult.error?.message,
+    };
+  }
+
+  const itemsByBlock = groupBy(itemRows, "block_id");
+  const exercisesByItem = groupBy(exerciseRows, "block_item_id");
+  const setsByExercise = groupBy(setsResult.data || [], "item_exercise_id");
+  const metricsByExercise = groupBy(metricsResult.data || [], "item_exercise_id");
+  const canonical = {
+    schema_version: "enqidu_training_session_v1",
+    session: {
+      id: latestSession.id,
+      title: sessionResult.data?.title || latestSession.title || "Sesión",
+      session_type: canonicalSessionType(latestSession.session_kind),
+      total_duration_s: sessionResult.data?.duration_seconds ?? latestSession.duration_seconds,
+      summary_metrics: sessionResult.data?.summary_metrics || {},
+    },
+    planned: {},
+    performed: {},
+    interpreted: {},
+    blocks: blockRows.map((block, index) => ({
+      id: block.id,
+      block_id: block.id,
+      order_index: block.order_index || block.block_order || index + 1,
+      name: block.name,
+      block_type: block.block_type || "mixed",
+      block_format: block.block_format || "mixed",
+      primary_measurement_type: block.primary_measurement_type || "mixed",
+      duration_s: block.duration_seconds,
+      rounds: block.rounds ?? block.rounds_completed,
+      time_cap_s: block.time_cap_s,
+      summary_metrics: block.summary_metrics || {},
+      items: (itemsByBlock.get(block.id) || []).map((item) => ({
+        id: item.id,
+        block_item_id: item.id,
+        order_index: item.order_index,
+        item_type: item.item_type,
+        item_name: item.item_name,
+        station_label: item.station_label,
+        round_index: item.round_index,
+        minute_slot: item.minute_slot,
+        duration_s: item.duration_s,
+        rest_s: item.rest_s,
+        summary_metrics: item.summary_metrics || {},
+        exercises: (exercisesByItem.get(item.id) || []).map((exercise) => ({
+          id: exercise.id,
+          item_exercise_id: exercise.id,
+          exercise_id: exercise.exercise_id,
+          canonical_slug: exercise.exercise_id,
+          order_index: exercise.order_index,
+          display_name: exercise.display_name,
+          measurement_type: exercise.measurement_type,
+          target_reps: exercise.target_reps,
+          target_reps_per_side: exercise.target_reps_per_side,
+          target_load_kg: exercise.target_load_kg,
+          target_duration_s: exercise.target_duration_s,
+          target_distance_m: exercise.target_distance_m,
+          missing_fields: exercise.missing_fields || [],
+          summary_metrics: exercise.summary_metrics || {},
+          performed_sets: setsByExercise.get(exercise.id) || [],
+          performed_metrics: metricsByExercise.get(exercise.id) || [],
+        })),
+      })),
+    })),
+    missing_fields: [],
+    summary_metrics: sessionResult.data?.summary_metrics || {},
+    source_links: [],
+  };
+
+  return {
+    ready: true,
+    source: "canonical_relational_tables",
+    session: canonical,
+  };
+}
+
+function groupBy(rows = [], key) {
+  return rows.reduce((map, row) => {
+    const value = row[key];
+    if (!map.has(value)) map.set(value, []);
+    map.get(value).push(row);
+    return map;
+  }, new Map());
+}
+
+function canonicalSessionType(value) {
+  const text = `${value || ""}`.toLowerCase();
+  if (text.includes("run") || text.includes("correr")) return text.includes("trail") ? "trail_running" : "running";
+  if (text.includes("swim") || text.includes("nataci")) return "swimming";
+  if (text.includes("bike") || text.includes("cycling") || text.includes("cicl")) return "cycling";
+  if (text.includes("strength") || text.includes("fuerza")) return "strength";
+  if (text.includes("hypertrophy") || text.includes("hipertrof")) return "hypertrophy";
+  if (text.includes("mobility") || text.includes("movilidad")) return "mobility";
+  if (text.includes("rehab")) return "rehab";
+  if (text.includes("prehab")) return "prehab";
+  if (text.includes("hiit")) return "hiit";
+  if (text.includes("crossfit")) return "crossfit_style";
+  if (text.includes("trail")) return "trail_running";
+  return "mixed";
+}
+
 function App() {
   const [route, setRouteState] = useState(getInitialRoute);
   const [discipline, setDiscipline] = useState("boyle");
@@ -427,6 +658,7 @@ function App() {
       enrichmentResult,
       exercisesResult,
       zoneProfileResult,
+      canonicalResult,
     ] = await Promise.all([
       supabase
         .from("session_metrics")
@@ -459,12 +691,15 @@ function App() {
         .eq("session_id", latestSession.id)
         .order("exercise_order", { ascending: true }),
       fetchHeartRateZoneProfile(detailUserId),
+      fetchCanonicalTrainingSession(latestSession),
     ]);
 
     const metrics = indexMetrics(metricsResult.data || []);
     const samples = mergeTemporalSamples(samplesResult.data || [], fitRecordsResult.data || []);
     const fitSessionPayload = fitSessionResult.data || {};
     const summary = latestSession.session_structure?.garmin_fit_summary || {};
+    const enrichmentPayload = enrichmentResult.data?.payload || {};
+    const executiveSummaryTable = resolveExecutiveSummaryTable(latestSession.session_structure, enrichmentPayload);
     const trainingEffect = summary.training_effect || {};
     const calories = summary.calories || {};
     const heartRate = summary.heart_rate || {};
@@ -483,7 +718,7 @@ function App() {
     const objectiveRows = lapsResult.error ? [] : lapsResult.data || [];
     const activityTime = getActivityTimeMetrics(latestSession, metrics, blocksResult.data || [], summary, duration, fitSessionPayload, objectiveRows);
     const garminOriginalTitle = originalGarminTitle(latestSession, summary);
-    const title = latestSession.title || garminOriginalTitle || "Actividad";
+    const title = repairMojibakeText(latestSession.title || garminOriginalTitle || "Actividad");
     const heartRateZones = resolveActivityHeartRateZones({
       reported: summary.heart_rate_zones_reported,
       profile: zoneProfileResult.data,
@@ -504,7 +739,7 @@ function App() {
       session: {
         id: latestSession.id,
         title,
-        garmin_original_title: garminOriginalTitle,
+        garmin_original_title: repairMojibakeText(garminOriginalTitle),
         external_reference: latestSession.external_reference || summary.fit_identity?.external_reference || null,
         source_id: latestSession.source_id || null,
         fit_identity: summary.fit_identity || null,
@@ -544,6 +779,11 @@ function App() {
       blocks: renderBlocks,
       garminBlocks,
       garminSeries,
+      sessionStructure: latestSession.session_structure || {},
+      enrichmentPayload,
+      executiveSummaryTable,
+      canonicalTrainingSession: canonicalResult.session,
+      universalTrainingIntegration: canonicalResult,
       hasConversationBlocks: renderBlocks.length > 0,
       samples,
       respirationSamples: respiration.samples,
@@ -699,7 +939,7 @@ function App() {
         ...current,
         name: profileResult.data.display_name || current.name,
         primaryGoal: profileResult.data.primary_goal || current.primaryGoal,
-        weekTarget: `${profileResult.data.weekly_days ?? "?"} dias · ${profileResult.data.typical_minutes ?? "?"} min`,
+        weekTarget: `${profileResult.data.weekly_days ?? "?"} días · ${profileResult.data.typical_minutes ?? "?"} min`,
         garminMode: profileResult.data.uses_wearables ? "Wearables enabled" : current.garminMode,
       }));
     }
@@ -882,7 +1122,7 @@ function App() {
 
 function routeLabel(route) {
   return {
-    health: "Salud y recuperacion",
+    health: "Salud y recuperación",
     activities: "Historial de actividades",
     activityDetail: "Detalle Garmin/FIT",
     coach: "Coach",
@@ -939,7 +1179,7 @@ function HomeView({ discipline, health, sessions, setRoute, dataState }) {
         ))}
       </ActionPanel>
       <section className="panel">
-        <PanelTitle label="Activity" title="Ultimas sesiones" />
+        <PanelTitle label="Activity" title="Últimas sesiones" />
         <SessionList sessions={sessions} />
       </section>
       <section className="dataBanner">
@@ -1084,7 +1324,7 @@ function GarminHighlights({ health, sleep, readiness }) {
             <strong>{readiness.score}</strong>
           </div>
           <h3>{readiness.score >= 78 ? "Alta" : readiness.score >= 62 ? "Aceptable" : "Bajo"}</h3>
-          <p>{readiness.score >= 78 ? "Puedes construir" : readiness.score >= 62 ? "Tomatelo con calma" : "Recuperacion primero"}</p>
+          <p>{readiness.score >= 78 ? "Puedes construir" : readiness.score >= 62 ? "Tómatelo con calma" : "Recuperación primero"}</p>
           <div className="garminFactorGrid">
             {sleep.hasSleepData && <InfoPair label="Sueño" value={sleep.quality} />}
             {health.body_battery_current != null && <InfoPair label="Body Battery" value={battery} />}
@@ -1227,7 +1467,7 @@ function MiniRing({ value, label }) {
 function SleepCard({ sleep }) {
   return (
     <article className="panel healthPanel">
-      <PanelTitle label="Sleep architecture" title="Recuperacion nocturna" />
+      <PanelTitle label="Sleep architecture" title="Recuperación nocturna" />
       <div className="sleepHeader">
         <strong>{sleep.duration}</strong>
         <span>{sleep.score}/100 · {sleep.quality}</span>
@@ -1270,12 +1510,20 @@ function EnergyTimeline({ curve }) {
 function ActivityView({ activityDetail, onBack, onRenameSession }) {
   if (!activityDetail?.session) return <ActivityDetailSkeleton />;
   if (activityDetail.session.session_status === "archived") return <ArchivedSessionNotice detail={activityDetail} />;
+  const conversationView = buildConversationActivityView(activityDetail);
+  const hasConversationView = Boolean(conversationView?.blocks?.length);
   return (
     <section className="activityDetailView">
-      <ActivityDetailHeader detail={activityDetail} onBack={onBack} onRenameSession={onRenameSession} />
+      <ActivityDetailHeader
+        detail={activityDetail}
+        onBack={onBack}
+        onRenameSession={onRenameSession}
+        minimal={hasConversationView}
+        subtitle={conversationView?.subtitle}
+      />
       <ActivitySummaryMetrics detail={activityDetail} />
+      {hasConversationView && <ConversationActivityCard view={conversationView} />}
       <PhysiologyCard detail={activityDetail} />
-      <CoachLogCard detail={activityDetail} />
       <ActivityTrainingEffectCard detail={activityDetail} />
     </section>
   );
@@ -1331,15 +1579,20 @@ function ActivitySummaryCard({ detail }) {
   );
 }
 
-function ActivityDetailHeader({ detail, onBack, onRenameSession }) {
+function ActivityDetailHeader({ detail, onBack, onRenameSession, minimal = false, subtitle = "" }) {
   const session = detail.session || {};
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(session.title || "");
   const [status, setStatus] = useState("");
+  const isEditing = editing && !minimal;
 
   useEffect(() => {
     setDraft(session.title || "");
   }, [session.title]);
+
+  useEffect(() => {
+    if (minimal && editing) setEditing(false);
+  }, [minimal, editing]);
 
   const save = async (event) => {
     event.preventDefault();
@@ -1364,7 +1617,7 @@ function ActivityDetailHeader({ detail, onBack, onRenameSession }) {
         <ArrowLeft size={22} />
       </button>
       <div className="activityTitleBlock">
-        {editing ? (
+        {isEditing ? (
           <form className="activityTitleForm" onSubmit={save}>
             <input value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Nombre de la sesión" autoFocus />
             <button type="submit" className="detailIconButton" aria-label="Guardar nombre">
@@ -1374,23 +1627,24 @@ function ActivityDetailHeader({ detail, onBack, onRenameSession }) {
         ) : (
           <div className="activityTitleLine">
             <h1>{session.title}</h1>
-            <button type="button" className="inlineEditButton" onClick={() => setEditing(true)} aria-label="Renombrar sesión">
+            {!minimal && <button type="button" className="inlineEditButton" onClick={() => setEditing(true)} aria-label="Renombrar sesión">
               <Edit3 size={17} />
-            </button>
+            </button>}
           </div>
         )}
-        <p>{formatActivityDateTime(session.started_at, session.local_date)}</p>
-        {session.garmin_original_title && session.garmin_original_title !== session.title && <small>Garmin: {session.garmin_original_title}</small>}
+        {subtitle && <p>{subtitle}</p>}
+        <p>{[formatActivityDateTime(session.started_at, session.local_date), readableSessionStatus(session.session_status)].filter(Boolean).join(" · ")}</p>
+        {!minimal && session.garmin_original_title && session.garmin_original_title !== session.title && <small>Garmin: {session.garmin_original_title}</small>}
         {status && <small>{status}</small>}
       </div>
-      <div className="activityHeaderActions">
+      {!minimal && <div className="activityHeaderActions">
         <button type="button" className="detailIconButton" aria-label="Descargar">
           <Download size={19} />
         </button>
-        <button type="button" className="detailIconButton" aria-label="Más opciones">
+        <button type="button" className="detailIconButton" aria-label="Mas opciones">
           <MoreVertical size={19} />
         </button>
-      </div>
+      </div>}
     </header>
   );
 }
@@ -1431,6 +1685,754 @@ function numberMetricTile(label, value, icon, tone, unit = "") {
   const number = optionalNumber(value);
   if (number == null) return null;
   return { label, value: `${formatNumberValue(number)}${unit ? ` ${unit}` : ""}`, icon, tone };
+}
+
+function ConversationActivityCard({ view }) {
+  if (!view?.blocks?.length) return null;
+  return (
+    <article className="activityMainCard conversationActivityCard">
+      <section className="conversationSummary">
+        <span>Resumen</span>
+        <p>{view.summaryText}</p>
+        {view.compactLine && <small>{view.compactLine}</small>}
+      </section>
+
+      {view.keyChips.length > 0 && (
+        <section className="conversationKeyData" aria-label="Datos clave">
+          {view.keyChips.map((chip) => <span key={chip}>{chip}</span>)}
+        </section>
+      )}
+
+      <section className="conversationBlocks">
+        <h2>Bloques realizados</h2>
+        <div>
+          {view.blocks.map((block) => (
+            <details className="conversationBlockCard" key={block.id}>
+              <summary>
+                <span>{block.order}</span>
+                <div>
+                  <strong>{block.type}</strong>
+                  <p>{block.closedSummary}</p>
+                  <small>{block.volume}</small>
+                </div>
+                <ChevronRight size={18} />
+              </summary>
+              <div className="conversationBlockDetail">
+                <ConversationDetailLine label="Trabajo realizado" value={block.workPerformed} />
+                <ConversationDetailLine label="Volumen / dato clave" value={block.volume} />
+                <ConversationDetailLine label="Objetivo" value={block.objective} />
+                {block.pendingNote && <small className="conversationPendingNote">{block.pendingNote}</small>}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function ConversationDetailLine({ label, value }) {
+  if (!hasDisplayValue(value)) return null;
+  return (
+    <section>
+      <span>{label}</span>
+      <p>{value}</p>
+    </section>
+  );
+}
+
+function buildConversationActivityView(detail = {}) {
+  const executiveRows = normalizeExecutiveSummaryRows(detail.executiveSummaryTable);
+  if (executiveRows.length) return executiveRowsView(detail, executiveRows);
+  const legacyRows = legacyConversationRows(detail.blocks || []);
+  if (legacyRows.length) return executiveRowsView(detail, legacyRows, { source: "legacy" });
+  return null;
+}
+
+function executiveRowsView(detail, rows, options = {}) {
+  const blocks = rows.map((row, index) => {
+    const work = cleanText(row.work_performed || row.workPerformed || row.summary || row.name);
+    const volume = cleanText(row.volume_key_data || row.volumeKeyData || row.volume || row.data);
+    const objective = cleanText(row.objective || row.goal);
+    return {
+      id: row.id || `${options.source || "executive"}-${row.block || index + 1}`,
+      order: row.block || row.order || index + 1,
+      type: cleanText(row.type || row.name || `Bloque ${index + 1}`),
+      closedSummary: compactConversationText(work, 72),
+      workPerformed: work,
+      volume,
+      objective,
+      pendingNote: pendingNoteFromRow(row, volume),
+    };
+  });
+  return {
+    subtitle: conversationalActivitySubtitle(detail.session?.activity_type, detail.session?.title),
+    summaryText: resolveConversationSummary(detail, blocks),
+    compactLine: conversationCompactLine(blocks),
+    keyChips: conversationKeyChips(blocks),
+    blocks,
+  };
+}
+
+function normalizeExecutiveSummaryRows(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((row) => row && typeof row === "object")
+    .map((row, index) => ({
+      ...row,
+      block: row.block ?? row.block_order ?? row.order ?? index + 1,
+      type: row.type || row.block_type || row.name,
+      work_performed: row.work_performed || row.workPerformed || row.work || row.summary,
+      volume_key_data: row.volume_key_data || row.volumeKeyData || row.volume || row.key_data,
+      objective: row.objective || row.goal,
+    }))
+    .filter((row) => hasDisplayValue(row.type) || hasDisplayValue(row.work_performed) || hasDisplayValue(row.volume_key_data));
+}
+
+function legacyConversationRows(blocks = []) {
+  return blocks
+    .filter((block) => hasDisplayValue(block.name) || hasDisplayValue(block.summaryText) || hasDisplayValue(block.executionText))
+    .map((block, index) => {
+      const exercises = (block.exerciseDetails || []).map((exercise) => exercise.name).filter(Boolean).join(", ");
+      const volume = [
+        block.executionText,
+        block.temporal?.tiempo && block.temporal.tiempo !== "N/D" ? block.temporal.tiempo : null,
+      ].filter(Boolean).join(" · ");
+      return {
+        id: block.id || `legacy-${index + 1}`,
+        block: block.orderText && block.orderText !== "N/D" ? block.orderText : index + 1,
+        type: block.name || block.typeLabel || `Bloque ${index + 1}`,
+        work_performed: block.summaryText && block.summaryText !== "N/D" ? block.summaryText : exercises,
+        volume_key_data: volume || "Pendiente",
+        objective: block.sensationText && block.sensationText !== "N/D" ? block.sensationText : block.typeLabel,
+        pending_note: block.warningText,
+      };
+    });
+}
+
+function resolveExecutiveSummaryTable(sessionStructure = {}, enrichmentPayload = {}) {
+  return firstArray(
+    sessionStructure?.executive_summary_table,
+    sessionStructure?.conversation_summary?.executive_summary_table,
+    sessionStructure?.coach_summary?.executive_summary_table,
+    sessionStructure?.enrichment?.executive_summary_table,
+    enrichmentPayload?.executive_summary_table,
+    enrichmentPayload?.conversation_summary?.executive_summary_table,
+    enrichmentPayload?.coach_summary?.executive_summary_table,
+  );
+}
+
+function firstArray(...values) {
+  return values.find((value) => Array.isArray(value) && value.length) || [];
+}
+
+function resolveConversationSummary(detail, blocks) {
+  const candidates = [
+    detail.sessionStructure?.conversation_summary?.summary,
+    detail.sessionStructure?.conversation_summary?.text,
+    detail.sessionStructure?.summary,
+    detail.enrichmentPayload?.conversation_summary?.summary,
+    detail.enrichmentPayload?.summary,
+    detail.enrichmentPayload?.session_summary,
+  ];
+  const found = candidates.map(cleanText).find(Boolean);
+  if (found) return found;
+  const hybridCount = blocks.filter((block) => /h[ií]brido|hybrid/i.test(block.type)).length;
+  const circuitCount = blocks.filter((block) => /circuit/i.test(block.type)).length;
+  const types = [...new Set(blocks.map((block) => block.type).filter(Boolean))].slice(0, 3).join(", ");
+  if (hybridCount || circuitCount) {
+    return `Sesión híbrida full body con ${blocks.length} bloques${hybridCount ? `, ${hybridCount} híbridos` : ""}${circuitCount ? ` y ${circuitCount} circuito final` : ""}.`;
+  }
+  return `Sesión estructurada en ${blocks.length} bloques${types ? `: ${types}` : ""}.`;
+}
+
+function conversationCompactLine(blocks) {
+  const hybridCount = blocks.filter((block) => /h[ií]brido|hybrid/i.test(block.type)).length;
+  const circuitCount = blocks.filter((block) => /circuit/i.test(block.type)).length;
+  return [
+    `${blocks.length} bloques`,
+    hybridCount ? `${hybridCount} híbridos` : null,
+    circuitCount ? `${circuitCount} circuito final` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function conversationKeyChips(blocks) {
+  const chips = [];
+  blocks.forEach((block) => {
+    extractKeyChips(block.volume).forEach((chip) => {
+      if (chips.length < 6 && !chips.includes(chip)) chips.push(chip);
+    });
+  });
+  return chips;
+}
+
+function extractKeyChips(text = "") {
+  const source = cleanText(text);
+  if (!source || /sin tiempo exacto|pendiente/i.test(source)) return [];
+  const patterns = [
+    /remo\s*~?\d+[\d,.]*\s*m(?:\/ronda)?/ig,
+    /assault\s*~?\d+[\d,.]*\s*rpm/ig,
+    /push press\s*~?\d+[\d,.]*\s*(?:kg|reps)/ig,
+    /wall ball\s*~?\d+[\d,.]*\s*kg/ig,
+    /press\s*~?\d+[\d,.]*\s*kg/ig,
+    /\d+\s*rondas?/ig,
+    /\d+\s*\/\s*lado/ig,
+  ];
+  return patterns.flatMap((pattern) => source.match(pattern) || []).map((item) => compactConversationText(item, 26));
+}
+
+function pendingNoteFromRow(row, volume) {
+  const explicit = cleanText(row.pending_note || row.pending || row.warning);
+  if (explicit) return explicit;
+  if (/pendiente/i.test(`${volume || ""}`)) return "Hay datos pendientes por completar.";
+  return "";
+}
+
+function compactConversationText(value, maxLength = 86) {
+  const text = cleanText(value);
+  if (text.length <= maxLength) return text;
+  const words = text.split(/\s+/);
+  let result = "";
+  for (const word of words) {
+    const next = result ? `${result} ${word}` : word;
+    if (next.length > maxLength) break;
+    result = next;
+  }
+  return result ? `${result}...` : text.slice(0, maxLength);
+}
+
+function cleanText(value) {
+  return repairMojibakeText(value).replace(/\s+/g, " ").trim();
+}
+
+function repairMojibakeText(value) {
+  if (value == null) return "";
+  const replacements = [
+    ["\u00c2\u00b7", "·"],
+    ["\u00c3\u00a1", "á"],
+    ["\u00c3\u00a9", "é"],
+    ["\u00c3\u00ad", "í"],
+    ["\u00c3\u00b3", "ó"],
+    ["\u00c3\u00ba", "ú"],
+    ["\u00c3\u00b1", "ñ"],
+    ["\u00c3\u0161", "Ú"],
+    ["\u00e2\u20ac\u201d", "—"],
+    ["\u00c2", ""],
+  ];
+  return replacements.reduce((text, [from, to]) => text.replaceAll(from, to), `${value}`);
+}
+
+function conversationalActivitySubtitle(activityType, title = "") {
+  const text = `${activityType || ""} ${title || ""}`.toLowerCase();
+  if (text.includes("hiit") || text.includes("hybrid") || text.includes("hibrid")) return "Entrenamiento híbrido";
+  if (text.includes("strength") || text.includes("fuerza")) return "Entrenamiento de fuerza";
+  if (text.includes("run") || text.includes("correr")) return "Entrenamiento de carrera";
+  if (text.includes("swim") || text.includes("nataci")) return "Entrenamiento de natación";
+  return "Entrenamiento";
+}
+
+function readableSessionStatus(status) {
+  const text = `${status || ""}`.toLowerCase();
+  if (!text) return "";
+  if (["completed", "complete", "done"].includes(text)) return "Completado";
+  if (text === "planned") return "Planificado";
+  if (text === "imported") return "Importado";
+  if (text === "draft") return "Borrador";
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function TrainingSessionCard({ detail }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [sessionModel, setSessionModel] = useState(() => buildUniversalSessionView(detail));
+  const [saveStatus, setSaveStatus] = useState("");
+
+  useEffect(() => {
+    setSessionModel(buildUniversalSessionView(detail));
+    setSelectedIndex(0);
+    setSaveStatus("");
+  }, [detail]);
+
+  const view = useMemo(() => buildTrainingSessionCardView(sessionModel, selectedIndex), [sessionModel, selectedIndex]);
+  const blocks = view.session_summary.blocks || [];
+  const metrics = view.session_summary.metrics || {};
+  const selectedBlock = view.block_detail;
+  if (!blocks.length) return null;
+
+  const handleQuickEditSave = async ({ block, item, exercise, values }) => {
+    setSaveStatus("Guardando...");
+    try {
+      const localId = exercise.item_exercise_id || exercise.id || exercise.exercise_id;
+      const preview = applyQuickEditToTrainingSession(sessionModel, localId, values);
+      const persisted = await persistQuickTrainingEdit({
+        sessionId: detail.session?.id,
+        block,
+        item,
+        exercise,
+        values,
+        summaryMetrics: preview.summary_metrics,
+      });
+      setSessionModel((current) => {
+        const itemExerciseId = persisted.itemExerciseId || exercise.item_exercise_id || exercise.id || exercise.exercise_id;
+        const next = applyQuickEditToTrainingSession(current, itemExerciseId, values);
+        return persisted.itemExerciseId && itemExerciseId !== persisted.itemExerciseId
+          ? applyQuickEditToTrainingSession(next, persisted.itemExerciseId, values)
+          : next;
+      });
+      setSaveStatus("Guardado");
+    } catch (error) {
+      setSaveStatus(error.message || "No se pudo guardar");
+      throw error;
+    }
+  };
+
+  return (
+    <article className="activityMainCard trainingSessionCard">
+      <div className="trainingSessionCardHead">
+        <div>
+          <h2>{view.session_summary.title}</h2>
+          <p>{sessionQuantLine(metrics)}</p>
+        </div>
+        <CompletionScoreBadge value={metrics.completion_score} />
+      </div>
+
+      <div className="trainingMetricStrip" aria-label="Métricas de sesión">
+        <TrainingMetric label="Bloques" value={metrics.total_blocks || blocks.length} />
+        <TrainingMetric label="Ejercicios" value={metrics.total_exercises} />
+        <TrainingMetric label="Tiempo" value={formatMetricDuration(metrics.total_duration_s)} />
+        <TrainingMetric label="Rondas" value={metrics.total_rounds} />
+        <TrainingMetric label="Series" value={metrics.total_sets} />
+        <TrainingMetric label="Reps" value={metrics.total_reps || metrics.total_reps_per_side} />
+        <TrainingMetric label="Volumen" value={formatKg(metrics.total_load_volume_kg)} />
+        <TrainingMetric label="Pendientes" value={metrics.missing_fields_count} />
+      </div>
+
+      <div className="trainingTwoLevelGrid">
+        <div className="trainingBlockSummaryList" aria-label="Resumen por bloques">
+          {blocks.map((block, index) => (
+            <TrainingBlockSummaryRow
+              key={block.id}
+              block={block}
+              active={index === selectedIndex}
+              onSelect={() => setSelectedIndex(index)}
+            />
+          ))}
+        </div>
+        {selectedBlock && <TrainingBlockDetail block={selectedBlock} onQuickEditSave={handleQuickEditSave} />}
+      </div>
+      {saveStatus && <small className="trainingSaveStatus">{saveStatus}</small>}
+    </article>
+  );
+}
+
+function TrainingMetric({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{safeMetric(value)}</strong>
+    </div>
+  );
+}
+
+function TrainingBlockSummaryRow({ block, active, onSelect }) {
+  const meta = [
+    block.exercise_count ? `${block.exercise_count} ejercicios` : null,
+    block.rounds ? `${block.rounds} rondas` : null,
+    block.duration_s ? formatDurationClock(block.duration_s) : null,
+    block.measurement,
+  ].filter(Boolean).join(" · ");
+  return (
+    <button type="button" className={active ? "active" : ""} onClick={onSelect}>
+      <span>{block.order_index}</span>
+      <div>
+        <strong>{readableBlockName(block)}</strong>
+        <small>{meta}</small>
+        <em>{block.missing_fields_count ? `${block.missing_fields_count} pendientes` : "Completo"}</em>
+      </div>
+      <ChevronRight size={17} />
+    </button>
+  );
+}
+
+function TrainingBlockDetail({ block, onQuickEditSave }) {
+  const metrics = [
+    block.rounds ? `${block.rounds} rondas` : null,
+    block.duration_s ? formatDurationClock(block.duration_s) : null,
+    block.measurement,
+  ].filter(Boolean).join(" · ");
+  return (
+    <section className="trainingBlockDetail" aria-label="Detalle de bloque">
+      <header>
+        <div>
+          <span>Bloque {block.order_index}</span>
+          <h3>{readableBlockName(block)}</h3>
+          <p>{metrics || "Medicion pendiente"}</p>
+        </div>
+        <MeasurementTypeBadge label={block.block_format} />
+      </header>
+      <div className="blockItemRows">
+        {block.items.map((item) => (
+          <BlockItemRow key={item.id} block={block} item={item} onQuickEditSave={onQuickEditSave} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BlockItemRow({ block, item, onQuickEditSave }) {
+  return (
+    <div className="blockItemRow">
+      <div className="blockItemLabel">
+        <span>{item.station_label || item.minute_slot ? item.station_label || `Minuto ${item.minute_slot}` : item.item_type}</span>
+        <strong>{item.item_name}</strong>
+      </div>
+      <div className="exerciseMetricLines">
+        {item.exercises.map((exercise) => (
+          <ExerciseMetricLine key={exercise.id} block={block} item={item} exercise={exercise} onQuickEditSave={onQuickEditSave} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExerciseMetricLine({ block, item, exercise, onQuickEditSave }) {
+  return (
+    <div className="exerciseMetricLine">
+      <div>
+        <strong>{exercise.display_name}</strong>
+        <span>{measurementText(exercise)}</span>
+      </div>
+      <MissingFieldsBadge fields={exercise.missing_fields} />
+      {exercise.performed_sets?.length > 0 && <PerformedSetList sets={exercise.performed_sets} />}
+      {exercise.missing_fields?.length > 0 && (
+        <QuickMissingFieldsEditor
+          fields={exercise.missing_fields}
+          onSave={(values) => onQuickEditSave?.({ block, item, exercise, values })}
+        />
+      )}
+    </div>
+  );
+}
+
+function PerformedSetList({ sets }) {
+  return (
+    <div className="performedSetList">
+      {sets.map((set) => (
+        <span key={set.set_index}>
+          {set.set_index}
+          {set.reps != null ? ` · ${set.reps} reps` : ""}
+          {set.reps_left != null || set.reps_right != null ? ` · ${set.reps_left || 0}/${set.reps_right || 0}` : ""}
+          {set.load_kg != null ? ` · ${formatNumberValue(set.load_kg)} kg` : ""}
+          {set.duration_s != null ? ` · ${formatDurationClock(set.duration_s)}` : ""}
+          {set.distance_m != null ? ` · ${formatNumberValue(set.distance_m)} m` : ""}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function QuickMissingFieldsEditor({ fields, onSave }) {
+  const [draft, setDraft] = useState({});
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  if (!fields?.length) return null;
+  return (
+    <form
+      className="missingFieldEditor"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const values = parseQuickEditValues(draft);
+        if (!Object.keys(values).length) {
+          setError("Introduce al menos un valor");
+          return;
+        }
+        try {
+          setError("");
+          setSaving(true);
+          await onSave?.(values);
+          setSaved(true);
+        } catch (saveError) {
+          setSaved(false);
+          setError(saveError.message || "No se pudo guardar");
+        } finally {
+          setSaving(false);
+        }
+      }}
+    >
+      {fields.slice(0, 4).map((field) => (
+        <label key={field}>
+          <span>{fieldLabel(field)}</span>
+          <input
+            inputMode="decimal"
+            value={draft[field] || ""}
+            onChange={(event) => {
+              setSaved(false);
+              setDraft((current) => ({ ...current, [field]: event.target.value }));
+            }}
+          />
+        </label>
+      ))}
+      <button type="submit" disabled={saving}>{saving ? "Guardando" : "Guardar"}</button>
+      {saved && <small>Actualizado</small>}
+      {error && <small className="fieldError">{error}</small>}
+    </form>
+  );
+}
+
+function MissingFieldsBadge({ fields = [] }) {
+  if (!fields.length) return <span className="missingFieldsBadge complete"><CheckCircle2 size={13} />Completo</span>;
+  return <span className="missingFieldsBadge">{fields.length} pendientes</span>;
+}
+
+function CompletionScoreBadge({ value }) {
+  const score = optionalNumber(value);
+  return <strong className="completionScoreBadge">{score == null ? "Pendiente" : `${score}%`}</strong>;
+}
+
+function MeasurementTypeBadge({ label }) {
+  return <span className="measurementTypeBadge">{label || "mixed"}</span>;
+}
+
+function sessionQuantLine(metrics) {
+  return [
+    metrics.total_blocks ? `${metrics.total_blocks} bloques` : null,
+    metrics.total_exercises ? `${metrics.total_exercises} ejercicios` : null,
+    metrics.total_duration_s ? formatDurationClock(metrics.total_duration_s) : null,
+    metrics.total_rounds ? `${metrics.total_rounds} rondas` : null,
+    metrics.missing_fields_count != null ? `Completitud ${metrics.completion_score ?? "pendiente"}%` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function readableBlockName(block) {
+  return {
+    strength_main: "Fuerza principal",
+    strength_accessory: "Fuerza accesoria",
+    mobility: "Movilidad",
+    conditioning: "Cardio",
+    cooldown: "Cooldown",
+    warmup: "Calentamiento",
+    emom: "EMOM",
+    amrap: "AMRAP",
+    intervals: "Intervalos",
+    swim_main_set: "Main set",
+    bike_interval: "Intervalos bici",
+    rehab: "Rehab",
+    prehab: "Prehab",
+    mixed: "Mixto",
+  }[block.block_type] || block.title || block.block_type || "Bloque";
+}
+
+function fieldLabel(field) {
+  return {
+    reps: "Reps",
+    reps_per_side: "Reps/lado",
+    load_kg: "Peso kg",
+    duration_s: "Tiempo s",
+    distance_m: "Distancia m",
+    sets: "Series",
+    rpe: "RPE",
+    rir: "RIR",
+    pace_s_per_km: "Ritmo",
+    power_w: "Potencia W",
+    score: "Score",
+  }[field] || field;
+}
+
+function measurementText(exercise) {
+  const volume = optionalNumber(exercise.summary_metrics?.load_volume_kg);
+  return [
+    exercise.measurement_type,
+    volume ? `${formatNumberValue(volume)} kg` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function formatMetricDuration(value) {
+  const seconds = optionalNumber(value);
+  return seconds == null ? null : formatDurationClock(seconds);
+}
+
+function formatKg(value) {
+  const number = optionalNumber(value);
+  return number == null ? null : `${formatNumberValue(number)} kg`;
+}
+
+function safeMetric(value) {
+  return value == null || value === "" || value === 0 ? "—" : value;
+}
+
+function parseQuickEditValues(draft = {}) {
+  return Object.fromEntries(
+    Object.entries(draft)
+      .map(([key, value]) => [key, numericInput(value)])
+      .filter(([, value]) => value != null),
+  );
+}
+
+function numericInput(value) {
+  if (value == null || `${value}`.trim() === "") return null;
+  const number = Number(`${value}`.replace(",", "."));
+  return Number.isFinite(number) ? number : null;
+}
+
+async function persistQuickTrainingEdit({ sessionId, block, item, exercise, values, summaryMetrics }) {
+  if (!supabase) throw new Error("Sin conexión de datos");
+  if (!sessionId) throw new Error("Sesión no disponible");
+
+  const itemExerciseId = await ensureItemExerciseForQuickEdit({ block, item, exercise });
+  const setPatch = performedSetPayload(values);
+  const metricRows = performedMetricPayload(values);
+
+  if (Object.keys(setPatch).length) {
+    const { error } = await supabase
+      .from("performed_sets")
+      .upsert(
+        {
+          item_exercise_id: itemExerciseId,
+          set_index: 1,
+          ...setPatch,
+          completed: true,
+        },
+        { onConflict: "item_exercise_id,set_index" },
+      );
+    if (error) throw new Error(error.message);
+  }
+
+  if (metricRows.length) {
+    const { error } = await supabase
+      .from("performed_metrics")
+      .upsert(
+        metricRows.map((row) => ({ ...row, item_exercise_id: itemExerciseId })),
+        { onConflict: "item_exercise_id,metric_name" },
+      );
+    if (error) throw new Error(error.message);
+  }
+
+  const missingFields = (exercise.missing_fields || []).filter((field) => !quickEditFieldProvided(field, values));
+  const { error: exerciseError } = await supabase
+    .from("item_exercises")
+    .update({ missing_fields: missingFields })
+    .eq("id", itemExerciseId);
+  if (exerciseError) throw new Error(exerciseError.message);
+
+  if (summaryMetrics) {
+    const { error: sessionError } = await supabase
+      .from("training_sessions")
+      .update({
+        summary_metrics: summaryMetrics,
+        completion_score: summaryMetrics.completion_score ?? null,
+      })
+      .eq("id", sessionId);
+    if (sessionError) throw new Error(sessionError.message);
+  }
+
+  return { itemExerciseId };
+}
+
+async function ensureItemExerciseForQuickEdit({ block, item, exercise }) {
+  if (isUuid(exercise.item_exercise_id)) return exercise.item_exercise_id;
+  const blockId = block.block_id || block.id;
+  if (!isUuid(blockId)) throw new Error("Bloque canonico no disponible para persistir");
+
+  const blockItemId = isUuid(item.block_item_id)
+    ? item.block_item_id
+    : await upsertBlockItemForQuickEdit(blockId, item);
+
+  const exerciseId = exercise.exercise_id || exercise.canonical_slug || slugFromText(exercise.display_name);
+  const { data, error } = await supabase
+    .from("item_exercises")
+    .upsert(
+      {
+        block_item_id: blockItemId,
+        order_index: item.order_index || 1,
+        exercise_id: exerciseId,
+        display_name: exercise.display_name || exerciseId,
+        measurement_type: exercise.measurement_type || "mixed",
+        missing_fields: exercise.missing_fields || [],
+        summary_metrics: exercise.summary_metrics || {},
+      },
+      { onConflict: "block_item_id,order_index" },
+    )
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+async function upsertBlockItemForQuickEdit(blockId, item) {
+  const { data, error } = await supabase
+    .from("block_items")
+    .upsert(
+      {
+        block_id: blockId,
+        order_index: item.order_index || 1,
+        item_type: item.item_type || "exercise_direct",
+        item_name: item.item_name || "Ejercicio",
+        station_label: item.station_label || null,
+        minute_slot: item.minute_slot || null,
+        duration_s: item.duration_s || null,
+        rest_s: item.rest_s || null,
+        summary_metrics: {},
+      },
+      { onConflict: "block_id,order_index" },
+    )
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+function performedSetPayload(values = {}) {
+  const payload = {};
+  if (values.reps != null) payload.reps = values.reps;
+  if (values.reps_per_side != null) {
+    payload.reps_left = values.reps_per_side;
+    payload.reps_right = values.reps_per_side;
+  }
+  if (values.load_kg != null) payload.load_kg = values.load_kg;
+  if (values.duration_s != null) payload.duration_s = values.duration_s;
+  if (values.distance_m != null) payload.distance_m = values.distance_m;
+  if (values.rpe != null) payload.rpe = values.rpe;
+  if (values.rir != null) payload.rir = values.rir;
+  return payload;
+}
+
+function performedMetricPayload(values = {}) {
+  const setFields = new Set(["reps", "reps_per_side", "load_kg", "duration_s", "distance_m", "rpe", "rir"]);
+  return Object.entries(values)
+    .filter(([key]) => !setFields.has(key))
+    .map(([metric_name, metric_value]) => ({
+      metric_name,
+      metric_value,
+      metric_unit: metricUnit(metric_name),
+      confidence: "user_reported",
+    }));
+}
+
+function metricUnit(field) {
+  if (field.endsWith("_s")) return "s";
+  if (field.endsWith("_m")) return "m";
+  if (field.endsWith("_kg")) return "kg";
+  return "";
+}
+
+function quickEditFieldProvided(field, values = {}) {
+  if (field === "sets") return Object.keys(values).some((key) => ["reps", "reps_per_side", "load_kg", "duration_s", "distance_m"].includes(key));
+  return values[field] != null;
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ""}`);
+}
+
+function slugFromText(value) {
+  return `${value || "exercise"}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 function hasHeartRateData(detail) {
@@ -1776,13 +2778,22 @@ function ActivityTrainingEffectCard({ detail }) {
 
 function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
-  const week = buildActivityWeek(typedSessions);
-  const [selectedDate, setSelectedDate] = useState(() => week.find((day) => day.items.length)?.date?.toISOString().slice(0, 10) || "");
-  const visible = selectedDate ? typedSessions.filter((item) => sessionDateKey(item) === selectedDate) : typedSessions;
-  const grouped = groupSessionsByDay(visible);
-  const totalSeconds = typedSessions.reduce((sum, item) => sum + Number(item.duration_seconds || item.durationSeconds || 0), 0);
-  const activeDays = week.filter((day) => day.items.length).length || 7;
-  const weekTitle = formatWeekRange(week);
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const todayKey = dateKey(today);
+  const [viewMode, setViewMode] = useState("week");
+  const [periodDate, setPeriodDate] = useState(today);
+  const [selectedDates, setSelectedDates] = useState([]);
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const typeOptions = buildActivityTypeFilterOptions(typedSessions);
+  const filteredSessions = typedSessions.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
+  const period = buildActivityPeriod(viewMode, periodDate);
+  const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
+  const visibleSessions = periodSessions
+    .filter((item) => !selectedDates.length || selectedDates.includes(sessionDateKey(item)))
+    .sort(sortSessionsChronological);
+  const periodSummary = summarizeActivityPeriod(visibleSessions, selectedDates.length || period.dayCount);
+  const dayFilterLabel = formatActivityDayFilterLabel(viewMode, period, selectedDates);
 
   const openDetail = (item) => {
     if (item.activityType === "hybrid") setDiscipline("hyrox");
@@ -1792,53 +2803,194 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
     else setRoute("activityDetail");
   };
 
+  const movePeriod = (direction) => {
+    const next = shiftActivityPeriod(periodDate, viewMode, direction);
+    setPeriodDate(next);
+    setSelectedDates([]);
+  };
+
+  const goToday = () => {
+    const next = startOfDay(new Date());
+    setPeriodDate(next);
+    setSelectedDates([]);
+  };
+
+  const changeViewMode = (nextMode) => {
+    setViewMode(nextMode);
+    setSelectedDates([]);
+  };
+
+  const toggleDateFilter = (key) => {
+    setSelectedDates((current) => current.includes(key)
+      ? current.filter((item) => item !== key)
+      : [...current, key].sort());
+  };
+
   return (
     <section className="activitiesOverview viewStack">
       <section className="activitiesHero">
         <div>
-          <span>Actividades</span>
+          <span>ACTIVIDADES</span>
           <h2>Historial Garmin/FIT</h2>
-          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existen.</p>
+          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existan.</p>
         </div>
       </section>
-      <section className="weeklyActivityCard">
-        <PanelTitle label="Semana" title={weekTitle} />
-        <strong>{formatDurationLong(totalSeconds)}</strong>
-        <ActivityDateSelector week={week} selectedDate={selectedDate} onSelect={setSelectedDate} />
-        <div className="weekStats">
-          <div><b>{formatDurationLong(totalSeconds)}</b><span>Tiempo total</span></div>
-          <div><b>{formatDurationLong(Math.round(totalSeconds / activeDays))}</b><span>Media diaria</span></div>
-        </div>
-      </section>
-      <section className="activityListPanel">
-        <PanelTitle label="Historial" title={selectedDate ? formatDateLong(selectedDate) : "Todas las sesiones"} />
-        {grouped.map((group) => (
-          <div className="activityDayGroup" key={group.date}>
-            <h3>{formatDateLong(group.date)}</h3>
-            <div className="activityList">
-              {group.items.map((item) => (
-                <ActivityHistoryCard key={item.id} item={item} onOpen={() => openDetail(item)} />
-              ))}
-            </div>
+
+      <section className="activityTimeControlCard">
+        <ActivityViewSwitch value={viewMode} onChange={changeViewMode} />
+        <div className="activityPeriodNav">
+          <button type="button" className="periodArrow" onClick={() => movePeriod(-1)} aria-label="Periodo anterior">
+            <ChevronRight size={18} />
+          </button>
+          <div>
+            <span>{activityViewLabel(viewMode)}</span>
+            <strong>{formatActivityPeriodTitle(viewMode, period)}</strong>
           </div>
-        ))}
-        {!visible.length && <p className="emptyText">Importa un FIT desde Perfil para ver actividades.</p>}
+          <button type="button" className="todayButton" onClick={goToday}>Hoy</button>
+          <button type="button" className="periodArrow next" onClick={() => movePeriod(1)} aria-label="Periodo siguiente">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <ActivityPeriodSummary summary={periodSummary} />
+
+        <ActivityFilterChips
+          sourceFilter={sourceFilter}
+          typeFilter={typeFilter}
+          typeOptions={typeOptions}
+          onSourceChange={setSourceFilter}
+          onTypeChange={setTypeFilter}
+        />
+
+        {viewMode === "week" && (
+          <ActivityWeekStrip
+            days={buildActivityWeekForPeriod(period.start, filteredSessions)}
+            selectedDates={selectedDates}
+            todayKey={todayKey}
+            onSelect={toggleDateFilter}
+          />
+        )}
+
+        {viewMode === "month" && (
+          <ActivityMonthGrid
+            days={buildActivityMonthGrid(period.start, filteredSessions)}
+            selectedDates={selectedDates}
+            todayKey={todayKey}
+            onSelect={toggleDateFilter}
+          />
+        )}
+
+      </section>
+
+      <section className="activityListPanel">
+        <div className="selectedDayHeader">
+          <div>
+            <span>{dayFilterLabel.eyebrow}</span>
+            <h3>{dayFilterLabel.title}</h3>
+          </div>
+          <small>{formatSessionCount(visibleSessions.length)}</small>
+        </div>
+        <ActivitySelectedDayFilters dates={selectedDates} onRemove={toggleDateFilter} />
+        <div className="activityList">
+          {visibleSessions.map((item) => (
+            <ActivityHistoryCard key={item.id} item={item} onOpen={() => openDetail(item)} />
+          ))}
+        </div>
+        {!visibleSessions.length && (
+          <p className="emptyText">{selectedDates.length ? "No hay sesiones para los días seleccionados." : "No hay sesiones registradas en este periodo."}</p>
+        )}
       </section>
     </section>
   );
 }
 
-function ActivityDateSelector({ week, selectedDate, onSelect }) {
+function ActivityViewSwitch({ value, onChange }) {
+  const options = [
+    ["week", "Semana"],
+    ["month", "Mes"],
+  ];
   return (
-    <div className="activityDateSelector" aria-label="Selector de fecha">
-      <button type="button" className={!selectedDate ? "active" : ""} onClick={() => onSelect("")}>Todo</button>
-      {week.map((day) => {
-        const key = day.date.toISOString().slice(0, 10);
+    <div className="activityViewSwitch" role="tablist" aria-label="Vista temporal">
+      {options.map(([id, label]) => (
+        <button key={id} type="button" className={value === id ? "active" : ""} onClick={() => onChange(id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ActivityPeriodSummary({ summary }) {
+  const cards = [
+    { label: "Tiempo total", value: formatDurationLong(summary.totalSeconds), icon: Clock3 },
+    { label: "Media diaria", value: formatDurationLong(summary.averageSeconds), icon: CircleGauge },
+    { label: "Sesiones", value: summary.sessions, icon: Activity },
+    { label: "Días activos", value: `${summary.activeDays}/${summary.dayCount}`, icon: CalendarDays },
+  ];
+  return (
+    <div className="activityPeriodSummary" aria-label="Resumen del periodo">
+      {cards.map((item) => {
+        const Icon = item.icon;
         return (
-          <button key={key} type="button" className={selectedDate === key ? "active" : ""} onClick={() => onSelect(key)}>
+          <section key={item.label}>
+            <Icon size={18} />
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityFilterChips({ sourceFilter, typeFilter, typeOptions, onSourceChange, onTypeChange }) {
+  const sourceOptions = [
+    ["all", "Todo"],
+    ["garmin", "Garmin/FIT"],
+    ["coach", "Coach"],
+    ["mixed", "Mixto"],
+  ];
+  return (
+    <div className="activityFilterStack">
+      <ActivityChipRow options={sourceOptions} value={sourceFilter} onChange={onSourceChange} />
+      <ActivityChipRow options={[["all", "Todos"], ...typeOptions]} value={typeFilter} onChange={onTypeChange} />
+    </div>
+  );
+}
+
+function ActivityChipRow({ options, value, onChange }) {
+  return (
+    <div className="activityChipRow">
+      {options.map(([id, label]) => (
+        <button key={id} type="button" className={value === id ? "active" : ""} onClick={() => onChange(id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ActivityWeekStrip({ days, selectedDates, todayKey, onSelect }) {
+  return (
+    <div className="activityWeekStrip" aria-label="Selector semanal">
+      {days.map((day) => {
+        const key = dateKey(day.date);
+        const count = day.items.length;
+        const isToday = key === todayKey;
+        const isSelected = selectedDates.includes(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`${isSelected ? "selected" : ""} ${isToday ? "today" : ""} ${count ? "hasItems" : ""}`}
+            onClick={() => onSelect(key)}
+            aria-pressed={isSelected}
+          >
             <span>{day.label}</span>
             <strong>{day.date.getDate()}</strong>
-            <small>{day.items.length}</small>
+            <small>{formatSessionCount(count)}</small>
+            {isToday && <em>Hoy</em>}
+            <i aria-hidden="true" />
           </button>
         );
       })}
@@ -1846,16 +2998,58 @@ function ActivityDateSelector({ week, selectedDate, onSelect }) {
   );
 }
 
+function ActivityMonthGrid({ days, selectedDates, todayKey, onSelect }) {
+  return (
+    <div className="activityMonthGrid" aria-label="Vista mensual">
+      {["L", "M", "X", "J", "V", "S", "D"].map((day) => <span key={day}>{day}</span>)}
+      {days.map((day) => {
+        if (!day.date) return <i key={day.key} aria-hidden="true" />;
+        const key = dateKey(day.date);
+        const count = day.items.length;
+        const isSelected = selectedDates.includes(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`${isSelected ? "selected" : ""} ${key === todayKey ? "today" : ""} ${count ? "hasItems" : ""}`}
+            onClick={() => onSelect(key)}
+            aria-pressed={isSelected}
+          >
+            <strong>{day.date.getDate()}</strong>
+            {count > 0 && <small>{count}</small>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivitySelectedDayFilters({ dates, onRemove }) {
+  if (!dates.length) return null;
+  return (
+    <div className="selectedDayChips" aria-label="Filtros de día activos">
+      {dates.map((key) => (
+        <button key={key} type="button" onClick={() => onRemove(key)} aria-label={`Quitar filtro ${formatCompactDayLabel(key)}`}>
+          <span>{formatCompactDayLabel(key)}</span>
+          <b aria-hidden="true">x</b>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ActivityHistoryCard({ item, onOpen }) {
   const type = activityTypes[item.activityType] || activityTypes.hybrid;
+  const status = readableSessionStatus(item.session_status);
   return (
     <button className="activityHistoryCard" onClick={onOpen} style={{ "--type": type.color }}>
       <div className="activityBadge">
         <Activity size={18} />
       </div>
       <div className="activityHistoryMain">
-        <span>{formatActivityTime(item)} · {type.label}</span>
         <strong>{item.title}</strong>
+        <span>{activityTrainingSubtitle(item.activityType)}</span>
+        <em>{[formatActivityTime(item), status].filter(Boolean).join(" · ")}</em>
         <div className="activityMetrics">
           <ActivityMetric icon={ClockIcon} label={formatDurationClock(item.duration_seconds || item.durationSeconds || 0)} />
           {item.distance_meters > 0 && <ActivityMetric icon={MapDistanceIcon} label={`${(item.distance_meters / 1000).toFixed(1)} km`} />}
@@ -2197,8 +3391,8 @@ function TrainingEffectCard({ card, detail }) {
         <div><strong>{aerobicValue == null ? "N/D" : aerobicValue.toFixed(1)}</strong><span>Aeróbica</span></div>
         <div><strong>{anaerobicValue == null ? "N/D" : anaerobicValue.toFixed(1)}</strong><span>Anaeróbico</span></div>
       </div>
-      <TrainingEffectGarminScale label="Aerobica" value={aerobic} type="aerobic" />
-      <TrainingEffectGarminScale label="Anaerobico" value={anaerobic} type="anaerobic" />
+      <TrainingEffectGarminScale label="Aeróbica" value={aerobic} type="aerobic" />
+      <TrainingEffectGarminScale label="Anaeróbico" value={anaerobic} type="anaerobic" />
       <div className="kvList compact">
         {card.fields.map((field) => (
           <InfoRow key={field.label} label={field.label} value={formatField(getPath(detail, field.path), field)} />
@@ -2331,7 +3525,7 @@ function HeartRateGarminLikeChart({ samples, avgHr, durationSeconds, mode = "cla
 
   return (
     <div className="garminHrChart">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Grafico de frecuencia cardiaca Garmin-like">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gráfico de frecuencia cardíaca Garmin-like">
         <rect x="0" y="0" width={width} height={height} />
         {yTicks.map((tick) => (
           <g key={tick}>
@@ -2385,7 +3579,7 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
 }
 
 function CoachView({ messages, setMessages, discipline, sessions }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const endRef = useRef(null);
 
@@ -2393,24 +3587,28 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const send = () => {
-    if (!draft.trim()) return;
-    const userMessage = { role: "user", content: draft.trim() };
+  const send = (overrideDraft) => {
+    const text = (overrideDraft ?? draft).trim();
+    if (!text) return;
+    const userMessage = { role: "user", content: text };
     const answer = {
       role: "assistant",
-      content: buildCoachReply(draft, discipline, sessions),
+      content: buildCoachReply(text, discipline, sessions),
     };
     setMessages([...messages, userMessage, answer]);
     setDraft("");
+    localStorage.removeItem(storageKeys.coachDraft);
   };
 
   return (
     <section className="coachView">
       <div className="chatLog">
         {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={`bubble ${message.role}`}>
-            {message.content}
-          </div>
+          <CopyableChatMessage
+            key={`${message.role}-${index}`}
+            message={message}
+            onCopied={() => setMicNotice("Copiado")}
+          />
         ))}
         <div ref={endRef} />
       </div>
@@ -2419,70 +3617,415 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
         value={draft}
         onChange={setDraft}
         onSend={send}
-        onMicResult={(value) => setDraft((current) => [current, value].filter(Boolean).join(" "))}
         onMicNotice={setMicNotice}
       />
     </section>
   );
 }
 
-function ChatComposer({ value, onChange, onSend, onMicResult, onMicNotice }) {
+function CopyableChatMessage({ message, onCopied }) {
+  const [copied, setCopied] = useState(false);
+  const pressTimerRef = useRef(null);
+  const feedbackTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    clearTimeout(pressTimerRef.current);
+    clearTimeout(feedbackTimerRef.current);
+  }, []);
+
+  const clearPressTimer = () => clearTimeout(pressTimerRef.current);
+
+  const copyMessage = async () => {
+    clearPressTimer();
+    const text = repairMojibakeText(message.content).trim();
+    if (!text) return;
+    const ok = await copyPlainText(text);
+    if (!ok) return;
+    setCopied(true);
+    onCopied?.();
+    clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setCopied(false), 1200);
+  };
+
+  const startPressTimer = (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    clearPressTimer();
+    pressTimerRef.current = setTimeout(copyMessage, 650);
+  };
+
   return (
-    <div className="coachComposer">
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => event.key === "Enter" && onSend()}
-        placeholder="Escribe o dicta tu actualización..."
-      />
-      <MicrophoneButton onResult={onMicResult} onNotice={onMicNotice} />
-      <button type="button" className="sendAction" onClick={onSend} aria-label="Enviar">
-        <Send size={18} />
-      </button>
+    <div
+      className={`bubble ${message.role}`}
+      onPointerDown={startPressTimer}
+      onPointerUp={clearPressTimer}
+      onPointerCancel={clearPressTimer}
+      onPointerLeave={clearPressTimer}
+      title="Mantén pulsado para copiar"
+    >
+      {message.content}
+      {copied && <small className="copyToast">Copiado</small>}
     </div>
   );
 }
 
-function MicrophoneButton({ onResult, onNotice }) {
-  const [listening, setListening] = useState(false);
-
-  const start = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      onNotice("Dictado próximamente.");
-      return;
+async function copyPlainText(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
     }
+  } catch {
+    // Fall back to a temporary textarea below.
+  }
+  try {
+    const node = document.createElement("textarea");
+    node.value = text;
+    node.setAttribute("readonly", "");
+    node.style.position = "fixed";
+    node.style.opacity = "0";
+    document.body.appendChild(node);
+    node.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(node);
+    return copied;
+  } catch {
+    return false;
+  }
+}
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "es-ES";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onstart = () => {
-      setListening(true);
-      onNotice("Escuchando...");
-    };
-    recognition.onerror = () => {
-      setListening(false);
-      onNotice("No he podido capturar el dictado. Puedes escribirlo.");
-    };
-    recognition.onend = () => {
-      setListening(false);
-    };
-    recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript;
-      if (transcript) {
-        onResult(transcript);
-        onNotice("Dictado añadido al mensaje.");
-      }
-    };
-    recognition.start();
+function ChatComposer({ value, onChange, onSend, onMicNotice }) {
+  const textareaRef = useRef(null);
+  const dictation = useLongDictation({
+    value,
+    onChange,
+    onNotice: onMicNotice,
+  });
+
+  useEffect(() => {
+    const node = textareaRef.current;
+    if (!node) return;
+    node.style.height = "auto";
+    node.style.height = `${Math.min(260, Math.max(68, node.scrollHeight))}px`;
+  }, [value, dictation.interimTranscript]);
+
+  const clearDraft = () => {
+    if (!value.trim() && !dictation.interimTranscript.trim()) return;
+    if ((value.length > 280 || dictation.interimTranscript.length > 120) && !window.confirm("¿Limpiar todo el dictado actual?")) return;
+    dictation.stop({ commitInterim: false });
+    dictation.clearInterim();
+    onChange("");
+    localStorage.removeItem(storageKeys.coachDraft);
+    onMicNotice("Dictado limpiado.");
+  };
+
+  const submit = () => {
+    const text = dictation.commitInterim();
+    dictation.stop({ commitInterim: false });
+    onSend(text);
   };
 
   return (
-    <button type="button" className={`iconAction ${listening ? "listening" : ""}`} onClick={start} aria-label="Dictar">
-      <Mic size={18} />
-    </button>
+    <div className="coachComposer">
+      <div className="dictationStatusLine">
+        <span className={dictation.isListening ? "active" : ""}>{dictation.statusLabel}</span>
+        {!dictation.supported && <small>Tu navegador no permite dictado continuo aquí. Usa el dictado del teclado del móvil o escribe en el área grande.</small>}
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") submit();
+        }}
+        placeholder="Dicta una sesión completa: bloques, cargas, correcciones, sensaciones..."
+        rows={3}
+      />
+      {dictation.interimTranscript && (
+        <div className="interimTranscript">
+          <span>Escuchando ahora</span>
+          <p>{dictation.interimTranscript}</p>
+        </div>
+      )}
+      <div className="composerActions">
+        <button
+          type="button"
+          className={`iconAction ${dictation.isListening ? "listening" : ""}`}
+          onClick={dictation.isActive ? dictation.stop : dictation.start}
+          aria-label={dictation.isActive ? "Pausar dictado" : "Iniciar dictado"}
+        >
+          {dictation.isActive ? <Pause size={18} /> : <Mic size={18} />}
+          <span>{dictation.isActive ? "Detener" : "Dictar"}</span>
+        </button>
+        <button type="button" className="iconAction" onClick={clearDraft} aria-label="Limpiar dictado">
+          <Trash2 size={18} />
+          <span>Limpiar</span>
+        </button>
+        <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
+          <Send size={18} />
+          <span>Enviar</span>
+        </button>
+      </div>
+    </div>
   );
+}
+
+function useLongDictation({ value, onChange, onNotice }) {
+  const SpeechRecognition = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+  const [isActive, setIsActive] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [status, setStatus] = useState(SpeechRecognition ? "idle" : "unsupported");
+  const [permissionError, setPermissionError] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const recognitionRef = useRef(null);
+  const activeRef = useRef(false);
+  const listeningRef = useRef(false);
+  const startingRef = useRef(false);
+  const manualStopRef = useRef(false);
+  const restartTimerRef = useRef(null);
+  const restartDelayRef = useRef(450);
+  const valueRef = useRef(value);
+  const interimRef = useRef("");
+  const lastFinalTranscriptRef = useRef("");
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  useEffect(() => () => {
+    activeRef.current = false;
+    clearTimeout(restartTimerRef.current);
+    recognitionRef.current?.abort?.();
+    recognitionRef.current = null;
+  }, []);
+
+  const appendTranscript = (transcript) => {
+    const text = repairMojibakeText(transcript).replace(/\s+/g, " ").trim();
+    if (!text) return;
+    if (lastFinalTranscriptRef.current.toLowerCase() === text.toLowerCase()) return;
+    const current = valueRef.current || "";
+    if (current.toLowerCase().endsWith(text.toLowerCase())) return;
+    lastFinalTranscriptRef.current = text;
+    const next = [current.trim(), text].filter(Boolean).join(current.trim() ? " " : "");
+    valueRef.current = next;
+    onChange(next);
+    localStorage.setItem(storageKeys.coachDraft, JSON.stringify(next));
+  };
+
+  const commitInterim = () => {
+    const text = interimRef.current;
+    if (text) appendTranscript(text);
+    interimRef.current = "";
+    setInterimTranscript("");
+    return valueRef.current || "";
+  };
+
+  const isSecureMicrophoneContext = () => {
+    if (typeof window === "undefined") return false;
+    const host = window.location.hostname;
+    return window.isSecureContext || ["localhost", "127.0.0.1", "::1"].includes(host);
+  };
+
+  const ensureRecognition = () => {
+    if (!SpeechRecognition) {
+      setStatus("unsupported");
+      onNotice("Este navegador no soporta dictado continuo. Usa el dictado del teclado móvil o escribe el entrenamiento.");
+      return null;
+    }
+    if (recognitionRef.current) return recognitionRef.current;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "es-ES";
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      startingRef.current = false;
+      listeningRef.current = true;
+      restartDelayRef.current = 450;
+      setPermissionError("");
+      setIsListening(true);
+      setStatus("listening");
+      onNotice("Escuchando. Puedes hablar durante varios minutos; enviarás cuando quieras.");
+    };
+    recognition.onresult = (event) => {
+      let interim = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result?.[0]?.transcript || "";
+        if (result?.isFinal) appendTranscript(transcript);
+        else interim += transcript;
+      }
+      const cleanedInterim = repairMojibakeText(interim).trim();
+      interimRef.current = cleanedInterim;
+      setInterimTranscript(cleanedInterim);
+    };
+    recognition.onerror = (event) => {
+      startingRef.current = false;
+      listeningRef.current = false;
+      setIsListening(false);
+      const error = event.error || "error";
+      if (["not-allowed", "service-not-allowed"].includes(error)) {
+        const message = "No se ha podido acceder al micrófono. Revisa permisos del navegador y vuelve a intentarlo.";
+        activeRef.current = false;
+        manualStopRef.current = true;
+        setIsActive(false);
+        setPermissionError(message);
+        setStatus("permission");
+        onNotice(message);
+        return;
+      }
+      if (error === "audio-capture") {
+        const message = "No se ha detectado un micrófono disponible. El texto ya dictado se conserva.";
+        activeRef.current = false;
+        manualStopRef.current = true;
+        setIsActive(false);
+        setPermissionError(message);
+        setStatus("microphoneError");
+        onNotice(message);
+        return;
+      }
+      setStatus("reconnecting");
+      if (error !== "no-speech") onNotice("El reconocimiento se ha interrumpido. Reintentando sin borrar el texto.");
+    };
+    recognition.onend = () => {
+      startingRef.current = false;
+      listeningRef.current = false;
+      setIsListening(false);
+      if (!activeRef.current || manualStopRef.current) {
+        setStatus(manualStopRef.current ? "stopped" : "paused");
+        return;
+      }
+      setStatus("reconnecting");
+      const delay = restartDelayRef.current;
+      restartDelayRef.current = Math.min(3500, Math.round(delay * 1.35));
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (activeRef.current && !manualStopRef.current) startRecognition();
+      }, delay);
+    };
+    recognitionRef.current = recognition;
+    return recognition;
+  };
+
+  const startRecognition = () => {
+    if (startingRef.current || listeningRef.current) return;
+    if (!isSecureMicrophoneContext()) {
+      const message = "El micrófono requiere HTTPS o localhost.";
+      activeRef.current = false;
+      setIsActive(false);
+      setPermissionError(message);
+      setStatus("secureContext");
+      onNotice(message);
+      return;
+    }
+    const recognition = ensureRecognition();
+    if (!recognition) return;
+    try {
+      startingRef.current = true;
+      recognition.start();
+    } catch {
+      startingRef.current = false;
+      if (!activeRef.current || manualStopRef.current) return;
+      setStatus("reconnecting");
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (activeRef.current && !manualStopRef.current) startRecognition();
+      }, 900);
+    }
+  };
+
+  const requestMicrophonePermission = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (error) {
+      const noDevice = ["NotFoundError", "DevicesNotFoundError"].includes(error?.name);
+      const message = noDevice
+        ? "No se ha detectado un micrófono disponible. El texto ya dictado se conserva."
+        : "No se ha podido acceder al micrófono. Revisa permisos del navegador y vuelve a intentarlo.";
+      activeRef.current = false;
+      manualStopRef.current = true;
+      setIsActive(false);
+      setPermissionError(message);
+      setStatus(noDevice ? "microphoneError" : "permission");
+      onNotice(message);
+      return false;
+    }
+  };
+
+  const start = async () => {
+    clearTimeout(restartTimerRef.current);
+    setPermissionError("");
+    if (!SpeechRecognition) {
+      setStatus("unsupported");
+      onNotice("Este navegador no soporta dictado continuo. Usa el dictado del teclado móvil o escribe el entrenamiento.");
+      return;
+    }
+    if (!isSecureMicrophoneContext()) {
+      const message = "El micrófono requiere HTTPS o localhost.";
+      setPermissionError(message);
+      setStatus("secureContext");
+      onNotice(message);
+      return;
+    }
+    activeRef.current = true;
+    manualStopRef.current = false;
+    restartDelayRef.current = 450;
+    setIsActive(true);
+    setStatus("reconnecting");
+    const permissionGranted = await requestMicrophonePermission();
+    if (!permissionGranted || !activeRef.current) return;
+    startRecognition();
+  };
+
+  const stop = ({ commitInterim: shouldCommitInterim = true } = {}) => {
+    if (shouldCommitInterim) commitInterim();
+    manualStopRef.current = true;
+    activeRef.current = false;
+    setIsActive(false);
+    setIsListening(false);
+    setStatus("stopped");
+    setInterimTranscript("");
+    clearTimeout(restartTimerRef.current);
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      // Recognition may already be stopped by the browser after onend/onerror.
+    }
+    onNotice("Dictado detenido. Puedes revisar, editar o enviar.");
+  };
+
+  const clearInterim = () => {
+    interimRef.current = "";
+    setInterimTranscript("");
+  };
+
+  const statusLabel = {
+    idle: "Pausado",
+    listening: "Escuchando",
+    reconnecting: "Reconectando micro",
+    paused: "Pausado",
+    stopped: "Dictado detenido",
+    permission: "Error de permisos",
+    microphoneError: "Micrófono no disponible",
+    secureContext: "HTTPS o localhost",
+    unsupported: "Dictado continuo no soportado",
+  }[status] || "Pausado";
+
+  return {
+    supported: Boolean(SpeechRecognition),
+    isActive,
+    isListening,
+    permissionError,
+    interimTranscript,
+    statusLabel,
+    start,
+    stop,
+    clearInterim,
+    commitInterim,
+  };
 }
 
 function ProfileView({ profile, setProfile, fitImports, setFitImports, session, authNotice, setAuthNotice, onSync, onImportedSession }) {
@@ -2639,7 +4182,7 @@ function FitDropzone({ fitImports, setFitImports, session, onSync, onImportedSes
       <FileUp size={26} />
       <div>
         <strong>Importar archivo FIT</strong>
-        <span>Selecciona un .fit o un .zip exportado de Garmin. En movil usa Archivos/Mis archivos.</span>
+        <span>Selecciona un .fit o un .zip exportado de Garmin. En móvil usa Archivos/Mis archivos.</span>
       </div>
       <label>
         Elegir archivo
@@ -3588,7 +5131,7 @@ function activityLabel(sport, subSport) {
   if (joined.includes("strength")) return "Fuerza";
   if (joined.includes("pilates")) return "Pilates";
   if (joined.includes("yoga")) return "Yoga";
-  if (joined.includes("swim")) return "Natacion";
+  if (joined.includes("swim")) return "Natación";
   if (joined.includes("running") || joined.includes("trail")) return "Correr";
   if (
     joined.includes("hiit") ||
@@ -3828,16 +5371,16 @@ function buildSessionMetrics(summary) {
     ["duration_total_seconds", "Tiempo total", summary.duration_total_seconds, "s"],
     ["active_time", "Tiempo de trabajo", summary.duration_work_seconds, "s"],
     ["rest_time", "Tiempo de descanso", summary.duration_rest_seconds, "s"],
-    ["avg_heart_rate", "Frecuencia cardiaca media", summary.heart_rate.avg_bpm, "bpm"],
-    ["max_heart_rate", "Frecuencia cardiaca maxima", summary.heart_rate.max_bpm, "bpm"],
+    ["avg_heart_rate", "Frecuencia cardíaca media", summary.heart_rate.avg_bpm, "bpm"],
+    ["max_heart_rate", "Frecuencia cardíaca maxima", summary.heart_rate.max_bpm, "bpm"],
     ["respiration_avg_brpm", "Frecuencia respiratoria media", summary.respiration?.avg_brpm, "brpm"],
-    ["respiration_max_brpm", "Frecuencia respiratoria maxima", summary.respiration?.max_brpm, "brpm"],
-    ["respiration_min_brpm", "Frecuencia respiratoria minima", summary.respiration?.min_brpm, "brpm"],
-    ["calories_total", "Calorias totales", summary.calories.total_kcal, "kcal"],
-    ["active_calories", "Calorias activas", summary.calories.active_kcal, "kcal"],
-    ["resting_calories", "Calorias en reposo", summary.calories.rest_kcal, "kcal"],
-    ["training_effect_aerobic", "Training Effect aerobico", summary.training_effect.aerobic, ""],
-    ["training_effect_anaerobic", "Training Effect anaerobico", summary.training_effect.anaerobic, ""],
+    ["respiration_max_brpm", "Frecuencia respiratoria máxima", summary.respiration?.max_brpm, "brpm"],
+    ["respiration_min_brpm", "Frecuencia respiratoria mínima", summary.respiration?.min_brpm, "brpm"],
+    ["calories_total", "Calorías totales", summary.calories.total_kcal, "kcal"],
+    ["active_calories", "Calorías activas", summary.calories.active_kcal, "kcal"],
+    ["resting_calories", "Calorías en reposo", summary.calories.rest_kcal, "kcal"],
+    ["training_effect_aerobic", "Training Effect aeróbico", summary.training_effect.aerobic, ""],
+    ["training_effect_anaerobic", "Training Effect anaeróbico", summary.training_effect.anaerobic, ""],
     ["exercise_load", "Carga de ejercicio", summary.training_effect.training_load, ""],
   ];
   return rows
@@ -4078,8 +5621,8 @@ function computeHealthReadiness(health) {
       score,
       label: "Ready to build",
       training: "Intensidad controlada",
-      copy: "El sistema esta bastante limpio: energia util, stress controlado y senales respiratorias estables.",
-      plan: "Puedes entrenar, pero con una regla: calidad antes que volumen. Mantendria una sesion fuerte corta o tecnica con salida facil.",
+      copy: "El sistema está bastante limpio: energía útil, stress controlado y señales respiratorias estables.",
+      plan: "Puedes entrenar, pero con una regla: calidad antes que volumen. Mantendría una sesión fuerte corta o técnica con salida fácil.",
     };
   }
 
@@ -4087,18 +5630,18 @@ function computeHealthReadiness(health) {
     return {
       score,
       label: "Train, but narrow",
-      training: "Base + tecnica",
-      copy: "Hay energia suficiente, pero no conviene abrir demasiados frentes. Buen dia para construir sin deuda.",
-      plan: "Me quedaria en Boyle/Zone 2, movilidad y fuerza limpia. Evitaria un metcon largo o competir contra el reloj.",
+      training: "Base + técnica",
+      copy: "Hay energía suficiente, pero no conviene abrir demasiados frentes. Buen día para construir sin deuda.",
+      plan: "Me quedaría en Boyle/Zone 2, movilidad y fuerza limpia. Evitaría un metcon largo o competir contra el reloj.",
     };
   }
 
   return {
     score,
     label: "Recovery bias",
-    training: "Recuperacion activa",
-    copy: "Las senales piden bajar coste: priorizar sueno, respiracion y movimiento suave.",
-    plan: "Hoy no compraria fatiga. Caminata, movilidad, respiracion nasal y preparar manana.",
+    training: "Recuperación activa",
+    copy: "Las señales piden bajar coste: priorizar sueño, respiración y movimiento suave.",
+    plan: "Hoy no compraría fatiga. Caminata, movilidad, respiración nasal y preparar mañana.",
   };
 }
 
@@ -4178,7 +5721,7 @@ function mapTrainingSession(item) {
   const durationMinutes = item.duration_seconds ? Math.round(item.duration_seconds / 60) : null;
   const distanceKm = item.distance_meters ? Number(item.distance_meters) / 1000 : null;
   const score = Math.max(48, Math.min(96, 64 + (durationMinutes ? Math.min(20, durationMinutes / 4) : 8)));
-  const title = item.title || summary.garmin_original_name || summary.fit_identity?.garmin_original_name || summary.activity_type || cleanGarminTitle(item.title) || readableSessionTitle(item);
+  const title = repairMojibakeText(item.title || summary.garmin_original_name || summary.fit_identity?.garmin_original_name || summary.activity_type || cleanGarminTitle(item.title) || readableSessionTitle(item));
 
   return {
     id: item.id,
@@ -4191,7 +5734,7 @@ function mapTrainingSession(item) {
     max_hr: heartRate.max_bpm ?? null,
     calories_total: calories.total_kcal ?? null,
     garmin_sets_total: strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? null,
-    has_conversation: Boolean(item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
+    has_conversation: Boolean(item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
     started_at: item.started_at,
     local_date: item.local_date,
     created_at: item.created_at,
@@ -4209,28 +5752,174 @@ function mapTrainingSession(item) {
 }
 
 function classifySession(session) {
-  const summary = session.session_structure?.garmin_fit_summary || {};
-  const title = `${session.title || ""} ${session.type || ""} ${summary.sport || ""} ${summary.sub_sport || ""} ${summary.activity_type || ""}`.toLowerCase();
-  let activityType = "hybrid";
-  if (title.includes("run") || title.includes("correr") || title.includes("trail")) activityType = "run";
-  if (title.includes("swim") || title.includes("natacion") || title.includes("nataci")) activityType = "swim";
-  if (title.includes("strength") || title.includes("fuerza") || title.includes("gym") || title.includes("fitness")) activityType = "strength";
-  if (title.includes("pilates") || title.includes("yoga")) activityType = "pilates";
-  if (
-    title.includes("hiit") ||
-    title.includes("cardio_training") ||
-    title.includes("cardio") ||
-    title.includes("training") ||
-    title.includes("workout") ||
-    title.includes("fitness_equipment") ||
-    title.includes("other")
-  ) activityType = "hiit";
-  if (title.includes("hyrox") || title.includes("deka") || title.includes("crossfit")) activityType = "hybrid";
+  const garminType = normalizeGarminActivityType(session);
+  const activityType = activityTypeFromGarminKey(garminType.key);
   return {
     ...session,
     activityType,
+    garminActivityTypeKey: garminType.key,
+    garminActivityTypeLabel: garminType.label,
     durationSeconds: Number(session.duration_seconds || parseDurationToSeconds(session.meta) || 3200),
   };
+}
+
+function normalizeGarminActivityType(session = {}) {
+  const summary = session.session_structure?.garmin_fit_summary || {};
+  return resolveGarminActivityType(summary, session);
+}
+
+function resolveGarminActivityType(summary = {}, session = {}) {
+  const fitIdentity = summary.fit_identity || {};
+  const hasGarminSource = hasGarminActivitySource(summary, session);
+  const candidates = [
+    combineGarminType(summary.sport, summary.sub_sport),
+    combineGarminType(fitIdentity.sport, fitIdentity.sub_sport),
+    summary.sub_sport,
+    fitIdentity.sub_sport,
+    summary.activity_type,
+    fitIdentity.activity_type,
+    summary.sport,
+    fitIdentity.sport,
+    session.garmin_activity_type,
+    session.garminActivityType,
+    hasGarminSource ? session.activity_type : null,
+    session.sport,
+    session.sub_sport,
+    summary.garmin_original_name,
+    fitIdentity.garmin_original_name,
+    session.garmin_original_name,
+    session.garmin_activity_label,
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = resolveGarminActivityCandidate(candidate);
+    if (resolved) return resolved;
+  }
+
+  return { key: "other", label: "Otro", raw: null };
+}
+
+function hasGarminActivitySource(summary = {}, session = {}) {
+  return Boolean(
+    summary.activity_type ||
+    summary.sport ||
+    summary.sub_sport ||
+    summary.fit_identity ||
+    summary.garmin_original_name ||
+    session.source_id ||
+    session.external_reference ||
+    session.fit_identity ||
+    session.fit_checksum ||
+    session.garmin_activity_type ||
+    session.garminActivityType ||
+    session.garmin_activity_label
+  );
+}
+
+function combineGarminType(sport, subSport) {
+  const parts = [sport, subSport].map(garminTypeText).filter(Boolean);
+  return parts.length ? parts.join(" ") : "";
+}
+
+function resolveGarminActivityCandidate(value) {
+  const raw = garminTypeText(value);
+  if (!raw) return null;
+  const normalized = normalizeActivityTypeKey(raw);
+  if (!normalized) return null;
+
+  const numericToken = normalized.match(/(?:^|_)(\d+)(?:_|$)/)?.[1];
+  if (numericToken) {
+    const mapped = GARMIN_NUMERIC_ACTIVITY_TYPES[numericToken];
+    return mapped ? { key: mapped, label: activityTypeChipLabel(mapped), raw } : { key: "other", label: "Otro", raw };
+  }
+  if (isGenericGarminType(normalized)) return null;
+
+  const canonical = canonicalGarminActivityType(normalized);
+  return {
+    key: canonical || "other",
+    label: activityTypeChipLabel(canonical || "other", raw),
+    raw,
+  };
+}
+
+function garminTypeText(value) {
+  if (value == null) return "";
+  if (typeof value === "object") {
+    return repairMojibakeText(value.name || value.label || value.value || value.type || value.sport || value.sub_sport || JSON.stringify(value)).trim();
+  }
+  return repairMojibakeText(value).trim();
+}
+
+function isGenericGarminType(normalized) {
+  return ["activity", "actividad", "generic", "unknown", "undefined", "null", "none", "sin_clasificar"].includes(normalized);
+}
+
+function canonicalGarminActivityType(normalized) {
+  for (const [canonical, aliases] of GARMIN_ACTIVITY_ALIASES) {
+    if (aliases.some((alias) => matchesGarminActivityAlias(normalized, alias))) return canonical;
+  }
+  return "";
+}
+
+function matchesGarminActivityAlias(normalized, alias) {
+  if (normalized === alias) return true;
+  const exactOnly = new Set(["training", "workout", "cardio", "interval", "trail", "swimming", "bike", "run"]);
+  if (exactOnly.has(alias)) return false;
+  return normalized.startsWith(`${alias}_`) || normalized.endsWith(`_${alias}`) || normalized.includes(`_${alias}_`);
+}
+
+function normalizeActivityTypeKey(value) {
+  return repairMojibakeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "") || "activity";
+}
+
+function activityTypeFromGarminKey(key = "") {
+  const text = normalizeActivityTypeKey(key);
+  if (text.includes("trail")) return "trail";
+  if (text.includes("running") || text === "run") return "run";
+  if (text.includes("swim")) return "swim";
+  if (text.includes("cycling")) return "cycling";
+  if (text.includes("multisport")) return "multisport";
+  if (text.includes("strength") || text.includes("fuerza") || text.includes("weight") || text.includes("fitness_equipment")) return "strength";
+  if (text.includes("yoga") || text.includes("pilates")) return "pilates";
+  if (text.includes("hiit") || text.includes("cardio") || text.includes("interval") || text.includes("workout")) return "hiit";
+  if (text === "other") return "other";
+  return "hybrid";
+}
+
+function buildActivityTypeFilterOptions(sessions = []) {
+  return GARMIN_PRIMARY_ACTIVITY_FILTERS;
+}
+
+function activityTypeChipLabel(key, raw) {
+  const normalized = normalizeActivityTypeKey(key || raw);
+  const labels = {
+    ...Object.fromEntries(GARMIN_PRIMARY_ACTIVITY_FILTERS),
+    hiit: "HIIT",
+    strength_training: "Fuerza",
+    strength: "Fuerza",
+    running: "Carrera",
+    run: "Carrera",
+    trail_running: "Trail running",
+    swimming: "Natación",
+    lap_swimming: "Natación en piscina",
+    pool_swimming: "Natación en piscina",
+    multisport: "Multideporte",
+    cycling: "Ciclismo",
+    yoga: "Yoga",
+    pilates: "Pilates",
+    other: "Otro",
+  };
+  if (labels[normalized]) return labels[normalized];
+  if (/^\d+$/.test(normalized)) return "Otro";
+  return repairMojibakeText(raw || normalized)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function buildActivityWeek(sessions) {
@@ -4257,6 +5946,164 @@ function buildActivityWeek(sessions) {
     target.totalSeconds += Number(session.duration_seconds || session.durationSeconds || 0);
   });
   return week;
+}
+
+function buildActivityPeriod(viewMode, date) {
+  if (viewMode === "week") {
+    const start = startOfWeek(date);
+    const end = addDays(start, 6);
+    return { start, end, dayCount: 7 };
+  }
+  const start = startOfMonth(date);
+  const end = endOfMonth(date);
+  return { start, end, dayCount: end.getDate() };
+}
+
+function shiftActivityPeriod(date, viewMode, direction) {
+  const next = new Date(date);
+  if (viewMode === "week") next.setDate(next.getDate() + direction * 7);
+  else next.setMonth(next.getMonth() + direction);
+  return startOfDay(next);
+}
+
+function buildActivityWeekForPeriod(start, sessions) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(start, index);
+    const key = dateKey(date);
+    const items = sessions.filter((session) => sessionDateKey(session) === key);
+    return {
+      date,
+      label: ["D", "L", "M", "X", "J", "V", "S"][date.getDay()],
+      items,
+      totalSeconds: items.reduce((sum, item) => sum + sessionDurationSeconds(item), 0),
+    };
+  });
+}
+
+function buildActivityMonthGrid(monthStart, sessions) {
+  const first = startOfMonth(monthStart);
+  const last = endOfMonth(monthStart);
+  const leading = (first.getDay() + 6) % 7;
+  const blanks = Array.from({ length: leading }, (_, index) => ({ key: `blank-${index}`, date: null, items: [] }));
+  const days = Array.from({ length: last.getDate() }, (_, index) => {
+    const date = new Date(first);
+    date.setDate(index + 1);
+    const key = dateKey(date);
+    return {
+      key,
+      date,
+      items: sessions.filter((session) => sessionDateKey(session) === key),
+    };
+  });
+  return [...blanks, ...days];
+}
+
+function matchesActivityFilters(item, sourceFilter, typeFilter) {
+  const hasCoach = Boolean(item.has_conversation);
+  const hasGarmin = Boolean(item.source_id || item.external_reference || item.fit_identity || item.garmin_sets_total || item.garmin_reps_total);
+  const sourceMatch = sourceFilter === "all" ||
+    (sourceFilter === "garmin" && hasGarmin) ||
+    (sourceFilter === "coach" && hasCoach) ||
+    (sourceFilter === "mixed" && hasGarmin && hasCoach);
+  const typeMatch = typeFilter === "all" || item.garminActivityTypeKey === typeFilter;
+  return sourceMatch && typeMatch;
+}
+
+function isDateWithinPeriod(key, period) {
+  const date = new Date(`${key}T12:00:00`);
+  return date >= period.start && date <= period.end;
+}
+
+function summarizeActivityPeriod(items, dayCount) {
+  const totalSeconds = items.reduce((sum, item) => sum + sessionDurationSeconds(item), 0);
+  const activeDays = new Set(items.map(sessionDateKey)).size;
+  return {
+    totalSeconds,
+    averageSeconds: activeDays ? Math.round(totalSeconds / activeDays) : 0,
+    sessions: items.length,
+    activeDays,
+    dayCount,
+  };
+}
+
+function sortSessionsChronological(a, b) {
+  return `${a.started_at || a.created_at || ""}`.localeCompare(`${b.started_at || b.created_at || ""}`);
+}
+
+function sessionDurationSeconds(item) {
+  return Number(item.duration_seconds || item.durationSeconds || 0);
+}
+
+function activityViewLabel(viewMode) {
+  return { week: "Semana", month: "Mes" }[viewMode] || "Semana";
+}
+
+function formatActivityPeriodTitle(viewMode, period) {
+  if (viewMode === "week") {
+    const day = new Intl.DateTimeFormat("es-ES", { day: "numeric" });
+    const month = new Intl.DateTimeFormat("es-ES", { month: "short" });
+    const sameMonth = period.start.getMonth() === period.end.getMonth();
+    const startLabel = sameMonth ? day.format(period.start) : `${day.format(period.start)} ${month.format(period.start)}`;
+    return `Semana ${startLabel}–${day.format(period.end)} ${month.format(period.end)} ${period.end.getFullYear()}`;
+  }
+  const month = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(period.start);
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${period.start.getFullYear()}`;
+}
+
+function formatActivityDayFilterLabel(viewMode, period, selectedDates = []) {
+  if (!selectedDates.length) {
+    return {
+      eyebrow: "Periodo",
+      title: viewMode === "week" ? "Mostrando toda la semana" : "Mostrando todo el mes",
+    };
+  }
+  return {
+    eyebrow: "Filtro por día",
+    title: `Filtrado: ${formatSelectedDayList(selectedDates, period)}`,
+  };
+}
+
+function formatSelectedDayList(keys, period) {
+  const dates = keys.map((key) => new Date(`${key}T12:00:00`)).filter((date) => !Number.isNaN(date.getTime()));
+  if (!dates.length) return "";
+  const sameMonth = dates.every((date) => date.getMonth() === dates[0].getMonth() && date.getFullYear() === dates[0].getFullYear());
+  if (sameMonth) {
+    const days = dates.map((date) => new Intl.DateTimeFormat("es-ES", { day: "numeric" }).format(date));
+    const month = new Intl.DateTimeFormat("es-ES", { month: "short" }).format(dates[0]);
+    return `${joinSpanishList(days)} ${month}`;
+  }
+  if (period && dates.every((date) => date.getFullYear() === period.start.getFullYear())) {
+    return joinSpanishList(dates.map(formatCompactDayLabel));
+  }
+  return joinSpanishList(dates.map((date) => new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(date)));
+}
+
+function formatCompactDayLabel(value) {
+  const date = value instanceof Date ? value : new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(date);
+}
+
+function joinSpanishList(items) {
+  if (items.length <= 1) return items[0] || "";
+  if (items.length === 2) return `${items[0]} y ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function formatSessionCount(count) {
+  return `${count} ${count === 1 ? "sesión" : "sesiones"}`;
+}
+
+function activityTrainingSubtitle(activityType) {
+  return {
+    hybrid: "Entrenamiento híbrido",
+    hiit: "Entrenamiento híbrido",
+    strength: "Entrenamiento de fuerza",
+    run: "Running",
+    trail: "Trail",
+    swim: "Natación",
+    pilates: "Yoga / movilidad",
+  }[activityType] || "Entrenamiento";
 }
 
 function sessionDateKey(session) {
@@ -4288,6 +6135,16 @@ function formatDateLong(value) {
     weekday: "long",
     day: "numeric",
     month: "short",
+  });
+}
+
+function formatDateLongWithYear(value) {
+  if (!value) return "Sin fecha";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 }
 
@@ -4346,6 +6203,40 @@ function startOfDay(date) {
   return copy;
 }
 
+function dateKey(date) {
+  const copy = startOfDay(date);
+  const year = copy.getFullYear();
+  const month = `${copy.getMonth() + 1}`.padStart(2, "0");
+  const day = `${copy.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return startOfDay(copy);
+}
+
+function startOfWeek(date) {
+  const copy = startOfDay(date);
+  const offset = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - offset);
+  return copy;
+}
+
+function startOfMonth(date) {
+  const copy = startOfDay(date);
+  copy.setDate(1);
+  return copy;
+}
+
+function endOfMonth(date) {
+  const copy = startOfMonth(date);
+  copy.setMonth(copy.getMonth() + 1);
+  copy.setDate(0);
+  return startOfDay(copy);
+}
+
 function formatWeekRange(week) {
   if (!week?.length) return "";
   const formatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" });
@@ -4397,10 +6288,10 @@ function classifyActivityTypeFromSummary(summary = {}, session = {}) {
 function benefitFromTrainingEffect(trainingEffect = {}) {
   const aerobic = Number(trainingEffect.aerobic || 0);
   const anaerobic = Number(trainingEffect.anaerobic || 0);
-  if (aerobic < 1 && anaerobic < 1) return "Base (Aerobica baja)";
-  if (anaerobic > aerobic) return "Sprint (Anaerobico)";
-  if (aerobic >= 2.5) return "Mejora aerobica";
-  return "Base (Aerobica)";
+  if (aerobic < 1 && anaerobic < 1) return "Base (Aeróbica baja)";
+  if (anaerobic > aerobic) return "Sprint (Anaeróbico)";
+  if (aerobic >= 2.5) return "Mejora aeróbica";
+  return "Base (Aeróbica)";
 }
 
 function parseDurationToSeconds(meta) {
@@ -4847,7 +6738,7 @@ function mapExerciseBlocks(blockRows, exerciseRows) {
       id: block.id,
       orderText: safeValue(block.block_order),
       typeLabel: blockTypeLabel(block.block_type),
-      name: block.name || "Bloque",
+      name: repairMojibakeText(block.name || "Bloque"),
       executionText: buildBlockExecution(block),
       temporal: getBlockTemporalMetrics(block),
       temporalWindow: {
@@ -4873,8 +6764,8 @@ function mapEnrichmentBlocks(blockRows = []) {
     const normalizedBlock = {
       id: block.id || `enrichment-${index + 1}`,
       block_order: block.block_order ?? block.order ?? index + 1,
-      block_type: block.block_type || block.type || prescription.block_type || "conversation",
-      name: block.name || block.title || prescription.name || `Bloque ${index + 1}`,
+      block_type: repairMojibakeText(block.block_type || block.type || prescription.block_type || "conversation"),
+      name: repairMojibakeText(block.name || block.title || prescription.name || `Bloque ${index + 1}`),
       duration_seconds: null,
       active_seconds: null,
       rest_seconds: null,
@@ -4888,8 +6779,8 @@ function mapEnrichmentBlocks(blockRows = []) {
         exercises,
         coach_interpretation: prescription.coach_interpretation || block.coach_interpretation || block.notes || [],
       },
-      execution_notes: block.execution_notes || block.notes || "",
-      data_confidence: block.data_confidence || "conversation_enrichment",
+      execution_notes: repairMojibakeText(block.execution_notes || block.notes || ""),
+      data_confidence: repairMojibakeText(block.data_confidence || "conversation_enrichment"),
     };
     return {
       ...mapExerciseBlocks([normalizedBlock], [])[0],
@@ -5160,7 +7051,7 @@ function compactBlockSummary(value) {
 function blockTypeLabel(value) {
   return {
     mobility: "Movilidad",
-    skill: "Tecnica",
+    skill: "Técnica",
     strength: "Fuerza",
     recovery: "Recovery",
     conditioning: "Condicionamiento",
@@ -5209,13 +7100,13 @@ function numericReps(value) {
 }
 
 function humanizeKey(value) {
-  return `${value || ""}`.replaceAll("_", " ");
+  return repairMojibakeText(value).replaceAll("_", " ");
 }
 
 function safeValue(value, fallback = "N/D") {
   if (value == null || value === "") return fallback;
   if (typeof value === "number" && Number.isNaN(value)) return fallback;
-  return `${value}`;
+  return repairMojibakeText(value);
 }
 
 function optionalNumber(value) {
