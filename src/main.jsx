@@ -3712,6 +3712,45 @@ async function copyPlainText(text) {
   }
 }
 
+function mergeDictationTranscript(current, addition) {
+  const base = repairMojibakeText(current).replace(/\s+/g, " ").trim();
+  const extra = repairMojibakeText(addition).replace(/\s+/g, " ").trim();
+  if (!base) return extra;
+  if (!extra) return base;
+
+  const baseComparable = comparableDictationText(base);
+  const extraComparable = comparableDictationText(extra);
+  if (!extraComparable || baseComparable.endsWith(extraComparable)) return base;
+  if (extraComparable.startsWith(baseComparable)) return extra;
+
+  const baseWords = base.split(/\s+/);
+  const extraWords = extra.split(/\s+/);
+  const baseComparableWords = baseWords.map(comparableDictationText);
+  const extraComparableWords = extraWords.map(comparableDictationText);
+  const maxOverlap = Math.min(baseWords.length, extraWords.length, 32);
+
+  for (let size = maxOverlap; size > 0; size -= 1) {
+    const baseTail = baseComparableWords.slice(-size).join(" ");
+    const extraHead = extraComparableWords.slice(0, size).join(" ");
+    if (baseTail && baseTail === extraHead) {
+      const tail = extraWords.slice(size).join(" ");
+      return tail ? `${base} ${tail}` : base;
+    }
+  }
+
+  return `${base} ${extra}`;
+}
+
+function comparableDictationText(value) {
+  return repairMojibakeText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function ChatComposer({ value, onChange, onSend, onMicNotice }) {
   const inputRef = useRef(null);
   const dictation = useLongDictation({
@@ -3787,9 +3826,9 @@ function useLongDictation({ value, onChange, onNotice }) {
     if (!text) return;
     if (lastFinalTranscriptRef.current.toLowerCase() === text.toLowerCase()) return;
     const current = valueRef.current || "";
-    if (current.toLowerCase().endsWith(text.toLowerCase())) return;
+    const next = mergeDictationTranscript(current, text);
+    if (next === current) return;
     lastFinalTranscriptRef.current = text;
-    const next = [current.trim(), text].filter(Boolean).join(current.trim() ? " " : "");
     valueRef.current = next;
     onChange(next);
     localStorage.setItem(storageKeys.coachDraft, JSON.stringify(next));
