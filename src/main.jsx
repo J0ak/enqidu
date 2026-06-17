@@ -47,7 +47,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Trash2,
   Trophy,
   UserRound,
   Watch,
@@ -3782,23 +3781,16 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
     onChange,
     onNotice: onMicNotice,
   });
+  const displayValue = dictation.interimTranscript
+    ? [value.trim(), dictation.interimTranscript].filter(Boolean).join(value.trim() ? " " : "")
+    : value;
 
   useEffect(() => {
     const node = textareaRef.current;
     if (!node) return;
     node.style.height = "auto";
-    node.style.height = `${Math.min(260, Math.max(72, node.scrollHeight))}px`;
-  }, [value, dictation.interimTranscript]);
-
-  const clearDraft = () => {
-    if (!value.trim() && !dictation.interimTranscript.trim()) return;
-    if ((value.length > 280 || dictation.interimTranscript.length > 120) && !window.confirm("¿Limpiar todo el dictado actual?")) return;
-    dictation.stop({ commitInterim: false });
-    dictation.clearInterim();
-    onChange("");
-    localStorage.removeItem(storageKeys.coachDraft);
-    onMicNotice("Dictado limpiado.");
-  };
+    node.style.height = `${Math.min(180, Math.max(46, node.scrollHeight))}px`;
+  }, [displayValue]);
 
   const submit = () => {
     const text = dictation.commitInterim();
@@ -3808,45 +3800,32 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
 
   return (
     <div className="coachComposer">
-      <div className="dictationStatusLine">
-        <span className={dictation.isListening ? "active" : ""}>{dictation.statusLabel}</span>
-        {!dictation.supported && <small>Tu navegador no permite dictado continuo aquí. Usa el dictado del teclado del móvil o escribe en el área grande.</small>}
-      </div>
       <textarea
         ref={textareaRef}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        value={displayValue}
+        onChange={(event) => {
+          dictation.clearInterim();
+          onChange(event.target.value);
+        }}
         onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) && event.key === "Enter") submit();
         }}
-        placeholder="Dicta una sesión completa: bloques, cargas, correcciones, sensaciones..."
-        rows={3}
+        placeholder="Escribe o dicta tu actualización"
+        rows={1}
       />
-      {dictation.interimTranscript && (
-        <div className="interimTranscript">
-          <span>Escuchando ahora</span>
-          <p>{dictation.interimTranscript}</p>
-        </div>
-      )}
-      <div className="composerActions">
-        <button
-          type="button"
-          className={`iconAction ${dictation.isListening ? "listening" : ""}`}
-          onClick={dictation.isActive ? dictation.stop : dictation.start}
-          aria-label={dictation.isActive ? "Pausar dictado" : "Iniciar dictado"}
-        >
-          {dictation.isActive ? <Pause size={18} /> : <Mic size={18} />}
-          <span>{dictation.isActive ? "Detener" : "Dictar"}</span>
-        </button>
-        <button type="button" className="iconAction" onClick={clearDraft} aria-label="Limpiar dictado">
-          <Trash2 size={18} />
-          <span>Limpiar</span>
-        </button>
-        <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
-          <Send size={18} />
-          <span>Enviar</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        className={`iconAction ${dictation.isListening ? "listening" : ""}`}
+        onClick={dictation.isActive ? dictation.stop : dictation.start}
+        aria-label={dictation.isActive ? "Detener dictado" : "Iniciar dictado"}
+        title={dictation.isActive ? "Detener dictado" : "Dictar"}
+      >
+        {dictation.isActive ? <Pause size={20} /> : <Mic size={20} />}
+      </button>
+      <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
+        <Send size={20} />
+      </button>
+      {!dictation.supported && <small>Tu navegador no permite dictado continuo aquí.</small>}
     </div>
   );
 }
