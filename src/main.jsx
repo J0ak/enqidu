@@ -480,7 +480,8 @@ function App() {
     const maxHr = Math.max(...samples.map((item) => Number(item.heart_rate_bpm || 0)), 0);
     const fitTime = timeMetricsFromFitSessionPayload(fitSessionPayload);
     const duration = Number(fitTime.totalSeconds || summary.duration_elapsed_seconds || summary.duration_total_seconds || latestSession.duration_seconds || 0);
-    const activityTime = getActivityTimeMetrics(latestSession, metrics, blocksResult.data || [], summary, duration, fitSessionPayload);
+    const objectiveRows = lapsResult.error ? [] : lapsResult.data || [];
+    const activityTime = getActivityTimeMetrics(latestSession, metrics, blocksResult.data || [], summary, duration, fitSessionPayload, objectiveRows);
     const garminOriginalTitle = originalGarminTitle(latestSession, summary);
     const title = latestSession.title || garminOriginalTitle || "Actividad";
     const heartRateZones = resolveActivityHeartRateZones({
@@ -1599,22 +1600,21 @@ function GarminBlocksTab({ detail }) {
   return (
     <div className="garminBlocksTab">
       <div className="blocksIntro">
-        <h3>Bloques Garmin</h3>
-        <p>Segmentos objetivos detectados desde el archivo FIT.</p>
+        <h3>Segmentos objetivos</h3>
       </div>
       {blocks.length ? (
         <div className="garminBlockList">
           {blocks.map((block) => <GarminBlockCard key={block.id} block={block} />)}
         </div>
       ) : (
-        <div className="softEmpty">Sin laps/splits Garmin persistidos todavía.</div>
+        <div className="softEmpty">Sin segmentos objetivos identificados.</div>
       )}
     </div>
   );
 }
 
 function GarminBlockCard({ block }) {
-  const duration = optionalNumber(block.duration_seconds);
+  const duration = optionalNumber(block.active_seconds ?? block.duration_seconds);
   const metrics = [
     block.heart_rate_avg_bpm == null ? null : ["FC media", `${block.heart_rate_avg_bpm} ppm`],
     block.heart_rate_max_bpm == null ? null : ["FC máxima", `${block.heart_rate_max_bpm} ppm`],
@@ -1625,7 +1625,7 @@ function GarminBlockCard({ block }) {
     <article className="garminBlockCard" style={{ "--block": garminBlockColor(block.order) }}>
       <header>
         <div>
-          <h4>Bloque {block.order} · {block.name}</h4>
+          <h4>Bloque {block.order}</h4>
           <p>{formatGarminBlockMeta(block)}</p>
         </div>
         {duration != null && <strong>{formatDurationClock(duration)}</strong>}
@@ -1770,7 +1770,6 @@ function ActivityTrainingEffectCard({ detail }) {
           <b><HeartPulse size={24} />{benefit}</b>
         </aside>
       </div>
-      <p>Los valores de Training Effect se calculan según Firstbeat Analytics.</p>
     </article>
   );
 }
@@ -2948,9 +2947,11 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
   const userProfile = firstItem(fit.user_profiles || fit.user_profile);
   const fileId = firstItem(messageRows(rawMessages, "file_id", fit.file_id || fit.file_ids));
   const startedAt = toIso(session.start_time || session.start_date || firstItem(records)?.timestamp || fit.timestamp);
-  const elapsedSeconds = Math.round(Number(session.total_elapsed_time || session.total_elapsed_time_seconds || 0));
-  const timerSeconds = Math.round(Number(session.total_timer_time || session.total_timer_time_seconds || fit.active_time || 0));
-  const durationSeconds = elapsedSeconds || timerSeconds || 0;
+  const sessionTime = timeMetricsFromFitSessionPayload(session);
+  const objectiveTime = timeMetricsFromObjectiveRows(splits.length ? splits : laps.length ? laps : splitSummaries, sessionTime.totalSeconds);
+  const elapsedSeconds = Math.round(Number(sessionTime.totalSeconds || session.total_elapsed_time || session.total_elapsed_time_seconds || 0));
+  const timerSeconds = Math.round(Number(sessionTime.activeSeconds || session.total_timer_time || session.total_timer_time_seconds || fit.active_time || 0));
+  const durationSeconds = objectiveTime.totalSeconds || elapsedSeconds || timerSeconds || 0;
   const activityType = activityLabel(session.sport || sport.sport, session.sub_sport || sport.sub_sport);
   const garminOriginalName = garminActivityName({ fit, session, sport, fallback: activityType });
   const temporalSegments = normalizeFitTemporalSegments({ laps, sets, splits, events, records, startedAt });
@@ -2999,8 +3000,8 @@ function normalizeParsedFit(fit, checksum, rawMessages = {}) {
   const respirationValues = samples.map(sampleRespirationValue).filter((value) => value != null && value > 0 && value < 80);
   const temperatures = samples.map((sample) => Number(sample.temperature_c || 0)).filter(Boolean);
   sessionLaps = enrichLapRowsWithSampleStats(sessionLaps, samples);
-  const workSeconds = timerSeconds || durationSeconds;
-  const restSeconds = Math.max(0, durationSeconds - workSeconds);
+  const workSeconds = objectiveTime.activeSeconds ?? timerSeconds ?? durationSeconds;
+  const restSeconds = objectiveTime.restSeconds ?? Math.max(0, durationSeconds - workSeconds);
   const trainingEffect = {
     aerobic: nullableNumber(session.total_training_effect ?? session.aerobic_training_effect),
     anaerobic: nullableNumber(session.total_anaerobic_training_effect ?? session.anaerobic_training_effect),
@@ -3372,9 +3373,10 @@ function seriesFromRows(rows, source, startedAt) {
   return rows
     .map((row, index) => {
       const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
-      const work = nullableNumber(row.active_seconds ?? row.work_seconds ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
-      const rest = nullableNumber(row.rest_seconds ?? row.total_rest_time ?? row.elapsed_rest_time);
-      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? (work != null && rest != null ? work + rest : work);
+      const time = garminObjectiveTimeParts(row);
+      const work = time.active;
+      const rest = time.rest;
+      const total = time.total;
       const start = explicitStart ?? cursor;
       const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
       if (end != null) cursor = Math.max(cursor, end);
@@ -3451,14 +3453,15 @@ function lapRowsFromRows(rows, source, startedAt) {
   return rows
     .map((row, index) => {
       const explicitStart = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"], "start_time", baseTime);
-      const active = nullableNumber(row.active_seconds ?? row.active_time ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
-      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? active;
+      const time = garminObjectiveTimeParts(row);
+      const active = time.active;
+      const total = time.total;
       const start = explicitStart ?? cursor;
       const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
       if (end != null) cursor = Math.max(cursor, end);
-      const rest = nullableNumber(row.rest_seconds) ?? (active != null && total != null && total >= active ? total - active : null);
+      const rest = time.rest;
       return {
-        lap_index: fitMessageOrder(row.message_index ?? row.message_number ?? row.lap_index ?? row.split_index) ?? index + 1,
+        lap_index: index + 1,
         source,
         start_elapsed_seconds: start == null ? null : Math.round(start),
         end_elapsed_seconds: end == null ? null : Math.round(end),
@@ -3481,13 +3484,14 @@ function segmentsFromRows(rows, source, startedAt) {
   return rows
     .map((row, index) => {
       const start = elapsedFromFitRow(row, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time", "elapsed_time"], "start_time", baseTime);
-      const active = nullableNumber(row.active_seconds ?? row.active_time ?? row.total_timer_time ?? row.total_timer_time_seconds ?? row.timer_time ?? row.duration);
-      const total = nullableNumber(row.duration_seconds ?? row.total_elapsed_time ?? row.total_elapsed_time_seconds ?? row.elapsed_time) ?? active;
-      const rest = nullableNumber(row.rest_seconds) ?? (active != null && total != null && total >= active ? total - active : null);
+      const time = garminObjectiveTimeParts(row);
+      const active = time.active;
+      const total = time.total;
+      const rest = time.rest;
       const end = elapsedFromFitRow(row, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"], "end_time", baseTime) ?? (start != null && total != null ? start + total : null);
       return {
         source,
-        order: fitMessageOrder(row.message_index ?? row.message_number ?? row.lap_index ?? row.set_index) ?? index,
+        order: index + 1,
         start_elapsed_seconds: start,
         end_elapsed_seconds: end,
         duration_seconds: total,
@@ -4311,7 +4315,7 @@ function formatGarminBlockMeta(block) {
   if (block.repetitions != null) parts.push(`${formatNumberValue(block.repetitions)} reps`);
   if (block.calories != null) parts.push(`${formatNumberValue(block.calories)} kcal`);
   if (block.distance_meters != null && block.distance_meters > 0) parts.push(`${Math.round(block.distance_meters)} m`);
-  return parts.length ? parts.join(" · ") : "Segmento Garmin/FIT";
+  return parts.length ? parts.join(" · ") : "Segmento objetivo";
 }
 
 function downsampleRespirationSamples(samples, maxPoints) {
@@ -4438,7 +4442,18 @@ function textMetric(metrics, keys, fallback) {
   return found?.value_text || found?.value_json?.text || fallback;
 }
 
-function getActivityTimeMetrics(session, metrics, blocks = [], summary = {}, fallbackDuration = 0, fitSessionPayload = {}) {
+function getActivityTimeMetrics(session, metrics, blocks = [], summary = {}, fallbackDuration = 0, fitSessionPayload = {}, objectiveRows = []) {
+  const objectiveTime = timeMetricsFromObjectiveRows(objectiveRows.length ? objectiveRows : objectiveRowsFromSummary(summary), fallbackDuration);
+  if (objectiveTime.activeSeconds != null || objectiveTime.restSeconds != null) {
+    return {
+      totalSeconds: objectiveTime.totalSeconds ?? Math.round(Number(fallbackDuration || 0)),
+      activeSeconds: objectiveTime.activeSeconds,
+      restSeconds: objectiveTime.restSeconds,
+      source: "garmin_objective_segments",
+      confidence: "reported",
+    };
+  }
+
   const fitTime = timeMetricsFromFitSessionPayload(fitSessionPayload);
   const totalSeconds = Number(fitTime.totalSeconds || summary.duration_elapsed_seconds || summary.duration_total_seconds || session.duration_seconds || fallbackDuration || 0);
   if (fitTime.activeSeconds != null || fitTime.restSeconds != null) {
@@ -4500,6 +4515,48 @@ function getActivityTimeMetrics(session, metrics, blocks = [], summary = {}, fal
     restSeconds: null,
     source: "session_duration_only",
     confidence: "partial",
+  };
+}
+
+function objectiveRowsFromSummary(summary = {}) {
+  if (Array.isArray(summary.splits) && summary.splits.length) return summary.splits;
+  if (Array.isArray(summary.laps) && summary.laps.length) return summary.laps;
+  if (Array.isArray(summary.split_summaries) && summary.split_summaries.length) return summary.split_summaries;
+  return [];
+}
+
+function timeMetricsFromObjectiveRows(rows = [], fallbackTotal = null) {
+  const parts = rows
+    .map(garminObjectiveTimeParts)
+    .filter((part) => part.active != null || part.rest != null || part.total != null);
+  const usable = parts.filter((part) => part.active != null || part.rest != null);
+  if (!usable.length) return { totalSeconds: null, activeSeconds: null, restSeconds: null };
+  const active = sumNumeric(usable.map((part) => part.active));
+  const rest = sumNumeric(usable.map((part) => part.rest));
+  const totalFromRows = sumNumeric(usable.map((part) => part.total));
+  const total = totalFromRows || active + rest || optionalNumber(fallbackTotal);
+  return {
+    totalSeconds: total == null ? null : Math.round(total),
+    activeSeconds: active > 0 ? Math.round(active) : null,
+    restSeconds: rest >= 0 ? Math.round(rest) : null,
+  };
+}
+
+function garminObjectiveTimeParts(row = {}) {
+  const raw = row.raw_payload || row.payload || row;
+  const active = optionalNumber(firstPresent(raw, ["active_seconds", "active_time", "work_seconds"]) ?? row.active_seconds ?? row.active_time);
+  const timer = optionalNumber(firstPresent(raw, ["total_timer_time", "total_timer_time_seconds", "timer_time"]) ?? row.total_timer_time ?? row.timer_time);
+  const elapsed = optionalNumber(firstPresent(raw, ["duration_seconds", "total_elapsed_time", "total_elapsed_time_seconds", "elapsed_time", "duration"]) ?? row.duration_seconds ?? row.elapsed_time);
+  const explicitRest = optionalNumber(firstPresent(raw, ["rest_seconds", "total_rest_time", "elapsed_rest_time"]) ?? row.rest_seconds);
+  const total = active != null
+    ? timer ?? elapsed ?? active
+    : elapsed ?? timer ?? optionalNumber(row.duration_seconds);
+  const resolvedActive = active ?? timer ?? total;
+  const rest = explicitRest ?? (total != null && resolvedActive != null && total >= resolvedActive ? total - resolvedActive : null);
+  return {
+    total,
+    active: resolvedActive,
+    rest,
   };
 }
 
@@ -4585,17 +4642,18 @@ function mapGarminObjectiveBlocks({ laps = [], summary = {}, samples = [], zones
   return sourceRows.map((row, index) => {
     const raw = row.raw_payload || row.payload || {};
     const start = optionalNumber(row.start_elapsed_seconds);
-    const duration = optionalNumber(row.duration_seconds ?? raw.duration_seconds ?? raw.total_elapsed_time ?? raw.elapsed_time ?? raw.duration);
+    const time = garminObjectiveTimeParts({ ...row, raw_payload: raw });
+    const duration = optionalNumber(time.total);
     const end = optionalNumber(row.end_elapsed_seconds) ?? (start != null && duration != null ? start + duration : null);
-    const active = optionalNumber(row.active_seconds ?? raw.active_seconds ?? raw.total_timer_time ?? raw.timer_time ?? raw.active_time);
-    const rest = optionalNumber(row.rest_seconds ?? raw.rest_seconds ?? raw.total_rest_time ?? raw.elapsed_rest_time) ?? (duration != null && active != null && duration >= active ? duration - active : null);
+    const active = optionalNumber(time.active);
+    const rest = optionalNumber(time.rest);
     const hr = heartRateStatsForWindow(samples, start, end, {
       avg: row.heart_rate_avg_bpm ?? raw.avg_heart_rate ?? raw.average_heart_rate,
       max: row.heart_rate_max_bpm ?? raw.max_heart_rate ?? raw.maximum_heart_rate,
     });
     const respiration = respirationStatsForWindow(samples, start, end, raw._enqidu_computed);
     const zoneTimes = computeZoneDurationsForWindow(samples, zones, start, end, duration);
-    const order = optionalNumber(row.lap_index ?? raw.lap_index ?? raw.split_index ?? raw.message_index ?? raw.message_number) ?? index + 1;
+    const order = index + 1;
     return {
       id: row.id || `garmin-block-${order}`,
       order,

@@ -44,11 +44,12 @@ npm run backfill:garmin -- eedf9854-3176-4d82-b8df-c2bdf1ab1df3 --fit-file "C:\U
 
 - Checks current counts for `fit_message_payloads`, `session_laps`, `session_garmin_sets`, and `session_blocks`.
 - Prints `fit_message_payloads` counts grouped by `message_type`.
-- Inserts missing `session_metrics` for total time, active time, rest time, and respiration average/max when those values can be derived from FIT `session` and `record` messages.
+- Inserts or corrects `session_metrics` for total time, active time, rest time, and respiration average/max/min when those values can be derived from FIT `session`, split/lap, and `record` messages.
 - With `--fit-file`, reads Garmin FIT `record` field `108` as temporal respiration, scaled as `raw / 100` brpm, and additively stores it in existing JSON payloads.
 - With `--fit-file`, updates only missing respiration fields in `session_samples.raw_payload` and `fit_message_payloads.payload`.
 - Inserts `session_laps` only when the session currently has zero lap rows.
 - Uses only `lap`, `laps`, `split`, `splits`, `split_summary`, or `split_summaries` messages for `session_laps`.
+- For Garmin workout-round splits, derives work/rest time from `active_time` and `total_timer_time - active_time`, matching Garmin Connect's time-of-work and time-of-rest view.
 - Computes `heart_rate_avg_bpm` and `heart_rate_max_bpm` for each inserted lap/split from existing `session_samples` when the FIT payload does not already provide them.
 - Computes respiration average/max from temporal FIT records when available and stores per-lap values inside `session_laps.raw_payload._enqidu_computed`, without requiring new columns.
 - Inserts `session_garmin_sets` only when the session currently has zero Garmin set rows.
@@ -91,3 +92,9 @@ For `23253420650_ACTIVITY.fit`, temporal respiration is present in FIT record fi
 - Minimum: `12.49` brpm.
 - Average: `22.63` brpm.
 - Maximum: `41.05` brpm.
+
+The same FIT file reports workout-round split timing:
+
+- Total: `1:05:45`.
+- Work time: `47:32`.
+- Rest time: `18:14`.

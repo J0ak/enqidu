@@ -107,7 +107,7 @@ async function main() {
 
   let insertedLaps = 0;
   let insertedGarminSets = 0;
-  const insertedMetrics = await insertMissingSessionMetrics(sessionId, messages, samples);
+  const upsertedMetrics = await upsertSessionMetrics(sessionId, messages, samples);
 
   if (before.session_laps === 0) {
     const lapRows = chooseRowsByPriority(messages, LAP_MESSAGE_TYPES);
@@ -137,7 +137,7 @@ async function main() {
 
   console.log(`Inserted session_laps: ${insertedLaps}`);
   console.log(`Inserted session_garmin_sets: ${insertedGarminSets}`);
-  console.log(`Inserted session_metrics: ${insertedMetrics}`);
+  console.log(`Upserted session_metrics: ${upsertedMetrics}`);
   if (fitFilePath) {
     console.log(`Updated session_samples respiration payloads: ${updatedSampleRespiration}`);
     console.log(`Updated fit_message_payloads respiration payloads: ${updatedPayloadRespiration}`);
@@ -278,29 +278,52 @@ async function insertInChunks(table, rows, size) {
   }
 }
 
-async function insertMissingSessionMetrics(id, messages, samples) {
+async function upsertSessionMetrics(id, messages, samples) {
   const rows = buildSessionMetricRows(messages, samples);
   if (!rows.length) return 0;
   const codes = rows.map((row) => row.metric_code);
   const { data, error } = await supabase
     .from("session_metrics")
-    .select("metric_code")
+    .select("id,metric_code,value_numeric")
     .eq("session_id", id)
     .in("metric_code", codes);
   if (error) throw error;
 
-  const existing = new Set((data || []).map((row) => row.metric_code));
+  const existing = new Map((data || []).map((row) => [row.metric_code, row]));
   const missing = rows
     .filter((row) => !existing.has(row.metric_code))
     .map((row) => ({ ...row, session_id: id }));
-  if (!missing.length) return 0;
-  await insertInChunks("session_metrics", missing, 500);
-  return missing.length;
+  if (missing.length) await insertInChunks("session_metrics", missing, 500);
+
+  let updated = 0;
+  for (const row of rows) {
+    const current = existing.get(row.metric_code);
+    if (!current) continue;
+    const currentValue = numberOrNull(current.value_numeric);
+    const nextValue = numberOrNull(row.value_numeric);
+    if (currentValue === nextValue) continue;
+    const { error: updateError } = await supabase
+      .from("session_metrics")
+      .update({
+        metric_name: row.metric_name,
+        value_numeric: row.value_numeric,
+        unit: row.unit,
+        source_path: row.source_path,
+        confidence: row.confidence,
+      })
+      .eq("id", current.id);
+    if (updateError) throw updateError;
+    updated += 1;
+  }
+
+  return missing.length + updated;
 }
 
 function buildSessionMetricRows(messages, samples) {
   const sessionPayload = firstMessagePayload(messages, ["session", "sessions"]);
-  const time = timeMetricsFromFitSessionPayload(sessionPayload);
+  const objectiveTime = timeMetricsFromFitMessages(messages);
+  const time = objectiveTime || timeMetricsFromFitSessionPayload(sessionPayload);
+  const timeSource = objectiveTime ? "fit_split_messages" : "fit_session_message";
   const sessionRespiration = respirationFromFitSessionPayload(sessionPayload);
   const respirationValues = samples
     .map(sampleRespirationValue)
@@ -311,9 +334,9 @@ function buildSessionMetricRows(messages, samples) {
   const respirationMax = respirationValues.length ? Math.round(Math.max(...respirationValues)) : sessionRespiration.max;
   const respirationMin = respirationValues.length ? Math.round(Math.min(...respirationValues)) : sessionRespiration.min;
   const rows = [
-    ["duration_total_seconds", "Tiempo total", time.totalSeconds, "s", "fit_session_message", "reported"],
-    ["active_time", "Tiempo de trabajo", time.activeSeconds, "s", "fit_session_message", "reported"],
-    ["rest_time", "Tiempo de descanso", time.restSeconds, "s", "fit_session_message", "reported"],
+    ["duration_total_seconds", "Tiempo total", time.totalSeconds, "s", timeSource, "reported"],
+    ["active_time", "Tiempo de trabajo", time.activeSeconds, "s", timeSource, "reported"],
+    ["rest_time", "Tiempo de descanso", time.restSeconds, "s", timeSource, "reported"],
     ["respiration_avg_brpm", "Frecuencia respiratoria media", respirationAvg, "brpm", respirationSource, respirationConfidence],
     ["respiration_max_brpm", "Frecuencia respiratoria maxima", respirationMax, "brpm", respirationSource, respirationConfidence],
     ["respiration_min_brpm", "Frecuencia respiratoria minima", respirationMin, "brpm", respirationSource, respirationConfidence],
@@ -354,6 +377,44 @@ function timeMetricsFromFitSessionPayload(payload = {}) {
     activeSeconds: integerOrNull(active),
     restSeconds: integerOrNull(rest),
   };
+}
+
+function timeMetricsFromFitMessages(messages = []) {
+  const rows = firstRowsByMessageType(messages, ["split", "splits", "lap", "laps", "split_summary", "split_summaries"])
+    .map((row) => row.payload || {});
+  if (!rows.length) return null;
+  const parts = rows
+    .map(fitPayloadTimeParts)
+    .filter((part) => part.active != null || part.rest != null || part.total != null);
+  const usable = parts.filter((part) => part.active != null || part.rest != null);
+  if (!usable.length) return null;
+  const active = averageSafeSum(usable.map((part) => part.active));
+  const rest = averageSafeSum(usable.map((part) => part.rest));
+  const total = averageSafeSum(usable.map((part) => part.total)) || active + rest;
+  return {
+    totalSeconds: integerOrNull(total),
+    activeSeconds: active > 0 ? integerOrNull(active) : null,
+    restSeconds: rest >= 0 ? integerOrNull(rest) : null,
+  };
+}
+
+function firstRowsByMessageType(messages, types) {
+  for (const type of types) {
+    const rows = messages.filter((row) => row.message_type === type);
+    if (rows.length) return rows;
+  }
+  return [];
+}
+
+function fitPayloadTimeParts(payload = {}) {
+  const active = numberOrNull(firstValue(payload, ["active_seconds", "active_time", "work_seconds"]));
+  const timer = numberOrNull(firstValue(payload, ["total_timer_time", "total_timer_time_seconds", "timer_time"]));
+  const elapsed = numberOrNull(firstValue(payload, ["duration_seconds", "total_elapsed_time", "total_elapsed_time_seconds", "elapsed_time", "duration"]));
+  const explicitRest = numberOrNull(firstValue(payload, ["rest_seconds", "total_rest_time", "elapsed_rest_time"]));
+  const total = active != null ? timer ?? elapsed ?? active : elapsed ?? timer ?? active;
+  const resolvedActive = active ?? timer ?? total;
+  const rest = explicitRest ?? (total != null && resolvedActive != null && total >= resolvedActive ? total - resolvedActive : null);
+  return { total, active: resolvedActive, rest };
 }
 
 function samplesFromFitRecordMessages(messages) {
@@ -535,7 +596,7 @@ function normalizeLapRows(rows, samples = []) {
       const respiration = respirationForWindow(samples, start, end);
       return {
         session_id: row.session_id,
-        lap_index: fitOrder(row.payload, row.message_order, index + 1, ["lap_index", "split_index"]),
+        lap_index: index + 1,
         source: lapSource(row.message_type),
         start_elapsed_seconds: integerOrNull(start),
         end_elapsed_seconds: integerOrNull(end),
@@ -594,11 +655,12 @@ function withElapsedWindows(rows) {
     const payload = row.payload || {};
     const explicitStart = numberOrNull(firstValue(payload, ["start_elapsed_seconds", "start_time_seconds", "start_elapsed_time"]));
     const explicitEnd = numberOrNull(firstValue(payload, ["end_elapsed_seconds", "end_time_seconds", "end_elapsed_time"]));
-    const active = numberOrNull(firstValue(payload, ["active_seconds", "active_time", "total_timer_time", "total_timer_time_seconds", "timer_time", "duration"]));
-    const duration = numberOrNull(firstValue(payload, ["duration_seconds", "total_elapsed_time", "total_elapsed_time_seconds", "elapsed_time", "duration"])) ?? active;
+    const time = fitPayloadTimeParts(payload);
+    const active = time.active;
+    const duration = time.total;
     const start = explicitStart ?? cursor;
     const end = explicitEnd ?? (start != null && duration != null ? start + duration : null);
-    const rest = numberOrNull(firstValue(payload, ["rest_seconds", "total_rest_time", "elapsed_rest_time"])) ?? (active != null && duration != null && duration >= active ? duration - active : null);
+    const rest = time.rest;
     if (end != null) cursor = Math.max(cursor, end);
     return { row, index, start, end, duration, active, rest };
   });
@@ -708,6 +770,13 @@ function numberOrNull(value) {
 function integerOrNull(value) {
   const number = numberOrNull(value);
   return number == null ? null : Math.round(number);
+}
+
+function averageSafeSum(values) {
+  return values.reduce((sum, value) => {
+    const number = numberOrNull(value);
+    return number == null ? sum : sum + number;
+  }, 0);
 }
 
 function average(values) {
