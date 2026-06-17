@@ -3741,6 +3741,30 @@ function mergeDictationTranscript(current, addition) {
   return `${base} ${extra}`;
 }
 
+function dictationTranscriptDelta(previous, current) {
+  const before = repairMojibakeText(previous).replace(/\s+/g, " ").trim();
+  const now = repairMojibakeText(current).replace(/\s+/g, " ").trim();
+  if (!now) return "";
+  if (!before) return now;
+  if (comparableDictationText(now) === comparableDictationText(before)) return "";
+
+  const beforeWords = before.split(/\s+/);
+  const nowWords = now.split(/\s+/);
+  const beforeComparableWords = beforeWords.map(comparableDictationText);
+  const nowComparableWords = nowWords.map(comparableDictationText);
+  const maxOverlap = Math.min(beforeWords.length, nowWords.length, 64);
+
+  for (let size = maxOverlap; size > 0; size -= 1) {
+    const beforeTail = beforeComparableWords.slice(-size).join(" ");
+    const nowHead = nowComparableWords.slice(0, size).join(" ");
+    if (beforeTail && beforeTail === nowHead) {
+      return nowWords.slice(size).join(" ");
+    }
+  }
+
+  return now;
+}
+
 function comparableDictationText(value) {
   return repairMojibakeText(value)
     .normalize("NFD")
@@ -3809,6 +3833,7 @@ function useLongDictation({ value, onChange, onNotice }) {
   const valueRef = useRef(value);
   const interimRef = useRef("");
   const lastFinalTranscriptRef = useRef("");
+  const recognitionFinalRef = useRef("");
 
   useEffect(() => {
     valueRef.current = value;
@@ -3834,9 +3859,19 @@ function useLongDictation({ value, onChange, onNotice }) {
     localStorage.setItem(storageKeys.coachDraft, JSON.stringify(next));
   };
 
+  const appendRecognitionTranscript = (transcript) => {
+    const text = repairMojibakeText(transcript).replace(/\s+/g, " ").trim();
+    if (!text) return;
+    const previous = recognitionFinalRef.current;
+    const merged = mergeDictationTranscript(previous, text);
+    const delta = dictationTranscriptDelta(previous, merged);
+    recognitionFinalRef.current = merged;
+    if (delta) appendTranscript(delta);
+  };
+
   const commitInterim = () => {
     const text = interimRef.current;
-    if (text) appendTranscript(text);
+    if (text) appendRecognitionTranscript(text);
     interimRef.current = "";
     setInterimTranscript("");
     return valueRef.current || "";
@@ -3864,6 +3899,7 @@ function useLongDictation({ value, onChange, onNotice }) {
     recognition.onstart = () => {
       startingRef.current = false;
       listeningRef.current = true;
+      recognitionFinalRef.current = "";
       restartDelayRef.current = 450;
       setPermissionError("");
       setIsListening(true);
@@ -3871,14 +3907,19 @@ function useLongDictation({ value, onChange, onNotice }) {
       onNotice("Escuchando. Puedes hablar durante varios minutos; enviarás cuando quieras.");
     };
     recognition.onresult = (event) => {
-      let interim = "";
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const finalParts = [];
+      const interimParts = [];
+      for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
         const transcript = result?.[0]?.transcript || "";
-        if (result?.isFinal) appendTranscript(transcript);
-        else interim += transcript;
+        if (result?.isFinal) finalParts.push(transcript);
+        else interimParts.push(transcript);
       }
-      const cleanedInterim = repairMojibakeText(interim).trim();
+      const finalText = finalParts.reduce((text, part) => mergeDictationTranscript(text, part), "");
+      if (finalText) appendRecognitionTranscript(finalText);
+      const cleanedInterim = interimParts
+        .reduce((text, part) => mergeDictationTranscript(text, part), "")
+        .trim();
       interimRef.current = cleanedInterim;
       setInterimTranscript(cleanedInterim);
     };
