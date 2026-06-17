@@ -3417,11 +3417,14 @@ button:disabled {
 
 .chatLog {
   display: grid;
-  align-content: end;
+  align-content: start;
   gap: 10px;
   min-height: min(560px, calc(100vh - 220px));
   max-height: calc(100vh - 190px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   border: 1px solid var(--border);
   border-radius: 22px;
   padding: 16px;
@@ -3436,7 +3439,7 @@ button:disabled {
   line-height: 1.5;
   user-select: text;
   -webkit-user-select: text;
-  touch-action: manipulation;
+  touch-action: pan-y;
 }
 
 .bubble.assistant {

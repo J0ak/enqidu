@@ -3627,13 +3627,17 @@ function CopyableChatMessage({ message, onCopied }) {
   const [copied, setCopied] = useState(false);
   const pressTimerRef = useRef(null);
   const feedbackTimerRef = useRef(null);
+  const pressPointRef = useRef(null);
 
   useEffect(() => () => {
     clearTimeout(pressTimerRef.current);
     clearTimeout(feedbackTimerRef.current);
   }, []);
 
-  const clearPressTimer = () => clearTimeout(pressTimerRef.current);
+  const clearPressTimer = () => {
+    clearTimeout(pressTimerRef.current);
+    pressPointRef.current = null;
+  };
 
   const copyMessage = async () => {
     clearPressTimer();
@@ -3650,16 +3654,31 @@ function CopyableChatMessage({ message, onCopied }) {
   const startPressTimer = (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     clearPressTimer();
+    pressPointRef.current = { x: event.clientX, y: event.clientY };
     pressTimerRef.current = setTimeout(copyMessage, 650);
+  };
+
+  const cancelCopyOnScroll = (event) => {
+    const point = pressPointRef.current;
+    if (!point) return;
+    const moved = Math.hypot(event.clientX - point.x, event.clientY - point.y);
+    if (moved > 10) clearPressTimer();
+  };
+
+  const copyFromContextMenu = (event) => {
+    event.preventDefault();
+    copyMessage();
   };
 
   return (
     <div
       className={`bubble ${message.role}`}
       onPointerDown={startPressTimer}
+      onPointerMove={cancelCopyOnScroll}
       onPointerUp={clearPressTimer}
       onPointerCancel={clearPressTimer}
       onPointerLeave={clearPressTimer}
+      onContextMenu={copyFromContextMenu}
       title="Mantén pulsado para copiar"
     >
       {message.content}
@@ -3694,29 +3713,12 @@ async function copyPlainText(text) {
 }
 
 function ChatComposer({ value, onChange, onSend, onMicNotice }) {
-  const textareaRef = useRef(null);
+  const inputRef = useRef(null);
   const dictation = useLongDictation({
     value,
     onChange,
     onNotice: onMicNotice,
   });
-
-  useEffect(() => {
-    const node = textareaRef.current;
-    if (!node) return;
-    node.style.height = "auto";
-    node.style.height = `${Math.min(260, Math.max(68, node.scrollHeight))}px`;
-  }, [value, dictation.interimTranscript]);
-
-  const clearDraft = () => {
-    if (!value.trim() && !dictation.interimTranscript.trim()) return;
-    if ((value.length > 280 || dictation.interimTranscript.length > 120) && !window.confirm("¿Limpiar todo el dictado actual?")) return;
-    dictation.stop({ commitInterim: false });
-    dictation.clearInterim();
-    onChange("");
-    localStorage.removeItem(storageKeys.coachDraft);
-    onMicNotice("Dictado limpiado.");
-  };
 
   const submit = () => {
     const text = dictation.commitInterim();
@@ -3726,45 +3728,27 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
 
   return (
     <div className="coachComposer">
-      <div className="dictationStatusLine">
-        <span className={dictation.isListening ? "active" : ""}>{dictation.statusLabel}</span>
-        {!dictation.supported && <small>Tu navegador no permite dictado continuo aquí. Usa el dictado del teclado del móvil o escribe en el área grande.</small>}
-      </div>
-      <textarea
-        ref={textareaRef}
+      <input
+        ref={inputRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") submit();
+          if (event.key === "Enter") submit();
         }}
-        placeholder="Dicta una sesión completa: bloques, cargas, correcciones, sensaciones..."
-        rows={3}
+        placeholder={dictation.interimTranscript || "Escribe o dicta tu actualización"}
       />
-      {dictation.interimTranscript && (
-        <div className="interimTranscript">
-          <span>Escuchando ahora</span>
-          <p>{dictation.interimTranscript}</p>
-        </div>
-      )}
-      <div className="composerActions">
-        <button
-          type="button"
-          className={`iconAction ${dictation.isListening ? "listening" : ""}`}
-          onClick={dictation.isActive ? dictation.stop : dictation.start}
-          aria-label={dictation.isActive ? "Pausar dictado" : "Iniciar dictado"}
-        >
-          {dictation.isActive ? <Pause size={18} /> : <Mic size={18} />}
-          <span>{dictation.isActive ? "Detener" : "Dictar"}</span>
-        </button>
-        <button type="button" className="iconAction" onClick={clearDraft} aria-label="Limpiar dictado">
-          <Trash2 size={18} />
-          <span>Limpiar</span>
-        </button>
-        <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
-          <Send size={18} />
-          <span>Enviar</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        className={`iconAction ${dictation.isListening ? "listening" : ""}`}
+        onClick={dictation.isActive ? dictation.stop : dictation.start}
+        aria-label={dictation.isActive ? "Detener dictado" : "Iniciar dictado"}
+        title={dictation.isActive ? "Detener dictado" : "Dictar"}
+      >
+        <Mic size={22} />
+      </button>
+      <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
+        <Send size={22} />
+      </button>
     </div>
   );
 }
