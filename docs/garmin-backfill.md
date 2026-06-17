@@ -11,6 +11,12 @@ $env:SUPABASE_URL="https://<project-ref>.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
 ```
 
+If `.env.local` already has `VITE_SUPABASE_URL`, the runner can reuse it as the project URL. The only extra local key needed for write backfills is:
+
+```dotenv
+SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
+```
+
 The service role key is read from the environment only. The runner never prints it and no secrets should be committed.
 If a key exists both in the terminal environment and `.env.local`, the terminal environment wins.
 
