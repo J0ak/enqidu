@@ -7,7 +7,7 @@ const LAP_MESSAGE_TYPES = ["lap", "laps", "split", "splits", "split_summary", "s
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`Usage: npm run backfill:garmin -- [session-id] [--fit-file path/to/activity.fit]\n\nDefaults to session ${DEFAULT_SESSION_ID}.\nRequires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment.\n--fit-file augments existing record payloads with Garmin record field 108 respiration data when present.`);
+  console.log(`Usage: npm run backfill:garmin -- [session-id] [--fit-file path/to/activity.fit]\n\nDefaults to session ${DEFAULT_SESSION_ID}.\nRequires SUPABASE_SERVICE_ROLE_KEY plus SUPABASE_URL or VITE_SUPABASE_URL in the environment or .env.local.\n--fit-file augments existing record payloads with Garmin record field 108 respiration data when present.`);
   process.exit(0);
 }
 
@@ -27,11 +27,15 @@ const sessionId = positionalArgs[0] || DEFAULT_SESSION_ID;
 
 loadLocalEnvFile(".env.local");
 
-const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+  const missing = [
+    supabaseUrl ? null : "SUPABASE_URL or VITE_SUPABASE_URL",
+    serviceRoleKey ? null : "SUPABASE_SERVICE_ROLE_KEY",
+  ].filter(Boolean);
+  console.error(`Missing required environment variable${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
   process.exit(1);
 }
 
