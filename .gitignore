@@ -6,6 +6,7 @@ dist/
 vite.err.log
 vite.out.log
 .codex-remote-attachments/
+supabase/.temp/
 .vite/
 .cache/
 .cert/

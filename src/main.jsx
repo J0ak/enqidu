@@ -5,6 +5,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
+import { requestCoachReply } from "@/services/aiCoachContextService";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -80,7 +81,7 @@ const disciplineOrder = ["boyle", "hyrox", "deka", "trail", "crossfit"];
 
 const disciplines = {
   boyle: {
-    label: "Boyle",
+    label: "Base",
     icon: ShieldCheck,
     color: "#23e6c1",
     headline: "Base humana antes que heroicidades",
@@ -3580,23 +3581,44 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
 function CoachView({ messages, setMessages, discipline, sessions }) {
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
+  const [sending, setSending] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const send = (overrideDraft) => {
+  const send = async (overrideDraft) => {
     const text = (overrideDraft ?? draft).trim();
-    if (!text) return;
+    if (!text || sending) return;
     const userMessage = { role: "user", content: text };
-    const answer = {
+    const pendingAnswer = {
       role: "assistant",
-      content: buildCoachReply(text, discipline, sessions),
+      content: "Consultando tu contexto ENQIDU...",
     };
-    setMessages([...messages, userMessage, answer]);
+    const nextMessages = [...messages, userMessage, pendingAnswer];
+    setMessages(nextMessages);
     setDraft("");
     localStorage.removeItem(storageKeys.coachDraft);
+
+    try {
+      setSending(true);
+      const result = await requestCoachReply({
+        message: text,
+        mode: "today_coach",
+      });
+      const content = result.ok && result.answer
+        ? result.answer
+        : buildCoachFallbackReply(text, discipline, sessions, result.error);
+      setMessages((current) => replaceLastAssistantMessage(current, content));
+    } catch (error) {
+      setMessages((current) => replaceLastAssistantMessage(
+        current,
+        buildCoachFallbackReply(text, discipline, sessions, error?.message),
+      ));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -3617,9 +3639,21 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
         onChange={setDraft}
         onSend={send}
         onMicNotice={setMicNotice}
+        disabled={sending}
       />
     </section>
   );
+}
+
+function replaceLastAssistantMessage(messages, content) {
+  const next = [...messages];
+  for (let index = next.length - 1; index >= 0; index -= 1) {
+    if (next[index]?.role === "assistant") {
+      next[index] = { ...next[index], content };
+      return next;
+    }
+  }
+  return [...next, { role: "assistant", content }];
 }
 
 function CopyableChatMessage({ message, onCopied }) {
@@ -3774,7 +3808,7 @@ function comparableDictationText(value) {
     .trim();
 }
 
-function ChatComposer({ value, onChange, onSend, onMicNotice }) {
+function ChatComposer({ value, onChange, onSend, onMicNotice, disabled = false }) {
   const textareaRef = useRef(null);
   const dictation = useLongDictation({
     value,
@@ -3793,6 +3827,7 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
   }, [displayValue]);
 
   const submit = () => {
+    if (disabled) return;
     const text = dictation.commitInterim();
     dictation.stop({ commitInterim: false });
     onSend(text);
@@ -3812,6 +3847,7 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
         }}
         placeholder="Escribe o dicta tu actualización"
         rows={1}
+        disabled={disabled}
       />
       <button
         type="button"
@@ -3822,7 +3858,7 @@ function ChatComposer({ value, onChange, onSend, onMicNotice }) {
       >
         {dictation.isActive ? <Pause size={20} /> : <Mic size={20} />}
       </button>
-      <button type="button" className="sendAction" onClick={submit} aria-label="Enviar">
+      <button type="button" className="sendAction" onClick={submit} aria-label="Enviar" disabled={disabled}>
         <Send size={20} />
       </button>
       {!dictation.supported && <small>Tu navegador no permite dictado continuo aquí.</small>}
@@ -5684,6 +5720,17 @@ function buildCoachReply(input, discipline, sessions = []) {
   return `He registrado tu actualización para ${intent}. Cuando importes un FIT o sincronices datos, podré usar tu historial real para responder con más contexto.`;
 }
 
+function buildCoachFallbackReply(input, discipline, sessions = [], error) {
+  const localReply = buildCoachReply(input, discipline, sessions);
+  if (error === "openai_api_key_missing") {
+    return `${localReply}\n\nModo local: el coach IA con contexto seguro todavía no está activado. Para el piloto manual, copia este mensaje y pégalo en ChatGPT.`;
+  }
+  if (error === "supabase_unavailable") {
+    return `${localReply}\n\nModo local: la conexión con Supabase no está disponible en este entorno.`;
+  }
+  return `${localReply}\n\nModo local: no he podido consultar el endpoint coach-reply ahora mismo.`;
+}
+
 function computeHealthReadiness(health) {
   const components = [];
   if (health.body_battery_current != null) components.push({ value: Number(health.body_battery_current), weight: 0.42 });
@@ -5711,7 +5758,7 @@ function computeHealthReadiness(health) {
       label: "Train, but narrow",
       training: "Base + técnica",
       copy: "Hay energía suficiente, pero no conviene abrir demasiados frentes. Buen día para construir sin deuda.",
-      plan: "Me quedaría en Boyle/Zone 2, movilidad y fuerza limpia. Evitaría un metcon largo o competir contra el reloj.",
+      plan: "Me quedaría en Zone 2, movilidad y fuerza limpia. Evitaría un metcon largo o competir contra el reloj.",
     };
   }
 
