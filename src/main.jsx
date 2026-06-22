@@ -11,8 +11,9 @@ import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import {
   buildCalendarSessionViewModels,
-  buildLocalPlannedWeek,
   calendarSessionMatchesFilters,
+  isDateInInclusiveRange as isCalendarDateInRange,
+  toLocalDateKey as toCalendarDateKey,
 } from "@/training/liveWeek";
 import {
   Activity,
@@ -1004,12 +1005,15 @@ function App() {
       ...item,
       planned_session_blocks: plannedBlocksBySession[item.id] || [],
     }));
-    const localPlannedSessions = dbPlannedSessions.length ? [] : buildLocalPlannedWeek(mappedSessions);
 
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
     if (!sessionResult.error) {
       setSessions(mappedSessions);
-      setPlannedSessions(dbPlannedSessions.length ? dbPlannedSessions : localPlannedSessions);
+      setPlannedSessions(plannedResult.error ? [] : dbPlannedSessions);
+      if (import.meta.env.DEV) {
+        console.debug("[Semana Viva] completedSessions", mappedSessions.length);
+        console.debug("[Semana Viva] plannedSessions", plannedResult.error ? 0 : dbPlannedSessions.length);
+      }
     }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
@@ -2894,7 +2898,6 @@ function ActivityTrainingEffectCard({ detail }) {
 
 function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDiscipline, onOpenSession }) {
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
-  const calendarSessions = buildCalendarSessionViewModels(plannedSessions, typedSessions);
   const today = useMemo(() => startOfDay(new Date()), []);
   const todayKey = dateKey(today);
   const [viewMode, setViewMode] = useState("week");
@@ -2903,14 +2906,25 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const typeOptions = buildActivityTypeFilterOptions(typedSessions);
-  const filteredSessions = calendarSessions.filter((item) => calendarSessionMatchesFilters(item, sourceFilter, typeFilter));
   const period = buildActivityPeriod(viewMode, periodDate);
+  const calendarSessions = buildCalendarSessionViewModels({
+    completedSessions: typedSessions,
+    plannedSessions,
+    weekStart: period.start,
+    weekEnd: period.end,
+  });
+  const filteredSessions = calendarSessions.filter((item) => calendarSessionMatchesFilters(item, sourceFilter, typeFilter));
   const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
   const visibleSessions = periodSessions
     .filter((item) => !selectedDates.length || selectedDates.includes(sessionDateKey(item)))
     .sort(sortSessionsChronological);
   const periodSummary = summarizeActivityPeriod(visibleSessions, selectedDates.length || period.dayCount);
   const dayFilterLabel = formatActivityDayFilterLabel(viewMode, period, selectedDates);
+
+  if (import.meta.env.DEV) {
+    console.debug("[Semana Viva] calendarSessions", calendarSessions.length);
+    console.debug("[Semana Viva] week", toCalendarDateKey(period.start), toCalendarDateKey(period.end));
+  }
 
   const openDetail = (item) => {
     const detailSession = item.completedSession || item;
@@ -6418,17 +6432,17 @@ function matchesActivityFilters(item, sourceFilter, typeFilter) {
 }
 
 function isDateWithinPeriod(key, period) {
-  const date = new Date(`${key}T12:00:00`);
-  return date >= period.start && date <= period.end;
+  return isCalendarDateInRange(key, period.start, period.end);
 }
 
 function summarizeActivityPeriod(items, dayCount) {
-  const totalSeconds = items.reduce((sum, item) => sum + sessionDurationSeconds(item), 0);
-  const activeDays = new Set(items.map(sessionDateKey)).size;
+  const realItems = items.filter((item) => item.kind === "completed" || item.kind === "linked" || item.durationSeconds > 0 || item.duration_seconds > 0);
+  const totalSeconds = realItems.reduce((sum, item) => sum + sessionDurationSeconds(item), 0);
+  const activeDays = new Set(realItems.map(sessionDateKey)).size;
   return {
     totalSeconds,
     averageSeconds: activeDays ? Math.round(totalSeconds / activeDays) : 0,
-    sessions: items.length,
+    sessions: realItems.length,
     activeDays,
     dayCount,
   };
@@ -6442,7 +6456,7 @@ function sortSessionsChronological(a, b) {
 }
 
 function sessionDurationSeconds(item) {
-  return Number(item.duration_seconds || item.durationSeconds || 0);
+  return Number(item.durationSeconds || item.duration_seconds || 0);
 }
 
 function activityViewLabel(viewMode) {
@@ -6518,12 +6532,7 @@ function activityTrainingSubtitle(activityType) {
 }
 
 function sessionDateKey(session) {
-  if (session.date) return session.date;
-  if (session.local_date) return session.local_date;
-  if (session.planned_date) return session.planned_date;
-  if (session.started_at) return new Date(session.started_at).toISOString().slice(0, 10);
-  if (session.created_at) return new Date(session.created_at).toISOString().slice(0, 10);
-  return new Date().toISOString().slice(0, 10);
+  return toCalendarDateKey(session.date || session.local_date || session.planned_date || session.started_at || session.created_at || new Date());
 }
 
 function groupSessionsByDay(sessions) {

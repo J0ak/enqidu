@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { resolveExerciseAlias } from "../src/training/exerciseCatalog.js";
+import { buildCalendarSessionViewModels, calendarSessionMatchesFilters } from "../src/training/liveWeek.js";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView, calculateSummaryMetrics, validateAndNormalizeTrainingSession } from "../src/training/metrics.js";
 import { buildTrainingSessionCardView } from "../src/training/smartCardView.js";
 
@@ -108,6 +109,42 @@ test("smart card view model exposes only session summary and block detail", asyn
   assert.deepEqual(view.visible_levels, ["session_summary", "block_detail"]);
   assert.ok(view.session_summary.blocks.length > 0);
   assert.equal(view.block_detail.order_index, 2);
+});
+
+test("live week includes completed Garmin and Coach sessions without a plan", () => {
+  const sessions = buildCalendarSessionViewModels({
+    plannedSessions: [],
+    completedSessions: [{
+      id: "26a5b01a-7bb3-4500-bac6-948185922ae2",
+      title: "HIIT",
+      local_date: "2026-06-22",
+      duration_seconds: 3484,
+      source_id: "source-1",
+      external_reference: "fit:abc",
+      garminActivityTypeKey: "hiit",
+      garminActivityTypeLabel: "HIIT",
+      coach_blocks_count: 6,
+      coach_exercises_count: 16,
+      has_conversation: true,
+    }],
+    weekStart: "2026-06-22",
+    weekEnd: "2026-06-28",
+  });
+
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].kind, "completed");
+  assert.equal(sessions[0].date, "2026-06-22");
+  assert.equal(sessions[0].durationSeconds, 3484);
+  assert.equal(sessions[0].hasFit, true);
+  assert.equal(sessions[0].hasCoachBlocks, true);
+  assert.equal(sessions[0].blocksCount, 6);
+  assert.equal(sessions[0].exercisesCount, 16);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "garmin", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "coach", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "mixed", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "hiit"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "strength"), false);
 });
 
 test("external adapter fixtures do not require Garmin/FIT as canonical model", async () => {
