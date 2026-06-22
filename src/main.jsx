@@ -951,14 +951,39 @@ function App() {
       spo2Query,
     ]);
 
-    const rawSessionRows = sessionResult.data || [];
+    logEnqiduDataDiagnostic("auth.user", userId ? { id: userId, email: activeSession?.user?.email || "" } : null);
+    if (sessionResult.error) {
+      warnEnqiduDataDiagnostic("training_sessions.error", sessionResult.error);
+    }
+
+    const fallbackStart = dateKey(startOfMonth(new Date()));
+    const fallbackEnd = dateKey(endOfMonth(new Date()));
+    let pilotCompletedResult = { data: [], error: null, warnings: [] };
+    let rawSessionRows = sessionResult.data || [];
+    if (sessionResult.error || !rawSessionRows.length) {
+      pilotCompletedResult = await fetchPilotCompletedSessionsForRange(fallbackStart, fallbackEnd);
+      if (pilotCompletedResult.error) {
+        warnEnqiduDataDiagnostic("chatgpt_pilot_find_session.error", pilotCompletedResult.error);
+      }
+      if (pilotCompletedResult.data.length) {
+        rawSessionRows = pilotCompletedResult.data;
+      }
+    }
+    const usedPilotCompletedFallback = pilotCompletedResult.data.length > 0 && (sessionResult.error || !(sessionResult.data || []).length);
+    logEnqiduDataDiagnostic("training_sessions.count", {
+      direct: (sessionResult.data || []).length,
+      pilotFallback: pilotCompletedResult.data.length,
+      effective: rawSessionRows.length,
+      range: { start: fallbackStart, end: fallbackEnd },
+    });
+
     const sessionIds = rawSessionRows.map((item) => item.id).filter(Boolean);
     let blockCountResult = { data: [], error: null };
     let exerciseCountResult = { data: [], error: null };
     let plannedResult = { data: [], error: null };
     let plannedBlocksResult = { data: [], error: null };
 
-    if (sessionIds.length) {
+    if (sessionIds.length && !usedPilotCompletedFallback) {
       [blockCountResult, exerciseCountResult] = await Promise.all([
         supabase
           .from("session_blocks")
@@ -1007,15 +1032,19 @@ function App() {
     }));
 
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
-    if (!sessionResult.error) {
+    if (sessionResult.error && !mappedSessions.length) {
+      warnEnqiduDataDiagnostic("completedSessions.emptyAfterFallback", {
+        directError: sessionResult.error.message,
+        pilotWarnings: pilotCompletedResult.warnings || [],
+      });
+    }
+    if (!sessionResult.error || mappedSessions.length) {
       setSessions(mappedSessions);
       setPlannedSessions(plannedResult.error ? [] : dbPlannedSessions);
-      if (import.meta.env.DEV) {
-        console.debug("[Semana Viva] completedSessions", mappedSessions.length);
-        console.debug("[Semana Viva] plannedSessions", plannedResult.error ? 0 : dbPlannedSessions.length);
-      }
+      logEnqiduDataDiagnostic("completedSessions.count", mappedSessions.length);
+      logEnqiduDataDiagnostic("plannedSessions.count", plannedResult.error ? 0 : dbPlannedSessions.length);
     }
-    if (sessionResult.data?.[0]?.id) {
+    if (!usedPilotCompletedFallback && sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
       const detail = await loadActivityDetail(sessionResult.data[0]);
       setActivityDetail(detail);
@@ -1049,6 +1078,7 @@ function App() {
       tableSummary("training_sessions", sessionResult),
       tableSummary("session_blocks", blockCountResult),
       tableSummary("session_exercises", exerciseCountResult),
+      tableSummary("chatgpt_pilot_find_session", pilotCompletedResult),
       tableSummary("planned_training_sessions", plannedResult),
       tableSummary("planned_session_blocks", plannedBlocksResult),
       tableSummary("profiles", profileResult),
@@ -6168,8 +6198,77 @@ function mapTrainingSession(item) {
     score: Math.round(score),
     date: item.local_date || (item.started_at ? new Date(item.started_at).toLocaleDateString("es-ES") : "Recent"),
     meta: [durationMinutes ? `${durationMinutes} min` : null, distanceKm ? `${distanceKm.toFixed(1)} km` : null]
-      .filter(Boolean)
-      .join(" · "),
+    .filter(Boolean)
+    .join(" · "),
+  };
+}
+
+async function fetchPilotCompletedSessionsForRange(startKey, endKey) {
+  const days = dateKeysBetween(startKey, endKey);
+  const warnings = [];
+  const sessionsById = new Map();
+
+  const results = await Promise.all(days.map(async (localDate) => ({
+    localDate,
+    result: await supabase.rpc("chatgpt_pilot_find_session", {
+      p_local_date: localDate,
+      p_activity_hint: null,
+    }),
+  })));
+
+  for (const { localDate, result } of results) {
+    if (result.error) {
+      warnings.push(`${localDate}: ${result.error.message}`);
+      continue;
+    }
+    const rows = Array.isArray(result.data?.sessions) ? result.data.sessions : [];
+    rows.forEach((row) => {
+      const mapped = mapPilotCompletedSession(row);
+      if (mapped.id) sessionsById.set(mapped.id, mapped);
+    });
+  }
+
+  return {
+    data: [...sessionsById.values()].sort((a, b) => `${b.local_date || ""}`.localeCompare(`${a.local_date || ""}`)),
+    error: warnings.length === days.length && days.length ? { message: warnings[0] } : null,
+    warnings,
+  };
+}
+
+function mapPilotCompletedSession(row = {}) {
+  const sessionId = row.session_id || row.id || "";
+  const blocksCount = Number(row.blocks_count || row.coach_blocks_count || 0);
+  const exercisesCount = Number(row.exercises_count || row.coach_exercises_count || 0);
+  const garminKey = row.garmin_type_key || row.garminActivityTypeKey || row.activity_type || "other";
+  const garminLabel = row.garmin_type_label || row.garminActivityTypeLabel || row.title || "";
+  return {
+    id: sessionId,
+    session_id: sessionId,
+    title: repairMojibakeText(row.title || garminLabel || "Sesion"),
+    session_kind: garminKey,
+    session_status: row.status || "completed",
+    duration_seconds: Number(row.duration_seconds || 0),
+    distance_meters: 0,
+    started_at: row.started_at || null,
+    local_date: row.local_date || row.date || "",
+    created_at: row.created_at || null,
+    source_id: row.source_id || (row.source_type === "garmin_fit" ? "chatgpt_pilot_find_session" : null),
+    source_type: row.source_type || "",
+    external_reference: row.external_reference || (row.has_fit || row.source_type === "garmin_fit" ? `pilot:${sessionId}` : null),
+    tags: [],
+    session_structure: {
+      garmin_fit_summary: {
+        activity_type: garminKey,
+        garmin_original_name: garminLabel,
+      },
+    },
+    garmin_type_key: garminKey,
+    garmin_type_label: garminLabel,
+    has_fit: Boolean(row.has_fit || row.source_type === "garmin_fit"),
+    has_coach_blocks: Boolean(row.has_coach_blocks || blocksCount || exercisesCount),
+    coach_blocks_count: blocksCount,
+    coach_exercises_count: exercisesCount,
+    metrics_count: Number(row.metrics_count || 0),
   };
 }
 
@@ -6637,6 +6736,17 @@ function addDays(date, days) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return startOfDay(copy);
+}
+
+function dateKeysBetween(startKey, endKey) {
+  const start = new Date(`${startKey}T12:00:00`);
+  const end = new Date(`${endKey}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+  const keys = [];
+  for (let current = startOfDay(start); current <= end; current = addDays(current, 1)) {
+    keys.push(dateKey(current));
+  }
+  return keys;
 }
 
 function startOfWeek(date) {
@@ -7950,6 +8060,21 @@ function tableSummary(table, result) {
     count: Array.isArray(result.data) ? result.data.length : result.data ? 1 : 0,
     error: result.error?.message || "",
   };
+}
+
+function shouldLogEnqiduDataDiagnostics() {
+  if (typeof window === "undefined") return Boolean(import.meta.env.DEV);
+  return Boolean(import.meta.env.DEV || window.location.hostname.includes("vercel.app"));
+}
+
+function logEnqiduDataDiagnostic(label, payload) {
+  if (!shouldLogEnqiduDataDiagnostics()) return;
+  console.debug(`[ENQIDU data] ${label}`, payload);
+}
+
+function warnEnqiduDataDiagnostic(label, payload) {
+  if (!shouldLogEnqiduDataDiagnostics()) return;
+  console.warn(`[ENQIDU data] ${label}`, payload);
 }
 
 function chronological(rows) {

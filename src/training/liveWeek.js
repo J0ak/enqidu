@@ -121,6 +121,7 @@ export function normalizeCompletedSessions(rows = []) {
     const hasCoachBlocks = Boolean(row.has_coach_blocks || row.has_conversation || blocksCount > 0 || exercisesCount > 0);
     return {
       ...row,
+      id: row.id || row.session_id,
       date: toLocalDateKey(row.local_date || row.date || row.started_at || row.created_at),
       local_date: toLocalDateKey(row.local_date || row.date || row.started_at || row.created_at),
       time: timeFromStartedAt(row.started_at),

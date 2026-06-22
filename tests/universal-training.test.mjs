@@ -147,6 +147,43 @@ test("live week includes completed Garmin and Coach sessions without a plan", ()
   assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "strength"), false);
 });
 
+test("live week accepts pilot RPC completed session summaries", () => {
+  const sessions = buildCalendarSessionViewModels({
+    plannedSessions: [],
+    completedSessions: [{
+      session_id: "26a5b01a-7bb3-4500-bac6-948185922ae2",
+      date: "2026-06-22",
+      title: "HIIT",
+      source_type: "garmin_fit",
+      garmin_type_key: "hiit",
+      garmin_type_label: "HIIT",
+      duration_seconds: 3484,
+      blocks_count: 6,
+      exercises_count: 16,
+      metrics_count: 2,
+      has_fit: true,
+      has_coach_blocks: true,
+      status: "completed",
+    }],
+    weekStart: "2026-06-22",
+    weekEnd: "2026-06-28",
+  });
+
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].id, "completed-26a5b01a-7bb3-4500-bac6-948185922ae2");
+  assert.equal(sessions[0].completedSessionId, "26a5b01a-7bb3-4500-bac6-948185922ae2");
+  assert.equal(sessions[0].title, "HIIT");
+  assert.equal(sessions[0].statusLabel, "Ejecutada + Coach");
+  assert.equal(sessions[0].hasFit, true);
+  assert.equal(sessions[0].hasCoachBlocks, true);
+  assert.equal(sessions[0].blocksCount, 6);
+  assert.equal(sessions[0].exercisesCount, 16);
+  assert.equal(sessions[0].metricsCount, 2);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "garmin", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "coach", "all"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "mixed", "all"), true);
+});
+
 test("live week merges planned week with completed monday and preserves source filters", () => {
   const completed = {
     id: "completed-1",
