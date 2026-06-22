@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "source_id": "jotason_location_rules_v1",
+  "locations": [
+    {
+      "id": "home",
+      "location_type": "home",
+      "equipment_inventory_id": "inventory_home_v4",
+      "equipment_policy": "use_linked_inventory",
+      "planning_policy": "Coach may design complete sessions with home equipment, subject to Promaestro V5 priorities and injury constraints.",
+      "notes": "Examples: front squat with Ohio Bar, landmine press, ring row, kettlebell goblet squat, Pallof press with bands, step-up with box, foam roller."
+    },
+    {
+      "id": "outside_home",
+      "location_type": "outside_home",
+      "equipment_inventory_id": null,
+      "equipment_policy": "explicit_external_only",
+      "planning_policy": "Plan intention, RPE, restrictions and adaptation criteria. Do not use inventory_home_v4.",
+      "notes": "Example: Hibrido fuera de casa can include RPE 7-8, avoid heavy deadlift, control jumps, adapt if lumbar > 2/10."
+    },
+    {
+      "id": "gym",
+      "location_type": "gym",
+      "equipment_inventory_id": null,
+      "equipment_policy": "explicit_external_only",
+      "planning_policy": "Use only material stated by the user, the gym context, or the external workout.",
+      "notes": "Do not assume home rack, home kettlebells, home wall ball or home rings."
+    },
+    {
+      "id": "studio",
+      "location_type": "studio",
+      "equipment_inventory_id": null,
+      "equipment_policy": "guided_session_no_equipment_assumption",
+      "planning_policy": "Treat as guided external session. Record objective, duration, restrictions and notes.",
+      "notes": "Yoga or class details can be recorded if dictated by the user."
+    },
+    {
+      "id": "unknown",
+      "location_type": "unknown",
+      "equipment_inventory_id": null,
+      "equipment_policy": "generic_no_equipment",
+      "planning_policy": "Ask clarification or plan without concrete equipment.",
+      "notes": "No material should be invented."
+    }
+  ],
+  "critical_rule": "inventory_home_v4 applies only when location_type is home."
+}
+

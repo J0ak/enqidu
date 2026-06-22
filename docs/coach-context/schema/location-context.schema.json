@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/location-context.schema.json",
+  "title": "ENQIDU Location Context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["locations"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "source_id": {
+      "type": ["string", "null"]
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/location_context"
+      }
+    },
+    "default_location_type": {
+      "type": ["string", "null"],
+      "enum": ["home", "outside_home", "gym", "studio", "outdoor", "unknown", null]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    },
+    "critical_rule": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "location_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "location_type", "equipment_policy"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": ["string", "null"]
+        },
+        "location_type": {
+          "type": "string",
+          "enum": ["home", "outside_home", "gym", "studio", "outdoor", "unknown"]
+        },
+        "equipment_inventory_id": {
+          "type": ["string", "null"]
+        },
+        "equipment_policy": {
+          "type": "string",
+          "enum": [
+            "use_linked_inventory",
+            "explicit_external_only",
+            "guided_session_no_equipment_assumption",
+            "generic_no_equipment"
+          ]
+        },
+        "planning_policy": {
+          "type": ["string", "null"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

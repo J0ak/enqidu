@@ -1,0 +1,194 @@
+{
+  "schema_version": "1.0.0",
+  "source_id": "inventory_home_v4",
+  "role": "home_equipment_inventory",
+  "applies_when": {
+    "location_type": "home"
+  },
+  "must_not_apply_when": [
+    "outside_home",
+    "gym",
+    "studio",
+    "outdoor",
+    "unknown"
+  ],
+  "locations": [
+    {
+      "id": "home",
+      "name": "Casa",
+      "location_type": "home",
+      "equipment": [
+        {
+          "name": "rack",
+          "category": "strength",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "Ohio Bar",
+          "category": "barbell",
+          "quantity": 1,
+          "load_range": "20 kg bar",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "plates",
+          "category": "barbell",
+          "quantity": null,
+          "load_range": "20/10/5/2.5/1.5 kg",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "dumbbells",
+          "category": "dumbbell",
+          "quantity": null,
+          "load_range": "17.5/10/5/2.5/2 kg",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "kettlebells",
+          "category": "kettlebell",
+          "quantity": 3,
+          "load_range": "24/18/16 kg",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "landmine",
+          "category": "strength",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "weighted vest",
+          "category": "calisthenics",
+          "quantity": null,
+          "load_range": "5/10 kg",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "rings",
+          "category": "calisthenics",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "single pulley",
+          "category": "cable",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "double pulley",
+          "category": "cable",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "step box",
+          "category": "plyometric",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "bands",
+          "category": "mobility",
+          "quantity": null,
+          "load_range": "various",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "sliders",
+          "category": "core",
+          "quantity": null,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "balance board",
+          "category": "balance",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "wall ball",
+          "category": "functional",
+          "quantity": 1,
+          "load_range": "18 lb",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "slam ball",
+          "category": "functional",
+          "quantity": 1,
+          "load_range": "30 lb",
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "jump rope",
+          "category": "conditioning",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "abmat",
+          "category": "core",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "ab wheel",
+          "category": "core",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "foam roller",
+          "category": "recovery",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        },
+        {
+          "name": "theragun",
+          "category": "recovery",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": null
+        }
+      ]
+    }
+  ],
+  "notes": "This is not a general JOTASON inventory. It applies only to home sessions."
+}
+

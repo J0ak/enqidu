@@ -54,7 +54,9 @@
           "examples": ["planned", "confirmed", "adaptable", "probable", "recommended", "modified", "skipped", "rescheduled"]
         },
         "location_type": {
-          "type": ["string", "null"]
+          "type": ["string", "null"],
+          "enum": ["home", "outside_home", "gym", "studio", "outdoor", "unknown", null],
+          "description": "Session location context. Planning rules use this value to decide which equipment inventory is valid."
         },
         "planned_intensity": {
           "type": ["string", "null"]
@@ -169,4 +171,3 @@
     }
   }
 }
-

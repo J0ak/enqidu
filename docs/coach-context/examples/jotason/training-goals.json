@@ -1,11 +1,17 @@
 {
   "schema_version": "1.0.0",
+  "source_id": "jotason_promaestro_v5",
   "planning_horizon_weeks": 4,
+  "priority_stack": {
+    "primary": "functional_lean_mass_full_body",
+    "secondary": "skills_mastery",
+    "tertiary": "endurance_events_trail_triathlon"
+  },
   "goals": [
     {
       "id": "jotason-lean-mass",
       "category": "body_composition",
-      "title": "Ganar masa magra sin perder capacidad hibrida",
+      "title": "Functional lean mass full body",
       "priority": "high",
       "status": "active",
       "target_date": null,
@@ -18,7 +24,7 @@
     {
       "id": "jotason-leg-strength",
       "category": "strength",
-      "title": "Mejorar fuerza de pierna",
+      "title": "Heavy leg strength as primary Saturday strength day",
       "priority": "high",
       "status": "active",
       "target_date": null,
@@ -31,7 +37,7 @@
     {
       "id": "jotason-trail-hybrid",
       "category": "hybrid",
-      "title": "Combinar trail, fuerza y rendimiento funcional",
+      "title": "Endurance events trail and triathlon support",
       "priority": "medium",
       "status": "active",
       "target_date": null,
@@ -44,7 +50,7 @@
   ],
   "skill_goals": [
     {
-      "name": "strict pull-up strength",
+      "name": "skills_hspu",
       "status": "building",
       "progress_marker": "mejorar control y volumen tecnico",
       "constraints": [
@@ -52,7 +58,7 @@
       ]
     },
     {
-      "name": "rings and bar control",
+      "name": "skills_muscle_up",
       "status": "building",
       "progress_marker": "acumular practica tecnica sin fatiga excesiva",
       "constraints": [
@@ -60,13 +66,20 @@
       ]
     },
     {
-      "name": "core control",
-      "status": "maintaining",
-      "progress_marker": "mantener tolerancia lumbar con anti-extension y anti-rotacion",
+      "name": "skills_pistol",
+      "status": "building",
+      "progress_marker": "mejorar control unilateral sin irritar lumbar",
       "constraints": [
-        "cortar si aparece dolor lumbar o gluteo"
+        "priorizar rango y control sobre carga"
       ]
     }
+  ],
+  "master_rules": [
+    "priority_mass_over_cardio",
+    "skills_every_week",
+    "only_one_high_intensity_running_day",
+    "friday_no_leg_fatigue",
+    "saturday_primary_strength_day",
+    "sunday_specific_endurance_not_competition"
   ]
 }
-

@@ -10,6 +10,25 @@
       "type": "string",
       "default": "1.0.0"
     },
+    "source_id": {
+      "type": ["string", "null"]
+    },
+    "role": {
+      "type": ["string", "null"],
+      "examples": ["home_equipment_inventory", "gym_equipment_inventory", "travel_equipment_inventory"]
+    },
+    "applies_when": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    },
+    "must_not_apply_when": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "locations": {
       "type": "array",
       "items": {
@@ -34,7 +53,7 @@
         },
         "location_type": {
           "type": ["string", "null"],
-          "examples": ["home", "gym", "outdoor", "travel"]
+          "enum": ["home", "outside_home", "gym", "studio", "outdoor", "unknown", "travel", null]
         },
         "equipment": {
           "type": "array",
@@ -74,4 +93,3 @@
     }
   }
 }
-

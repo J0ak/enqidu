@@ -10,6 +10,22 @@
       "type": "string",
       "default": "1.0.0"
     },
+    "source_id": {
+      "type": ["string", "null"]
+    },
+    "priority_stack": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [
+        {
+          "primary": "strength",
+          "secondary": "mobility",
+          "tertiary": "endurance"
+        }
+      ]
+    },
     "goals": {
       "type": "array",
       "items": {
@@ -25,6 +41,12 @@
     "planning_horizon_weeks": {
       "type": ["integer", "null"],
       "minimum": 1
+    },
+    "master_rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
@@ -91,4 +113,3 @@
     }
   }
 }
-

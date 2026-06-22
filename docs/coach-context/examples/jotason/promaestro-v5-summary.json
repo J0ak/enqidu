@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0.0",
+  "source_id": "jotason_promaestro_v5",
+  "role": "global_training_objective",
+  "applies_to": "jotason_pilot",
+  "priorities": {
+    "primary": "functional_lean_mass_full_body",
+    "secondary": "skills_mastery",
+    "tertiary": "endurance_events_trail_triathlon"
+  },
+  "weekly_structure": {
+    "monday": [
+      "hybrid",
+      "swimming_or_z2",
+      "skills_hspu"
+    ],
+    "tuesday": [
+      "full_body_strength",
+      "running_zone5",
+      "skills_pistol"
+    ],
+    "wednesday": [
+      "hybrid",
+      "swimming",
+      "mobility"
+    ],
+    "thursday": [
+      "upper_body_strength",
+      "skills_muscle_up",
+      "mobility_or_light_bike"
+    ],
+    "friday": [
+      "long_cycling_z2",
+      "core_glute_activation_optional"
+    ],
+    "saturday": [
+      "heavy_leg_strength"
+    ],
+    "sunday": [
+      "trail_run_long"
+    ]
+  },
+  "master_rules": [
+    "priority_mass_over_cardio",
+    "skills_every_week",
+    "only_one_high_intensity_running_day",
+    "friday_no_leg_fatigue",
+    "saturday_primary_strength_day",
+    "sunday_specific_endurance_not_competition"
+  ],
+  "feeds": [
+    "training-goals.json",
+    "weekly-structure.json",
+    "coach-decision-rules.md"
+  ],
+  "notes": "Promaestro V5 is the global objective source for the JOTASON pilot. It is not an equipment inventory."
+}
+

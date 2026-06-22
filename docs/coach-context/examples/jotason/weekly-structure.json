@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "source_id": "jotason_promaestro_v5",
+  "role": "base_weekly_structure",
+  "days": [
+    {
+      "day_of_week": "monday",
+      "base_focus": [
+        "hybrid",
+        "swimming_or_z2",
+        "skills_hspu"
+      ],
+      "location_policy": "location_must_be_declared_per_session"
+    },
+    {
+      "day_of_week": "tuesday",
+      "base_focus": [
+        "full_body_strength",
+        "running_zone5",
+        "skills_pistol"
+      ],
+      "location_policy": "location_must_be_declared_per_session"
+    },
+    {
+      "day_of_week": "wednesday",
+      "base_focus": [
+        "hybrid",
+        "swimming",
+        "mobility"
+      ],
+      "location_policy": "location_must_be_declared_per_session"
+    },
+    {
+      "day_of_week": "thursday",
+      "base_focus": [
+        "upper_body_strength",
+        "skills_muscle_up",
+        "mobility_or_light_bike"
+      ],
+      "location_policy": "location_must_be_declared_per_session"
+    },
+    {
+      "day_of_week": "friday",
+      "base_focus": [
+        "long_cycling_z2",
+        "core_glute_activation_optional"
+      ],
+      "location_policy": "avoid_leg_fatigue_before_saturday"
+    },
+    {
+      "day_of_week": "saturday",
+      "base_focus": [
+        "heavy_leg_strength"
+      ],
+      "location_policy": "location_must_be_declared_per_session"
+    },
+    {
+      "day_of_week": "sunday",
+      "base_focus": [
+        "trail_run_long"
+      ],
+      "location_policy": "outdoor_specific_endurance_not_competition"
+    }
+  ],
+  "master_rules": [
+    "priority_mass_over_cardio",
+    "skills_every_week",
+    "only_one_high_intensity_running_day",
+    "friday_no_leg_fatigue",
+    "saturday_primary_strength_day",
+    "sunday_specific_endurance_not_competition"
+  ]
+}
+
