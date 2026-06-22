@@ -10,6 +10,12 @@ import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliatio
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import {
+  fetchReadonlyPlannedSessions,
+  mergeExecutedAndPlannedForCalendar,
+  normalizePlannedCalendarItem,
+  resolveCalendarItemRoute,
+} from "@/training/plannedCalendar";
+import {
   Activity,
   ArrowLeft,
   ArrowUpRight,
@@ -298,7 +304,7 @@ function useStoredState(key, initialValue) {
 
 function getInitialRoute() {
   const hash = window.location.hash.replace("#/", "");
-  const visibleRoutes = ["coach", "health", "activities", "profile", "activityDetail"];
+  const visibleRoutes = ["coach", "health", "activities", "profile", "activityDetail", "plannedSessionDetail"];
   return visibleRoutes.includes(hash) ? hash : "coach";
 }
 
@@ -638,7 +644,9 @@ function App() {
   const [health, setHealth] = useState({});
   const [healthSeries, setHealthSeries] = useState({ sleep: null, hrv: [], bodyBattery: [], stress: [], respiration: [], spo2: [] });
   const [sessions, setSessions] = useState([]);
+  const [plannedSessions, setPlannedSessions] = useState([]);
   const [activityDetail, setActivityDetail] = useState(null);
+  const [plannedSessionDetail, setPlannedSessionDetail] = useState(null);
   const [dataState, setDataState] = useState({
     loading: false,
     source: supabase ? "Conectado" : "Sin conexión",
@@ -932,6 +940,14 @@ function App() {
     if (!sessionResult.error) {
       setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
+    try {
+      setPlannedSessions(await fetchReadonlyPlannedSessions(supabase, userId));
+    } catch (error) {
+      setPlannedSessions([]);
+      if (import.meta.env.DEV) {
+        console.warn("[planned-calendar] planned sessions unavailable", error);
+      }
+    }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
       const detail = await loadActivityDetail(sessionResult.data[0]);
@@ -1036,6 +1052,11 @@ function App() {
     setRoute("activityDetail");
   };
 
+  const openPlannedSessionDetail = (selectedSession) => {
+    setPlannedSessionDetail(selectedSession?.kind === "planned" ? selectedSession : normalizePlannedCalendarItem(selectedSession));
+    setRoute("plannedSessionDetail");
+  };
+
   const renameActivitySession = async (sessionId, nextTitle) => {
     const title = `${nextTitle || ""}`.trim();
     if (!sessionId || !title) return;
@@ -1066,7 +1087,7 @@ function App() {
       </aside>
 
       <main className="phoneCanvas">
-        {route !== "activityDetail" && (
+        {!["activityDetail", "plannedSessionDetail"].includes(route) && (
           <header className="appHeader">
             <div>
               <span>{routeLabel(route)}</span>
@@ -1085,9 +1106,11 @@ function App() {
         {route === "activities" && (
           <ActivitiesOverview
             sessions={filteredSessions}
+            plannedSessions={plannedSessions}
             setRoute={setRoute}
             setDiscipline={setDiscipline}
             onOpenSession={openSessionDetail}
+            onOpenPlannedSession={openPlannedSessionDetail}
           />
         )}
         {route === "activityDetail" && (
@@ -1095,6 +1118,12 @@ function App() {
             activityDetail={activityDetail}
             onBack={() => setRoute("activities")}
             onRenameSession={renameActivitySession}
+          />
+        )}
+        {route === "plannedSessionDetail" && (
+          <PlannedSessionDetail
+            plannedSession={plannedSessionDetail}
+            onBack={() => setRoute("activities")}
           />
         )}
         {route === "coach" && (
@@ -1128,6 +1157,7 @@ function routeLabel(route) {
     health: "Salud y recuperación",
     activities: "Historial de actividades",
     activityDetail: "Detalle Garmin/FIT",
+    plannedSessionDetail: "Detalle planificado",
     coach: "Coach",
     profile: "Cuenta e ingesta",
   }[route] || "Coach";
@@ -1506,6 +1536,121 @@ function EnergyTimeline({ curve }) {
         <span>Day drain</span>
         <span>Training window</span>
       </div>
+    </article>
+  );
+}
+
+function PlannedSessionDetail({ plannedSession, onBack }) {
+  if (!plannedSession) {
+    return (
+      <section className="activityDetailView plannedSessionDetail">
+        <header className="activityDetailHeader">
+          <button className="detailIconButton" onClick={onBack} aria-label="Volver a actividades">
+            <ArrowLeft size={22} />
+          </button>
+          <div className="activityTitleBlock">
+            <p>Sesión planificada</p>
+            <h1>Sin sesión seleccionada</h1>
+            <small>Vuelve al calendario y abre una planificación.</small>
+          </div>
+        </header>
+      </section>
+    );
+  }
+
+  const blocks = plannedSession.blocks || [];
+  const restrictions = plannedSession.restrictions || [];
+  const exercises = plannedSession.exercises || [];
+
+  return (
+    <section className="activityDetailView plannedSessionDetail">
+      <header className="activityDetailHeader">
+        <button className="detailIconButton" onClick={onBack} aria-label="Volver a actividades">
+          <ArrowLeft size={22} />
+        </button>
+        <div className="activityTitleBlock">
+          <p>{[formatDateLong(plannedSession.date), plannedSession.time].filter(Boolean).join(" · ")}</p>
+          <h1>{plannedSession.title}</h1>
+          <small>{plannedSession.statusLabel} · {plannedSession.typeLabel}</small>
+        </div>
+      </header>
+
+      <article className="activityMainCard plannedNoticeCard">
+        <ClipboardList size={20} />
+        <span>Sesión planificada. Todavía no tiene datos Garmin.</span>
+      </article>
+
+      <section className="plannedDetailGrid">
+        <PlannedDetailCard title="Objetivo">
+          <p>{plannedSession.objective || "Objetivo pendiente de definir."}</p>
+        </PlannedDetailCard>
+
+        <PlannedDetailCard title="Plan previsto">
+          <dl className="plannedDefinitionList">
+            <div>
+              <dt>Duración</dt>
+              <dd>{plannedSession.plannedDurationLabel || "Sin duración prevista"}</dd>
+            </div>
+            <div>
+              <dt>Intensidad</dt>
+              <dd>{plannedSession.intensityLabel || "Sin intensidad prevista"}</dd>
+            </div>
+            <div>
+              <dt>Estado</dt>
+              <dd>{plannedSession.statusLabel}</dd>
+            </div>
+          </dl>
+        </PlannedDetailCard>
+
+        <PlannedDetailCard title="Restricciones">
+          {restrictions.length ? (
+            <ul>
+              {restrictions.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          ) : (
+            <p>Sin restricciones registradas.</p>
+          )}
+        </PlannedDetailCard>
+
+        <PlannedDetailCard title="Notas coach">
+          <p>{plannedSession.coachNotes || "Sin notas coach."}</p>
+        </PlannedDetailCard>
+
+        <PlannedDetailCard title="Bloques previstos" wide>
+          {blocks.length ? (
+            <ol className="plannedBlockList">
+              {blocks.map((block) => (
+                <li key={block.id}>
+                  <strong>{block.title}</strong>
+                  {block.description && <p>{block.description}</p>}
+                  {block.exercises?.length ? <small>{block.exercises.join(" · ")}</small> : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No hay bloques planificados registrados.</p>
+          )}
+        </PlannedDetailCard>
+
+        <PlannedDetailCard title="Ejercicios previstos" wide>
+          {exercises.length ? (
+            <div className="plannedExerciseChips">
+              {exercises.map((exercise) => <span key={exercise}>{exercise}</span>)}
+            </div>
+          ) : (
+            <p>No hay ejercicios previstos registrados.</p>
+          )}
+        </PlannedDetailCard>
+      </section>
+    </section>
+  );
+}
+
+function PlannedDetailCard({ title, wide = false, children }) {
+  return (
+    <article className={`activityElementCard plannedDetailCard ${wide ? "wide" : ""}`}>
+      <h2>{title}</h2>
+      {children}
     </article>
   );
 }
@@ -2809,8 +2954,9 @@ function ActivityTrainingEffectCard({ detail }) {
   );
 }
 
-function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
+function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDiscipline, onOpenSession, onOpenPlannedSession }) {
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
+  const calendarItems = mergeExecutedAndPlannedForCalendar(typedSessions, plannedSessions);
   const today = useMemo(() => startOfDay(new Date()), []);
   const todayKey = dateKey(today);
   const [viewMode, setViewMode] = useState("week");
@@ -2818,17 +2964,22 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
   const [selectedDates, setSelectedDates] = useState([]);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-  const typeOptions = buildActivityTypeFilterOptions(typedSessions);
-  const filteredSessions = typedSessions.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
+  const typeOptions = buildActivityTypeFilterOptions(calendarItems);
+  const filteredSessions = calendarItems.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
   const period = buildActivityPeriod(viewMode, periodDate);
   const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
   const visibleSessions = periodSessions
     .filter((item) => !selectedDates.length || selectedDates.includes(sessionDateKey(item)))
     .sort(sortSessionsChronological);
-  const periodSummary = summarizeActivityPeriod(visibleSessions, selectedDates.length || period.dayCount);
+  const periodSummary = summarizeActivityPeriod(visibleSessions.filter((item) => item.kind !== "planned"), selectedDates.length || period.dayCount);
   const dayFilterLabel = formatActivityDayFilterLabel(viewMode, period, selectedDates);
 
   const openDetail = (item) => {
+    if (resolveCalendarItemRoute(item) === "plannedSessionDetail") {
+      if (onOpenPlannedSession) onOpenPlannedSession(item);
+      else setRoute("plannedSessionDetail");
+      return;
+    }
     if (item.activityType === "hybrid") setDiscipline("hyrox");
     if (item.activityType === "strength") setDiscipline("crossfit");
     if (item.activityType === "run") setDiscipline("trail");
@@ -2864,8 +3015,8 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
       <section className="activitiesHero">
         <div>
           <span>ACTIVIDADES</span>
-          <h2>Historial Garmin/FIT</h2>
-          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existan.</p>
+          <h2>Historial y planificación</h2>
+          <p>Sesiones ejecutadas y planificadas agrupadas por día, con detalle separado para cada tipo.</p>
         </div>
       </section>
 
@@ -2982,6 +3133,7 @@ function ActivityFilterChips({ sourceFilter, typeFilter, typeOptions, onSourceCh
     ["garmin", "Garmin/FIT"],
     ["coach", "Coach"],
     ["mixed", "Mixto"],
+    ["planned", "Planificadas"],
   ];
   return (
     <div className="activityFilterStack">
@@ -3072,6 +3224,7 @@ function ActivitySelectedDayFilters({ dates, onRemove }) {
 }
 
 function ActivityHistoryCard({ item, onOpen }) {
+  if (item.kind === "planned") return <PlannedActivityHistoryCard item={item} onOpen={onOpen} />;
   const type = activityTypes[item.activityType] || activityTypes.hybrid;
   const status = readableSessionStatus(item.session_status);
   return (
@@ -3095,6 +3248,39 @@ function ActivityHistoryCard({ item, onOpen }) {
         <span>FIT</span>
         {item.garmin_sets_total ? <span>{item.garmin_sets_total} series</span> : null}
         {item.has_conversation ? <span>coach</span> : null}
+        <ChevronRight size={16} />
+      </div>
+    </button>
+  );
+}
+
+function PlannedActivityHistoryCard({ item, onOpen }) {
+  const type = activityTypes[item.activityType] || activityTypes.hybrid;
+  const detailLine = [
+    item.intensityLabel,
+    item.plannedDurationLabel,
+    item.restrictions?.[0],
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <button className="activityHistoryCard plannedActivityHistoryCard" onClick={onOpen} style={{ "--type": type.color }}>
+      <div className="activityBadge plannedActivityBadge">
+        <ClipboardList size={18} />
+      </div>
+      <div className="activityHistoryMain">
+        <strong>{item.title}</strong>
+        <span>{item.typeLabel}</span>
+        <em>{[formatActivityTime(item), item.statusLabel].filter(Boolean).join(" · ")}</em>
+        {detailLine && <p>{detailLine}</p>}
+        <div className="activityMetrics plannedActivityChips">
+          {item.chips.map((chip) => (
+            <ActivityMetric key={chip} icon={CalendarDays} label={chip} />
+          ))}
+        </div>
+      </div>
+      <div className="activityFlags plannedActivityFlags">
+        <span>Plan</span>
+        {item.blocksCount ? <span>{item.blocksCount} bloques</span> : null}
         <ChevronRight size={16} />
       </div>
     </button>
@@ -6178,6 +6364,11 @@ function buildActivityMonthGrid(monthStart, sessions) {
 }
 
 function matchesActivityFilters(item, sourceFilter, typeFilter) {
+  if (item.kind === "planned") {
+    const sourceMatch = sourceFilter === "all" || sourceFilter === "planned";
+    const typeMatch = typeFilter === "all" || item.typeKey === typeFilter || item.garminActivityTypeKey === typeFilter;
+    return sourceMatch && typeMatch;
+  }
   const hasCoach = Boolean(item.has_conversation);
   const hasGarmin = Boolean(item.source_id || item.external_reference || item.fit_identity || item.garmin_sets_total || item.garmin_reps_total);
   const sourceMatch = sourceFilter === "all" ||
@@ -6206,7 +6397,11 @@ function summarizeActivityPeriod(items, dayCount) {
 }
 
 function sortSessionsChronological(a, b) {
-  return `${a.started_at || a.created_at || ""}`.localeCompare(`${b.started_at || b.created_at || ""}`);
+  return calendarSortTimestamp(a).localeCompare(calendarSortTimestamp(b));
+}
+
+function calendarSortTimestamp(item = {}) {
+  return item.started_at || item.planned_at || item.created_at || `${item.local_date || item.date || ""}T${item.time || "23:59"}:00`;
 }
 
 function sessionDurationSeconds(item) {
