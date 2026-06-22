@@ -339,11 +339,13 @@ test("pilot RPC detail normalizer preserves real Garmin HR series", () => {
 test("pilot RPC detail normalizer does not create flat HR fallback without samples", () => {
   const payload = buildPilotDetailPayload();
   payload.garmin_detail.samples.heart_rate = [];
+  payload.garmin_detail.laps = [];
   const detail = normalizeSessionDetailFromPilotRpc(payload);
 
   assert.equal(detail.session.avg_hr, 113);
   assert.equal(detail.session.max_hr, 156);
   assert.equal(detail.samples.length, 0);
+  assert.equal(detail.garminBlocks.length, 0);
 });
 
 test("pilot RPC detail normalizer preserves old Garmin card zones and laps contract", () => {
@@ -356,6 +358,29 @@ test("pilot RPC detail normalizer preserves old Garmin card zones and laps contr
   assert.equal(detail.laps.length, 1);
   assert.equal(detail.laps[0].durationSeconds, 3484);
   assert.equal(detail.laps[0].heartRateMaxBpm, 156);
+});
+
+test("pilot RPC detail normalizer derives Garmin block windows from real samples when laps are missing", () => {
+  const payload = buildPilotDetailPayload();
+  payload.session.duration_seconds = 1400;
+  payload.garmin_summary.duration_seconds = 1400;
+  payload.garmin_detail.laps = [];
+  payload.garmin_detail.samples.heart_rate = [
+    { sample_order: 1, elapsed_seconds: 0, heart_rate_bpm: 95 },
+    { sample_order: 2, elapsed_seconds: 120, heart_rate_bpm: 100 },
+    { sample_order: 3, elapsed_seconds: 610, heart_rate_bpm: 130 },
+    { sample_order: 4, elapsed_seconds: 720, heart_rate_bpm: 140 },
+    { sample_order: 5, elapsed_seconds: 1210, heart_rate_bpm: 150 },
+    { sample_order: 6, elapsed_seconds: 1320, heart_rate_bpm: 156 },
+  ];
+  const detail = normalizeSessionDetailFromPilotRpc(payload);
+
+  assert.equal(detail.garminBlocks.length, 3);
+  assert.equal(detail.garminBlocks[0].source, "garmin_fit_sample_window");
+  assert.equal(detail.garminBlocks[0].zones.find((zone) => zone.key === "Z1").seconds > 0, true);
+  assert.equal(detail.garminBlocks[1].zones.find((zone) => zone.key === "Z3").seconds > 0, true);
+  assert.equal(detail.garminBlocks[2].zones.find((zone) => zone.key === "Z4").seconds > 0, true);
+  assert.equal(detail.garminBlocks[1].heart_rate_max_bpm, 140);
 });
 
 test("pilot RPC detail normalizer preserves reps per side without flattening source data", () => {

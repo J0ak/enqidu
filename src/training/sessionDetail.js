@@ -5,11 +5,12 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
   const garminSamples = garminDetail.samples || {};
   const heartRateSamples = normalizeHeartRateSamples(garminSamples.heart_rate || []);
   const respirationSamples = normalizeRespirationSamples(garminSamples.respiration || []);
-  const garminBlocks = normalizeGarminLaps(garminDetail.laps || []);
   const reportedZones = normalizeHeartRateZones(garminDetail.zones?.heart_rate || []);
+  const durationSeconds = numberOrNull(sourceSession.duration_seconds ?? garminSummary.duration_seconds);
   const zones = reportedZones.length
     ? reportedZones
-    : deriveHeartRateZonesFromSamples(heartRateSamples, numberOrNull(sourceSession.duration_seconds ?? garminSummary.duration_seconds));
+    : deriveHeartRateZonesFromSamples(heartRateSamples, durationSeconds);
+  const garminBlocks = normalizeGarminLaps(garminDetail.laps || [], { heartRateSamples, respirationSamples, zones, durationSeconds });
   const blocks = (payload.blocks || []).map((block, blockIndex) => normalizePilotBlock(block, blockIndex));
   const exercises = blocks.flatMap((block) => block.exerciseDetails || []);
   const stats = buildSessionStats(blocks);
@@ -161,28 +162,54 @@ function normalizeRespirationSamples(rows = []) {
     .sort((a, b) => a.elapsed_seconds - b.elapsed_seconds);
 }
 
-function normalizeGarminLaps(rows = []) {
-  return rows.map((row, index) => ({
-    id: `lap-${numberOrNull(row.lap_order) ?? index + 1}`,
-    order: numberOrNull(row.lap_order) ?? index + 1,
-    lapOrder: numberOrNull(row.lap_order) ?? index + 1,
-    duration_seconds: numberOrNull(row.duration_seconds),
-    durationSeconds: numberOrNull(row.duration_seconds),
-    elapsed_seconds: numberOrNull(row.elapsed_seconds),
-    elapsedSeconds: numberOrNull(row.elapsed_seconds),
-    distance_meters: numberOrNull(row.distance_m),
-    distanceM: numberOrNull(row.distance_m),
-    calories: numberOrNull(row.calories_kcal),
-    caloriesKcal: numberOrNull(row.calories_kcal),
-    heart_rate_avg_bpm: numberOrNull(row.heart_rate_avg_bpm),
-    heartRateAvgBpm: numberOrNull(row.heart_rate_avg_bpm),
-    heart_rate_max_bpm: numberOrNull(row.heart_rate_max_bpm),
-    heartRateMaxBpm: numberOrNull(row.heart_rate_max_bpm),
-    active_seconds: numberOrNull(row.active_seconds),
-    activeSeconds: numberOrNull(row.active_seconds),
-    rest_seconds: numberOrNull(row.rest_seconds),
-    restSeconds: numberOrNull(row.rest_seconds),
-  }));
+function normalizeGarminLaps(rows = [], context = {}) {
+  const normalized = rows.map((row, index) => {
+    const order = numberOrNull(row.lap_order) ?? numberOrNull(row.lap_index) ?? index + 1;
+    const duration = numberOrNull(row.duration_seconds);
+    const start = numberOrNull(row.start_elapsed_seconds);
+    const end = numberOrNull(row.end_elapsed_seconds) ?? numberOrNull(row.elapsed_seconds) ?? (start != null && duration != null ? start + duration : null);
+    const windowSamples = samplesWithinWindow(context.heartRateSamples || [], start, end);
+    const windowRespiration = samplesWithinWindow(context.respirationSamples || [], start, end);
+    const windowDuration = duration ?? (start != null && end != null ? Math.max(0, end - start) : numberOrNull(context.durationSeconds));
+    const zones = normalizeHeartRateZones(row.zones || []);
+    const resolvedZones = zones.length ? zones : deriveHeartRateZonesFromSamples(windowSamples, windowDuration);
+    const hrStats = heartRateStats(windowSamples);
+    const respirationStats = respirationStatsForSamples(windowRespiration);
+    return {
+      id: row.id || `lap-${order}`,
+      order,
+      lapOrder: order,
+      name: cleanText(row.label || row.name || `Bloque Garmin ${order}`),
+      source: row.source || "garmin_fit_lap",
+      start_elapsed_seconds: start,
+      startElapsedSeconds: start,
+      end_elapsed_seconds: end,
+      endElapsedSeconds: end,
+      duration_seconds: windowDuration,
+      durationSeconds: windowDuration,
+      elapsed_seconds: end,
+      elapsedSeconds: end,
+      distance_meters: numberOrNull(row.distance_m ?? row.distance_meters),
+      distanceM: numberOrNull(row.distance_m ?? row.distance_meters),
+      calories: numberOrNull(row.calories_kcal ?? row.calories),
+      caloriesKcal: numberOrNull(row.calories_kcal ?? row.calories),
+      heart_rate_avg_bpm: numberOrNull(row.heart_rate_avg_bpm) ?? hrStats.avg,
+      heartRateAvgBpm: numberOrNull(row.heart_rate_avg_bpm) ?? hrStats.avg,
+      heart_rate_max_bpm: numberOrNull(row.heart_rate_max_bpm) ?? hrStats.max,
+      heartRateMaxBpm: numberOrNull(row.heart_rate_max_bpm) ?? hrStats.max,
+      respiration_avg_brpm: numberOrNull(row.respiration_avg_brpm) ?? respirationStats.avg,
+      respirationAvgBrpm: numberOrNull(row.respiration_avg_brpm) ?? respirationStats.avg,
+      respiration_max_brpm: numberOrNull(row.respiration_max_brpm) ?? respirationStats.max,
+      respirationMaxBrpm: numberOrNull(row.respiration_max_brpm) ?? respirationStats.max,
+      active_seconds: numberOrNull(row.active_seconds),
+      activeSeconds: numberOrNull(row.active_seconds),
+      rest_seconds: numberOrNull(row.rest_seconds),
+      restSeconds: numberOrNull(row.rest_seconds),
+      zones: resolvedZones,
+    };
+  });
+
+  return normalized.length ? normalized : deriveGarminBlocksFromSamples(context);
 }
 
 function normalizeHeartRateZones(rows = []) {
@@ -237,6 +264,75 @@ function deriveHeartRateZonesFromSamples(samples = [], durationSeconds = null) {
       percent: Math.round((seconds / totalSeconds) * 100),
     };
   });
+}
+
+function deriveGarminBlocksFromSamples({ heartRateSamples = [], respirationSamples = [], durationSeconds = null } = {}) {
+  const duration = numberOrNull(durationSeconds) ?? Math.max(0, ...heartRateSamples.map((sample) => numberOrNull(sample.elapsed_seconds) || 0));
+  if (!duration || !heartRateSamples.length) return [];
+  const windowSeconds = 600;
+  const blockCount = Math.max(1, Math.ceil(duration / windowSeconds));
+  return Array.from({ length: blockCount }, (_, index) => {
+    const order = index + 1;
+    const start = index * windowSeconds;
+    const end = Math.min(duration, (index + 1) * windowSeconds);
+    const windowSamples = samplesWithinWindow(heartRateSamples, start, end);
+    const windowRespiration = samplesWithinWindow(respirationSamples, start, end);
+    const hrStats = heartRateStats(windowSamples);
+    const respirationStats = respirationStatsForSamples(windowRespiration);
+    const blockDuration = Math.max(0, end - start);
+    return {
+      id: `garmin-sample-window-${order}`,
+      order,
+      lapOrder: order,
+      name: `Bloque Garmin ${order}`,
+      source: "garmin_fit_sample_window",
+      start_elapsed_seconds: start,
+      startElapsedSeconds: start,
+      end_elapsed_seconds: end,
+      endElapsedSeconds: end,
+      duration_seconds: blockDuration,
+      durationSeconds: blockDuration,
+      active_seconds: blockDuration,
+      activeSeconds: blockDuration,
+      rest_seconds: null,
+      restSeconds: null,
+      heart_rate_avg_bpm: hrStats.avg,
+      heartRateAvgBpm: hrStats.avg,
+      heart_rate_max_bpm: hrStats.max,
+      heartRateMaxBpm: hrStats.max,
+      respiration_avg_brpm: respirationStats.avg,
+      respirationAvgBrpm: respirationStats.avg,
+      respiration_max_brpm: respirationStats.max,
+      respirationMaxBrpm: respirationStats.max,
+      zones: deriveHeartRateZonesFromSamples(windowSamples, blockDuration),
+    };
+  }).filter((block) => samplesWithinWindow(heartRateSamples, block.start_elapsed_seconds, block.end_elapsed_seconds).length > 1);
+}
+
+function samplesWithinWindow(samples = [], start, end) {
+  return samples.filter((sample) => {
+    const elapsed = numberOrNull(sample.elapsed_seconds);
+    if (elapsed == null) return false;
+    if (start != null && elapsed < start) return false;
+    if (end != null && elapsed > end) return false;
+    return true;
+  });
+}
+
+function heartRateStats(samples = []) {
+  const values = samples.map((sample) => numberOrNull(sample.heart_rate_bpm)).filter((value) => value != null && value >= 30 && value <= 230);
+  return {
+    avg: values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null,
+    max: values.length ? Math.round(Math.max(...values)) : null,
+  };
+}
+
+function respirationStatsForSamples(samples = []) {
+  const values = samples.map((sample) => numberOrNull(sample.respiration_brpm)).filter((value) => value != null && value > 0);
+  return {
+    avg: values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100 : null,
+    max: values.length ? Math.round(Math.max(...values) * 100) / 100 : null,
+  };
 }
 
 function estimateSampleSeconds(samples) {

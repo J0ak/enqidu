@@ -2774,20 +2774,78 @@ function RespirationTimelineChart({ samples = [], durationSeconds = 0, avg = nul
 
 function GarminBlocksTab({ detail }) {
   const blocks = detail.garminBlocks || [];
+  const [selectedBlockId, setSelectedBlockId] = useState(blocks[0]?.id || "");
+  const selectedBlock = blocks.find((block) => block.id === selectedBlockId) || blocks[0];
+  const selectedDetail = selectedBlock ? buildGarminBlockPhysiologyDetail(detail, selectedBlock) : null;
   return (
     <div className="garminBlocksTab">
       <div className="blocksIntro">
         <h3>Segmentos objetivos</h3>
       </div>
       {blocks.length ? (
-        <div className="garminBlockList">
-          {blocks.map((block) => <GarminBlockCard key={block.id} block={block} />)}
-        </div>
+        <>
+          <div className="chartModeToggle garminBlockSelector" role="listbox" aria-label="Bloques Garmin">
+            {blocks.map((block) => (
+              <button
+                key={block.id}
+                type="button"
+                className={block.id === selectedBlock?.id ? "active" : ""}
+                onClick={() => setSelectedBlockId(block.id)}
+              >
+                {block.name || `Bloque ${block.order}`}
+              </button>
+            ))}
+          </div>
+          {selectedDetail && <SessionPhysiologyTab detail={selectedDetail} />}
+          <div className="garminBlockList">
+            {blocks.map((block) => <GarminBlockCard key={block.id} block={block} />)}
+          </div>
+        </>
       ) : (
         <div className="softEmpty">Sin segmentos objetivos identificados.</div>
       )}
     </div>
   );
+}
+
+function buildGarminBlockPhysiologyDetail(detail, block) {
+  const start = optionalNumber(block.start_elapsed_seconds);
+  const end = optionalNumber(block.end_elapsed_seconds);
+  const duration = optionalNumber(block.duration_seconds) ?? (start != null && end != null ? Math.max(0, end - start) : detail.session?.duration_seconds);
+  const samples = rebaseSamplesToWindow(detail.samples || [], start, end, "heart_rate_bpm");
+  const respirationSamples = rebaseSamplesToWindow(detail.respirationSamples || [], start, end, "respiration_brpm");
+  return {
+    ...detail,
+    session: {
+      ...(detail.session || {}),
+      duration_seconds: duration,
+      avg_hr: block.heart_rate_avg_bpm ?? detail.session?.avg_hr,
+      max_hr: block.heart_rate_max_bpm ?? detail.session?.max_hr,
+      respiration_avg_brpm: block.respiration_avg_brpm ?? detail.session?.respiration_avg_brpm,
+      respiration_max_brpm: block.respiration_max_brpm ?? detail.session?.respiration_max_brpm,
+    },
+    samples,
+    respirationSamples,
+    zones: block.zones || [],
+    garminBlocks: [],
+  };
+}
+
+function rebaseSamplesToWindow(samples = [], start, end, valueKey) {
+  return samples
+    .filter((sample) => {
+      const elapsed = optionalNumber(sample.elapsed_seconds);
+      const value = optionalNumber(sample[valueKey]);
+      if (elapsed == null || value == null) return false;
+      if (start != null && elapsed < start) return false;
+      if (end != null && elapsed > end) return false;
+      return true;
+    })
+    .map((sample) => ({
+      ...sample,
+      elapsed_seconds: Math.max(0, Number(sample.elapsed_seconds || 0) - Number(start || 0)),
+      elapsedSeconds: Math.max(0, Number(sample.elapsed_seconds || 0) - Number(start || 0)),
+    }));
 }
 
 function GarminBlockCard({ block }) {

@@ -3345,6 +3345,13 @@ button:disabled {
   opacity: 0.35;
 }
 
+.garminBlockSelector {
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  margin: 12px 0 20px;
+  border-radius: 12px;
+}
+
 .garminHrChart {
   overflow: hidden;
   border-radius: 10px;
