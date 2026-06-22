@@ -10,13 +10,6 @@ import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliatio
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import {
-  buildCalendarSessionViewModels,
-  calendarSessionMatchesFilters,
-  isDateInInclusiveRange as isCalendarDateInRange,
-  toLocalDateKey as toCalendarDateKey,
-} from "@/training/liveWeek";
-import { normalizeSessionDetailFromPilotRpc } from "@/training/sessionDetail";
-import {
   Activity,
   ArrowLeft,
   ArrowUpRight,
@@ -201,8 +194,8 @@ const GARMIN_ACTIVITY_ALIASES = [
   ["lap_swimming", ["lap_swimming", "lapswimming", "pool_swimming", "swimming_pool", "pool_swim", "lap_swim", "natacion_piscina", "natacion_en_piscina", "natacion", "piscina", "swimming"]],
   ["cycling", ["cycling", "cycle", "bike", "biking", "ciclismo", "road_biking", "mountain_biking", "mountain_bike", "e_biking"]],
   ["multisport", ["multisport", "multi_sport", "multideporte"]],
-  ["strength", ["strength_training", "strength", "entreno_de_fuerza", "fuerza", "weight_training", "weights", "training", "fitness_equipment"]],
   ["yoga", ["yoga"]],
+  ["strength", ["strength_training", "strength", "entreno_de_fuerza", "fuerza", "weight_training", "weights", "training", "fitness_equipment"]],
   ["pilates", ["pilates"]],
   ["hiit", ["hiit", "interval_training", "interval", "workout", "cardio_training", "cardio"]],
   ["running", ["running", "run", "carrera", "correr"]],
@@ -613,25 +606,6 @@ function groupBy(rows = [], key) {
   }, new Map());
 }
 
-function groupRowsByKey(rows = [], key) {
-  return rows.reduce((acc, row) => {
-    const value = row[key];
-    if (!value) return acc;
-    if (!acc[value]) acc[value] = [];
-    acc[value].push(row);
-    return acc;
-  }, {});
-}
-
-function countRowsByKey(rows = [], key) {
-  return rows.reduce((acc, row) => {
-    const value = row[key];
-    if (!value) return acc;
-    acc[value] = (acc[value] || 0) + 1;
-    return acc;
-  }, {});
-}
-
 function canonicalSessionType(value) {
   const text = `${value || ""}`.toLowerCase();
   if (text.includes("run") || text.includes("correr")) return text.includes("trail") ? "trail_running" : "running";
@@ -664,7 +638,6 @@ function App() {
   const [health, setHealth] = useState({});
   const [healthSeries, setHealthSeries] = useState({ sleep: null, hrv: [], bodyBattery: [], stress: [], respiration: [], spo2: [] });
   const [sessions, setSessions] = useState([]);
-  const [plannedSessions, setPlannedSessions] = useState([]);
   const [activityDetail, setActivityDetail] = useState(null);
   const [dataState, setDataState] = useState({
     loading: false,
@@ -822,27 +795,6 @@ function App() {
     };
   };
 
-  const loadSessionDetail = async (sessionOrId) => {
-    const sessionId = typeof sessionOrId === "string" ? sessionOrId : sessionOrId?.id || sessionOrId?.session_id;
-    if (!supabase || !sessionId) return null;
-
-    const pilotResult = await supabase.rpc("chatgpt_pilot_get_session_detail", {
-      p_session_id: sessionId,
-    });
-
-    if (!pilotResult.error && pilotResult.data?.ok) {
-      logEnqiduDetailDiagnostic("chatgpt_pilot_get_session_detail.ok", {
-        sessionId,
-        blocks: pilotResult.data.blocks?.length || 0,
-        exercises: (pilotResult.data.blocks || []).reduce((sum, block) => sum + (block.exercises?.length || 0), 0),
-      });
-      return normalizeSessionDetailFromPilotRpc(pilotResult.data);
-    }
-
-    warnEnqiduDetailDiagnostic("chatgpt_pilot_get_session_detail.failed", pilotResult.error || pilotResult.data);
-    return loadActivityDetail(typeof sessionOrId === "string" ? { id: sessionId } : sessionOrId);
-  };
-
   const loadBackofficeData = async (activeSession = session) => {
     if (!supabase) {
       setDataState({
@@ -976,102 +928,13 @@ function App() {
       spo2Query,
     ]);
 
-    logEnqiduDataDiagnostic("auth.user", userId ? { id: userId, email: activeSession?.user?.email || "" } : null);
-    if (sessionResult.error) {
-      warnEnqiduDataDiagnostic("training_sessions.error", sessionResult.error);
-    }
-
-    const fallbackStart = dateKey(startOfMonth(new Date()));
-    const fallbackEnd = dateKey(endOfMonth(new Date()));
-    let pilotCompletedResult = { data: [], error: null, warnings: [] };
-    let rawSessionRows = sessionResult.data || [];
-    if (sessionResult.error || !rawSessionRows.length) {
-      pilotCompletedResult = await fetchPilotCompletedSessionsForRange(fallbackStart, fallbackEnd);
-      if (pilotCompletedResult.error) {
-        warnEnqiduDataDiagnostic("chatgpt_pilot_find_session.error", pilotCompletedResult.error);
-      }
-      if (pilotCompletedResult.data.length) {
-        rawSessionRows = pilotCompletedResult.data;
-      }
-    }
-    const usedPilotCompletedFallback = pilotCompletedResult.data.length > 0 && (sessionResult.error || !(sessionResult.data || []).length);
-    logEnqiduDataDiagnostic("training_sessions.count", {
-      direct: (sessionResult.data || []).length,
-      pilotFallback: pilotCompletedResult.data.length,
-      effective: rawSessionRows.length,
-      range: { start: fallbackStart, end: fallbackEnd },
-    });
-
-    const sessionIds = rawSessionRows.map((item) => item.id).filter(Boolean);
-    let blockCountResult = { data: [], error: null };
-    let exerciseCountResult = { data: [], error: null };
-    let plannedResult = { data: [], error: null };
-    let plannedBlocksResult = { data: [], error: null };
-
-    if (sessionIds.length && !usedPilotCompletedFallback) {
-      [blockCountResult, exerciseCountResult] = await Promise.all([
-        supabase
-          .from("session_blocks")
-          .select("id, session_id")
-          .in("session_id", sessionIds),
-        supabase
-          .from("session_exercises")
-          .select("id, session_id")
-          .in("session_id", sessionIds),
-      ]);
-    }
-
-    if (userId) {
-      const planStart = dateKey(addDays(startOfDay(new Date()), -30));
-      const planEnd = dateKey(addDays(startOfDay(new Date()), 90));
-      plannedResult = await supabase
-        .from("planned_training_sessions")
-        .select("id, user_id, planned_date, planned_time, title, session_type, location_type, status, priority, planned_intensity, planned_duration_min, planned_duration_max, objective, coach_notes, constraints, adaptation_reason, readiness_snapshot, recurrence_rule, source, linked_completed_session_id, created_at, updated_at")
-        .eq("user_id", userId)
-        .gte("planned_date", planStart)
-        .lte("planned_date", planEnd)
-        .order("planned_date", { ascending: true })
-        .order("planned_time", { ascending: true, nullsFirst: false });
-
-      const plannedIds = (plannedResult.data || []).map((item) => item.id).filter(Boolean);
-      if (!plannedResult.error && plannedIds.length) {
-        plannedBlocksResult = await supabase
-          .from("planned_session_blocks")
-          .select("id, planned_session_id, block_order, block_type, title, objective, planned_duration_seconds, planned_rounds, planned_exercises, constraints, notes, created_at")
-          .in("planned_session_id", plannedIds)
-          .order("block_order", { ascending: true });
-      }
-    }
-
-    const blockCounts = countRowsByKey(blockCountResult.data || [], "session_id");
-    const exerciseCounts = countRowsByKey(exerciseCountResult.data || [], "session_id");
-    const mappedSessions = rawSessionRows.map((item) => mapTrainingSession({
-      ...item,
-      coach_blocks_count: blockCounts[item.id] || 0,
-      coach_exercises_count: exerciseCounts[item.id] || 0,
-    }));
-    const plannedBlocksBySession = groupRowsByKey(plannedBlocksResult.data || [], "planned_session_id");
-    const dbPlannedSessions = (plannedResult.data || []).map((item) => ({
-      ...item,
-      planned_session_blocks: plannedBlocksBySession[item.id] || [],
-    }));
-
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
-    if (sessionResult.error && !mappedSessions.length) {
-      warnEnqiduDataDiagnostic("completedSessions.emptyAfterFallback", {
-        directError: sessionResult.error.message,
-        pilotWarnings: pilotCompletedResult.warnings || [],
-      });
+    if (!sessionResult.error) {
+      setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
-    if (!sessionResult.error || mappedSessions.length) {
-      setSessions(mappedSessions);
-      setPlannedSessions(plannedResult.error ? [] : dbPlannedSessions);
-      logEnqiduDataDiagnostic("completedSessions.count", mappedSessions.length);
-      logEnqiduDataDiagnostic("plannedSessions.count", plannedResult.error ? 0 : dbPlannedSessions.length);
-    }
-    if (!usedPilotCompletedFallback && sessionResult.data?.[0]?.id) {
+    if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
-      const detail = await loadSessionDetail(sessionResult.data[0]);
+      const detail = await loadActivityDetail(sessionResult.data[0]);
       setActivityDetail(detail);
     }
     if (profileResult.data) {
@@ -1101,11 +964,6 @@ function App() {
       tableSummary("wearable_respiration_samples", respirationResult),
       tableSummary("wearable_spo2_samples", spo2Result),
       tableSummary("training_sessions", sessionResult),
-      tableSummary("session_blocks", blockCountResult),
-      tableSummary("session_exercises", exerciseCountResult),
-      tableSummary("chatgpt_pilot_find_session", pilotCompletedResult),
-      tableSummary("planned_training_sessions", plannedResult),
-      tableSummary("planned_session_blocks", plannedBlocksResult),
       tableSummary("profiles", profileResult),
       tableSummary("user_wearable_connections", connectionResult),
       tableSummary("training_sources", sourceResult),
@@ -1172,7 +1030,7 @@ function App() {
     if (selectedSession?.activityType === "pilates") setDiscipline("boyle");
     if (selectedSession?.id) {
       setActivityDetail(null);
-      const detail = await loadSessionDetail(selectedSession);
+      const detail = await loadActivityDetail(selectedSession);
       setActivityDetail(detail);
     }
     setRoute("activityDetail");
@@ -1227,7 +1085,6 @@ function App() {
         {route === "activities" && (
           <ActivitiesOverview
             sessions={filteredSessions}
-            plannedSessions={plannedSessions}
             setRoute={setRoute}
             setDiscipline={setDiscipline}
             onOpenSession={openSessionDetail}
@@ -2101,6 +1958,7 @@ function conversationalActivitySubtitle(activityType, title = "") {
   const text = `${activityType || ""} ${title || ""}`.toLowerCase();
   if (text.includes("hiit") || text.includes("hybrid") || text.includes("hibrid")) return "Entrenamiento híbrido";
   if (text.includes("strength") || text.includes("fuerza")) return "Entrenamiento de fuerza";
+  if (text.includes("yoga")) return "Yoga";
   if (text.includes("run") || text.includes("correr")) return "Entrenamiento de carrera";
   if (text.includes("swim") || text.includes("nataci")) return "Entrenamiento de natación";
   return "Entrenamiento";
@@ -2774,78 +2632,20 @@ function RespirationTimelineChart({ samples = [], durationSeconds = 0, avg = nul
 
 function GarminBlocksTab({ detail }) {
   const blocks = detail.garminBlocks || [];
-  const [selectedBlockId, setSelectedBlockId] = useState(blocks[0]?.id || "");
-  const selectedBlock = blocks.find((block) => block.id === selectedBlockId) || blocks[0];
-  const selectedDetail = selectedBlock ? buildGarminBlockPhysiologyDetail(detail, selectedBlock) : null;
   return (
     <div className="garminBlocksTab">
       <div className="blocksIntro">
         <h3>Segmentos objetivos</h3>
       </div>
       {blocks.length ? (
-        <>
-          <div className="chartModeToggle garminBlockSelector" role="listbox" aria-label="Bloques Garmin">
-            {blocks.map((block) => (
-              <button
-                key={block.id}
-                type="button"
-                className={block.id === selectedBlock?.id ? "active" : ""}
-                onClick={() => setSelectedBlockId(block.id)}
-              >
-                {block.name || `Bloque ${block.order}`}
-              </button>
-            ))}
-          </div>
-          {selectedDetail && <SessionPhysiologyTab detail={selectedDetail} />}
-          <div className="garminBlockList">
-            {blocks.map((block) => <GarminBlockCard key={block.id} block={block} />)}
-          </div>
-        </>
+        <div className="garminBlockList">
+          {blocks.map((block) => <GarminBlockCard key={block.id} block={block} />)}
+        </div>
       ) : (
         <div className="softEmpty">Sin segmentos objetivos identificados.</div>
       )}
     </div>
   );
-}
-
-function buildGarminBlockPhysiologyDetail(detail, block) {
-  const start = optionalNumber(block.start_elapsed_seconds);
-  const end = optionalNumber(block.end_elapsed_seconds);
-  const duration = optionalNumber(block.duration_seconds) ?? (start != null && end != null ? Math.max(0, end - start) : detail.session?.duration_seconds);
-  const samples = rebaseSamplesToWindow(detail.samples || [], start, end, "heart_rate_bpm");
-  const respirationSamples = rebaseSamplesToWindow(detail.respirationSamples || [], start, end, "respiration_brpm");
-  return {
-    ...detail,
-    session: {
-      ...(detail.session || {}),
-      duration_seconds: duration,
-      avg_hr: block.heart_rate_avg_bpm ?? detail.session?.avg_hr,
-      max_hr: block.heart_rate_max_bpm ?? detail.session?.max_hr,
-      respiration_avg_brpm: block.respiration_avg_brpm ?? detail.session?.respiration_avg_brpm,
-      respiration_max_brpm: block.respiration_max_brpm ?? detail.session?.respiration_max_brpm,
-    },
-    samples,
-    respirationSamples,
-    zones: block.zones || [],
-    garminBlocks: [],
-  };
-}
-
-function rebaseSamplesToWindow(samples = [], start, end, valueKey) {
-  return samples
-    .filter((sample) => {
-      const elapsed = optionalNumber(sample.elapsed_seconds);
-      const value = optionalNumber(sample[valueKey]);
-      if (elapsed == null || value == null) return false;
-      if (start != null && elapsed < start) return false;
-      if (end != null && elapsed > end) return false;
-      return true;
-    })
-    .map((sample) => ({
-      ...sample,
-      elapsed_seconds: Math.max(0, Number(sample.elapsed_seconds || 0) - Number(start || 0)),
-      elapsedSeconds: Math.max(0, Number(sample.elapsed_seconds || 0) - Number(start || 0)),
-    }));
 }
 
 function GarminBlockCard({ block }) {
@@ -3009,7 +2809,7 @@ function ActivityTrainingEffectCard({ detail }) {
   );
 }
 
-function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDiscipline, onOpenSession }) {
+function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
   const today = useMemo(() => startOfDay(new Date()), []);
   const todayKey = dateKey(today);
@@ -3019,14 +2819,8 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const typeOptions = buildActivityTypeFilterOptions(typedSessions);
+  const filteredSessions = typedSessions.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
   const period = buildActivityPeriod(viewMode, periodDate);
-  const calendarSessions = buildCalendarSessionViewModels({
-    completedSessions: typedSessions,
-    plannedSessions,
-    weekStart: period.start,
-    weekEnd: period.end,
-  });
-  const filteredSessions = calendarSessions.filter((item) => calendarSessionMatchesFilters(item, sourceFilter, typeFilter));
   const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
   const visibleSessions = periodSessions
     .filter((item) => !selectedDates.length || selectedDates.includes(sessionDateKey(item)))
@@ -3034,19 +2828,11 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
   const periodSummary = summarizeActivityPeriod(visibleSessions, selectedDates.length || period.dayCount);
   const dayFilterLabel = formatActivityDayFilterLabel(viewMode, period, selectedDates);
 
-  if (import.meta.env.DEV) {
-    console.debug("[Semana Viva] calendarSessions", calendarSessions.length);
-    console.debug("[Semana Viva] week", toCalendarDateKey(period.start), toCalendarDateKey(period.end));
-  }
-
   const openDetail = (item) => {
-    const detailSession = item.completedSession || item;
-    if (!detailSession?.id) return;
     if (item.activityType === "hybrid") setDiscipline("hyrox");
     if (item.activityType === "strength") setDiscipline("crossfit");
     if (item.activityType === "run") setDiscipline("trail");
-    if (item.activityType === "pilates") setDiscipline("boyle");
-    if (onOpenSession) onOpenSession(detailSession);
+    if (onOpenSession) onOpenSession(item);
     else setRoute("activityDetail");
   };
 
@@ -3078,8 +2864,8 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
       <section className="activitiesHero">
         <div>
           <span>ACTIVIDADES</span>
-          <h2>Semana Viva</h2>
-          <p>Planificado, adaptado, ejecutado y enriquecido en una misma vista semanal.</p>
+          <h2>Historial Garmin/FIT</h2>
+          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existan.</p>
         </div>
       </section>
 
@@ -3140,11 +2926,11 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
         <ActivitySelectedDayFilters dates={selectedDates} onRemove={toggleDateFilter} />
         <div className="activityList">
           {visibleSessions.map((item) => (
-            <LiveWeekSessionCard key={item.id} item={item} onOpen={() => openDetail(item)} />
+            <ActivityHistoryCard key={item.id} item={item} onOpen={() => openDetail(item)} />
           ))}
         </div>
         {!visibleSessions.length && (
-          <p className="emptyText">{selectedDates.length ? "No hay sesiones para los días seleccionados." : "No hay sesiones planificadas o ejecutadas en este periodo."}</p>
+          <p className="emptyText">{selectedDates.length ? "No hay sesiones para los días seleccionados." : "No hay sesiones registradas en este periodo."}</p>
         )}
       </section>
     </section>
@@ -3283,147 +3069,6 @@ function ActivitySelectedDayFilters({ dates, onRemove }) {
       ))}
     </div>
   );
-}
-
-function LiveWeekSessionCard({ item, onOpen }) {
-  const [expanded, setExpanded] = useState(item.kind === "linked");
-  const toneColor = liveSessionToneColor(item.statusTone);
-  const type = activityTypes[item.activityType] || activityTypes.hybrid;
-  const hasCompletedDetail = Boolean(item.completedSession?.id);
-  return (
-    <article className={`liveSessionCard ${expanded ? "expanded" : ""}`} style={{ "--type": type.color, "--status": toneColor }}>
-      <button type="button" className="liveSessionHeader" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
-        <div className="activityBadge">
-          {item.kind === "planned" ? <CalendarDays size={18} /> : <Activity size={18} />}
-        </div>
-        <div className="liveSessionMain">
-          <span>{[item.time, item.typeLabel].filter(Boolean).join(" · ") || formatDateLong(item.date)}</span>
-          <strong>{item.title}</strong>
-          {item.summary && <p>{item.summary}</p>}
-          <div className="activityMetrics">
-            {item.chips.map((chip) => <span key={chip}>{chip}</span>)}
-          </div>
-        </div>
-        <div className="liveSessionFlags">
-          <span className={`liveStatusChip ${item.statusTone}`}>{item.statusLabel}</span>
-          {item.coach && <span>Coach</span>}
-          {item.matchConfidence && <span>Vinculada</span>}
-          <ChevronRight size={16} />
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="liveSessionDetail">
-          {item.planned && <LivePlanSection plan={item.planned} />}
-          {item.completed && <LiveCompletedSection completed={item.completed} onOpen={hasCompletedDetail ? onOpen : null} />}
-          {item.comparison && <PlanVsActualComparison comparison={item.comparison} />}
-          {!item.planned && item.completed && <p className="liveMutedText">Sin plan previo vinculado.</p>}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function LivePlanSection({ plan }) {
-  return (
-    <section className="liveSessionSection">
-      <header>
-        <span>Plan</span>
-      </header>
-      {plan.objective && <p>{plan.objective}</p>}
-      <div className="liveInfoGrid">
-        {plan.intensity && <span><b>Intensidad</b>{plan.intensity}</span>}
-        {plan.duration && <span><b>Duracion prevista</b>{plan.duration}</span>}
-        {plan.adaptationReason && <span><b>Adaptacion</b>{plan.adaptationReason}</span>}
-      </div>
-      {plan.blocks.length > 0 && (
-        <ol className="liveBlockList">
-          {plan.blocks.map((block) => (
-            <li key={block.id || `${block.block_order}-${block.title}`}>
-              <strong>{block.title}</strong>
-              {block.objective && <span>{block.objective}</span>}
-            </li>
-          ))}
-        </ol>
-      )}
-      {plan.constraints.length > 0 && (
-        <div className="liveConstraintList">
-          {plan.constraints.map((constraint) => <span key={constraint}>{constraint}</span>)}
-        </div>
-      )}
-      {plan.notes && <p className="liveMutedText">{plan.notes}</p>}
-    </section>
-  );
-}
-
-function LiveCompletedSection({ completed, onOpen }) {
-  return (
-    <section className="liveSessionSection">
-      <header>
-        <span>Ejecutado</span>
-        {onOpen && (
-          <button type="button" onClick={onOpen}>
-            Ver detalle
-          </button>
-        )}
-      </header>
-      <div className="liveInfoGrid">
-        {completed.garmin && <span><b>Garmin</b>{completed.garmin}</span>}
-        {completed.coach && <span><b>Coach</b>{completed.coach}</span>}
-        {completed.avgHr && <span><b>FC media</b>{Math.round(completed.avgHr)} ppm</span>}
-        {completed.calories && <span><b>Calorias</b>{Math.round(completed.calories)} kcal</span>}
-      </div>
-      {completed.highlights.length > 0 && (
-        <div className="liveConstraintList">
-          {completed.highlights.map((highlight) => <span key={highlight}>{highlight}</span>)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PlanVsActualComparison({ comparison }) {
-  return (
-    <section className="liveSessionSection planComparison">
-      <header>
-        <span>Planificado vs Ejecutado</span>
-      </header>
-      <p>{comparison.summary}</p>
-      <div className="comparisonList">
-        {comparison.items.map((item) => (
-          <section key={item.key} className={`comparisonItem ${item.status}`}>
-            <div>
-              <strong>{item.label}</strong>
-              <span>{comparisonStatusLabel(item.status, item.result)}</span>
-            </div>
-            <p><b>Plan:</b> {item.plan || "Sin dato suficiente"}</p>
-            <p><b>Real:</b> {item.actual || "Sin dato suficiente"}</p>
-          </section>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function liveSessionToneColor(tone) {
-  return {
-    blue: "#4aa8ff",
-    green: "#65d86b",
-    amber: "#ff9b43",
-    gray: "#a8b0b6",
-    purple: "#c47dff",
-    red: "#e63b41",
-  }[tone] || "#4aa8ff";
-}
-
-function comparisonStatusLabel(status, result) {
-  const prefix = {
-    ok: "OK",
-    warning: "Atencion",
-    danger: "Revisar",
-    unknown: "Sin dato",
-  }[status] || "Sin dato";
-  return result ? `${prefix} · ${result}` : prefix;
 }
 
 function ActivityHistoryCard({ item, onOpen }) {
@@ -6267,9 +5912,7 @@ function mapTrainingSession(item) {
     max_hr: heartRate.max_bpm ?? null,
     calories_total: calories.total_kcal ?? null,
     garmin_sets_total: strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? null,
-    coach_blocks_count: Number(item.coach_blocks_count || 0),
-    coach_exercises_count: Number(item.coach_exercises_count || 0),
-    has_conversation: Boolean(item.coach_blocks_count || item.coach_exercises_count || item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
+    has_conversation: Boolean(item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
     started_at: item.started_at,
     local_date: item.local_date,
     created_at: item.created_at,
@@ -6281,77 +5924,8 @@ function mapTrainingSession(item) {
     score: Math.round(score),
     date: item.local_date || (item.started_at ? new Date(item.started_at).toLocaleDateString("es-ES") : "Recent"),
     meta: [durationMinutes ? `${durationMinutes} min` : null, distanceKm ? `${distanceKm.toFixed(1)} km` : null]
-    .filter(Boolean)
-    .join(" · "),
-  };
-}
-
-async function fetchPilotCompletedSessionsForRange(startKey, endKey) {
-  const days = dateKeysBetween(startKey, endKey);
-  const warnings = [];
-  const sessionsById = new Map();
-
-  const results = await Promise.all(days.map(async (localDate) => ({
-    localDate,
-    result: await supabase.rpc("chatgpt_pilot_find_session", {
-      p_local_date: localDate,
-      p_activity_hint: null,
-    }),
-  })));
-
-  for (const { localDate, result } of results) {
-    if (result.error) {
-      warnings.push(`${localDate}: ${result.error.message}`);
-      continue;
-    }
-    const rows = Array.isArray(result.data?.sessions) ? result.data.sessions : [];
-    rows.forEach((row) => {
-      const mapped = mapPilotCompletedSession(row);
-      if (mapped.id) sessionsById.set(mapped.id, mapped);
-    });
-  }
-
-  return {
-    data: [...sessionsById.values()].sort((a, b) => `${b.local_date || ""}`.localeCompare(`${a.local_date || ""}`)),
-    error: warnings.length === days.length && days.length ? { message: warnings[0] } : null,
-    warnings,
-  };
-}
-
-function mapPilotCompletedSession(row = {}) {
-  const sessionId = row.session_id || row.id || "";
-  const blocksCount = Number(row.blocks_count || row.coach_blocks_count || 0);
-  const exercisesCount = Number(row.exercises_count || row.coach_exercises_count || 0);
-  const garminKey = row.garmin_type_key || row.garminActivityTypeKey || row.activity_type || "other";
-  const garminLabel = row.garmin_type_label || row.garminActivityTypeLabel || row.title || "";
-  return {
-    id: sessionId,
-    session_id: sessionId,
-    title: repairMojibakeText(row.title || garminLabel || "Sesion"),
-    session_kind: garminKey,
-    session_status: row.status || "completed",
-    duration_seconds: Number(row.duration_seconds || 0),
-    distance_meters: 0,
-    started_at: row.started_at || null,
-    local_date: row.local_date || row.date || "",
-    created_at: row.created_at || null,
-    source_id: row.source_id || (row.source_type === "garmin_fit" ? "chatgpt_pilot_find_session" : null),
-    source_type: row.source_type || "",
-    external_reference: row.external_reference || (row.has_fit || row.source_type === "garmin_fit" ? `pilot:${sessionId}` : null),
-    tags: [],
-    session_structure: {
-      garmin_fit_summary: {
-        activity_type: garminKey,
-        garmin_original_name: garminLabel,
-      },
-    },
-    garmin_type_key: garminKey,
-    garmin_type_label: garminLabel,
-    has_fit: Boolean(row.has_fit || row.source_type === "garmin_fit"),
-    has_coach_blocks: Boolean(row.has_coach_blocks || blocksCount || exercisesCount),
-    coach_blocks_count: blocksCount,
-    coach_exercises_count: exercisesCount,
-    metrics_count: Number(row.metrics_count || 0),
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
@@ -6615,31 +6189,28 @@ function matchesActivityFilters(item, sourceFilter, typeFilter) {
 }
 
 function isDateWithinPeriod(key, period) {
-  return isCalendarDateInRange(key, period.start, period.end);
+  const date = new Date(`${key}T12:00:00`);
+  return date >= period.start && date <= period.end;
 }
 
 function summarizeActivityPeriod(items, dayCount) {
-  const realItems = items.filter((item) => item.kind === "completed" || item.kind === "linked" || item.durationSeconds > 0 || item.duration_seconds > 0);
-  const totalSeconds = realItems.reduce((sum, item) => sum + sessionDurationSeconds(item), 0);
-  const activeDays = new Set(realItems.map(sessionDateKey)).size;
+  const totalSeconds = items.reduce((sum, item) => sum + sessionDurationSeconds(item), 0);
+  const activeDays = new Set(items.map(sessionDateKey)).size;
   return {
     totalSeconds,
     averageSeconds: activeDays ? Math.round(totalSeconds / activeDays) : 0,
-    sessions: realItems.length,
+    sessions: items.length,
     activeDays,
     dayCount,
   };
 }
 
 function sortSessionsChronological(a, b) {
-  const left = `${sessionDateKey(a)}T${a.time || (a.started_at ? new Date(a.started_at).toTimeString().slice(0, 5) : "23:59")}`;
-  const right = `${sessionDateKey(b)}T${b.time || (b.started_at ? new Date(b.started_at).toTimeString().slice(0, 5) : "23:59")}`;
-  if (left !== right) return left.localeCompare(right);
   return `${a.started_at || a.created_at || ""}`.localeCompare(`${b.started_at || b.created_at || ""}`);
 }
 
 function sessionDurationSeconds(item) {
-  return Number(item.durationSeconds || item.duration_seconds || 0);
+  return Number(item.duration_seconds || item.durationSeconds || 0);
 }
 
 function activityViewLabel(viewMode) {
@@ -6710,12 +6281,16 @@ function activityTrainingSubtitle(activityType) {
     run: "Running",
     trail: "Trail",
     swim: "Natación",
+    yoga: "Yoga",
     pilates: "Yoga / movilidad",
   }[activityType] || "Entrenamiento";
 }
 
 function sessionDateKey(session) {
-  return toCalendarDateKey(session.date || session.local_date || session.planned_date || session.started_at || session.created_at || new Date());
+  if (session.local_date) return session.local_date;
+  if (session.started_at) return new Date(session.started_at).toISOString().slice(0, 10);
+  if (session.created_at) return new Date(session.created_at).toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
 }
 
 function groupSessionsByDay(sessions) {
@@ -6820,17 +6395,6 @@ function addDays(date, days) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return startOfDay(copy);
-}
-
-function dateKeysBetween(startKey, endKey) {
-  const start = new Date(`${startKey}T12:00:00`);
-  const end = new Date(`${endKey}T12:00:00`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
-  const keys = [];
-  for (let current = startOfDay(start); current <= end; current = addDays(current, 1)) {
-    keys.push(dateKey(current));
-  }
-  return keys;
 }
 
 function startOfWeek(date) {
@@ -8144,31 +7708,6 @@ function tableSummary(table, result) {
     count: Array.isArray(result.data) ? result.data.length : result.data ? 1 : 0,
     error: result.error?.message || "",
   };
-}
-
-function shouldLogEnqiduDataDiagnostics() {
-  if (typeof window === "undefined") return Boolean(import.meta.env.DEV);
-  return Boolean(import.meta.env.DEV || window.location.hostname.includes("vercel.app"));
-}
-
-function logEnqiduDataDiagnostic(label, payload) {
-  if (!shouldLogEnqiduDataDiagnostics()) return;
-  console.debug(`[ENQIDU data] ${label}`, payload);
-}
-
-function warnEnqiduDataDiagnostic(label, payload) {
-  if (!shouldLogEnqiduDataDiagnostics()) return;
-  console.warn(`[ENQIDU data] ${label}`, payload);
-}
-
-function logEnqiduDetailDiagnostic(label, payload) {
-  if (!shouldLogEnqiduDataDiagnostics()) return;
-  console.debug(`[ENQIDU detail] ${label}`, payload);
-}
-
-function warnEnqiduDetailDiagnostic(label, payload) {
-  if (!shouldLogEnqiduDataDiagnostics()) return;
-  console.warn(`[ENQIDU detail] ${label}`, payload);
 }
 
 function chronological(rows) {
