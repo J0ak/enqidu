@@ -10,6 +10,11 @@ import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliatio
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import {
+  buildCalendarSessionViewModels,
+  buildLocalPlannedWeek,
+  calendarSessionMatchesFilters,
+} from "@/training/liveWeek";
+import {
   Activity,
   ArrowLeft,
   ArrowUpRight,
@@ -603,6 +608,25 @@ function groupBy(rows = [], key) {
   }, new Map());
 }
 
+function groupRowsByKey(rows = [], key) {
+  return rows.reduce((acc, row) => {
+    const value = row[key];
+    if (!value) return acc;
+    if (!acc[value]) acc[value] = [];
+    acc[value].push(row);
+    return acc;
+  }, {});
+}
+
+function countRowsByKey(rows = [], key) {
+  return rows.reduce((acc, row) => {
+    const value = row[key];
+    if (!value) return acc;
+    acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
+}
+
 function canonicalSessionType(value) {
   const text = `${value || ""}`.toLowerCase();
   if (text.includes("run") || text.includes("correr")) return text.includes("trail") ? "trail_running" : "running";
@@ -635,6 +659,7 @@ function App() {
   const [health, setHealth] = useState({});
   const [healthSeries, setHealthSeries] = useState({ sleep: null, hrv: [], bodyBattery: [], stress: [], respiration: [], spo2: [] });
   const [sessions, setSessions] = useState([]);
+  const [plannedSessions, setPlannedSessions] = useState([]);
   const [activityDetail, setActivityDetail] = useState(null);
   const [dataState, setDataState] = useState({
     loading: false,
@@ -925,9 +950,66 @@ function App() {
       spo2Query,
     ]);
 
+    const rawSessionRows = sessionResult.data || [];
+    const sessionIds = rawSessionRows.map((item) => item.id).filter(Boolean);
+    let blockCountResult = { data: [], error: null };
+    let exerciseCountResult = { data: [], error: null };
+    let plannedResult = { data: [], error: null };
+    let plannedBlocksResult = { data: [], error: null };
+
+    if (sessionIds.length) {
+      [blockCountResult, exerciseCountResult] = await Promise.all([
+        supabase
+          .from("session_blocks")
+          .select("id, session_id")
+          .in("session_id", sessionIds),
+        supabase
+          .from("session_exercises")
+          .select("id, session_id")
+          .in("session_id", sessionIds),
+      ]);
+    }
+
+    if (userId) {
+      const planStart = dateKey(addDays(startOfDay(new Date()), -30));
+      const planEnd = dateKey(addDays(startOfDay(new Date()), 90));
+      plannedResult = await supabase
+        .from("planned_training_sessions")
+        .select("id, user_id, planned_date, planned_time, title, session_type, location_type, status, priority, planned_intensity, planned_duration_min, planned_duration_max, objective, coach_notes, constraints, adaptation_reason, readiness_snapshot, recurrence_rule, source, linked_completed_session_id, created_at, updated_at")
+        .eq("user_id", userId)
+        .gte("planned_date", planStart)
+        .lte("planned_date", planEnd)
+        .order("planned_date", { ascending: true })
+        .order("planned_time", { ascending: true, nullsFirst: false });
+
+      const plannedIds = (plannedResult.data || []).map((item) => item.id).filter(Boolean);
+      if (!plannedResult.error && plannedIds.length) {
+        plannedBlocksResult = await supabase
+          .from("planned_session_blocks")
+          .select("id, planned_session_id, block_order, block_type, title, objective, planned_duration_seconds, planned_rounds, planned_exercises, constraints, notes, created_at")
+          .in("planned_session_id", plannedIds)
+          .order("block_order", { ascending: true });
+      }
+    }
+
+    const blockCounts = countRowsByKey(blockCountResult.data || [], "session_id");
+    const exerciseCounts = countRowsByKey(exerciseCountResult.data || [], "session_id");
+    const mappedSessions = rawSessionRows.map((item) => mapTrainingSession({
+      ...item,
+      coach_blocks_count: blockCounts[item.id] || 0,
+      coach_exercises_count: exerciseCounts[item.id] || 0,
+    }));
+    const plannedBlocksBySession = groupRowsByKey(plannedBlocksResult.data || [], "planned_session_id");
+    const dbPlannedSessions = (plannedResult.data || []).map((item) => ({
+      ...item,
+      planned_session_blocks: plannedBlocksBySession[item.id] || [],
+    }));
+    const localPlannedSessions = dbPlannedSessions.length ? [] : buildLocalPlannedWeek(mappedSessions);
+
     if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
     if (!sessionResult.error) {
-      setSessions((sessionResult.data || []).map(mapTrainingSession));
+      setSessions(mappedSessions);
+      setPlannedSessions(dbPlannedSessions.length ? dbPlannedSessions : localPlannedSessions);
     }
     if (sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
@@ -961,6 +1043,10 @@ function App() {
       tableSummary("wearable_respiration_samples", respirationResult),
       tableSummary("wearable_spo2_samples", spo2Result),
       tableSummary("training_sessions", sessionResult),
+      tableSummary("session_blocks", blockCountResult),
+      tableSummary("session_exercises", exerciseCountResult),
+      tableSummary("planned_training_sessions", plannedResult),
+      tableSummary("planned_session_blocks", plannedBlocksResult),
       tableSummary("profiles", profileResult),
       tableSummary("user_wearable_connections", connectionResult),
       tableSummary("training_sources", sourceResult),
@@ -1082,6 +1168,7 @@ function App() {
         {route === "activities" && (
           <ActivitiesOverview
             sessions={filteredSessions}
+            plannedSessions={plannedSessions}
             setRoute={setRoute}
             setDiscipline={setDiscipline}
             onOpenSession={openSessionDetail}
@@ -2805,8 +2892,9 @@ function ActivityTrainingEffectCard({ detail }) {
   );
 }
 
-function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }) {
+function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDiscipline, onOpenSession }) {
   const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
+  const calendarSessions = buildCalendarSessionViewModels(plannedSessions, typedSessions);
   const today = useMemo(() => startOfDay(new Date()), []);
   const todayKey = dateKey(today);
   const [viewMode, setViewMode] = useState("week");
@@ -2815,7 +2903,7 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const typeOptions = buildActivityTypeFilterOptions(typedSessions);
-  const filteredSessions = typedSessions.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
+  const filteredSessions = calendarSessions.filter((item) => calendarSessionMatchesFilters(item, sourceFilter, typeFilter));
   const period = buildActivityPeriod(viewMode, periodDate);
   const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
   const visibleSessions = periodSessions
@@ -2825,10 +2913,13 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
   const dayFilterLabel = formatActivityDayFilterLabel(viewMode, period, selectedDates);
 
   const openDetail = (item) => {
+    const detailSession = item.completedSession || item;
+    if (!detailSession?.id) return;
     if (item.activityType === "hybrid") setDiscipline("hyrox");
     if (item.activityType === "strength") setDiscipline("crossfit");
     if (item.activityType === "run") setDiscipline("trail");
-    if (onOpenSession) onOpenSession(item);
+    if (item.activityType === "pilates") setDiscipline("boyle");
+    if (onOpenSession) onOpenSession(detailSession);
     else setRoute("activityDetail");
   };
 
@@ -2860,8 +2951,8 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
       <section className="activitiesHero">
         <div>
           <span>ACTIVIDADES</span>
-          <h2>Historial Garmin/FIT</h2>
-          <p>Sesiones agrupadas por día, con detalle objetivo Garmin y bloques coach cuando existan.</p>
+          <h2>Semana Viva</h2>
+          <p>Planificado, adaptado, ejecutado y enriquecido en una misma vista semanal.</p>
         </div>
       </section>
 
@@ -2922,11 +3013,11 @@ function ActivitiesOverview({ sessions, setRoute, setDiscipline, onOpenSession }
         <ActivitySelectedDayFilters dates={selectedDates} onRemove={toggleDateFilter} />
         <div className="activityList">
           {visibleSessions.map((item) => (
-            <ActivityHistoryCard key={item.id} item={item} onOpen={() => openDetail(item)} />
+            <LiveWeekSessionCard key={item.id} item={item} onOpen={() => openDetail(item)} />
           ))}
         </div>
         {!visibleSessions.length && (
-          <p className="emptyText">{selectedDates.length ? "No hay sesiones para los días seleccionados." : "No hay sesiones registradas en este periodo."}</p>
+          <p className="emptyText">{selectedDates.length ? "No hay sesiones para los días seleccionados." : "No hay sesiones planificadas o ejecutadas en este periodo."}</p>
         )}
       </section>
     </section>
@@ -3065,6 +3156,147 @@ function ActivitySelectedDayFilters({ dates, onRemove }) {
       ))}
     </div>
   );
+}
+
+function LiveWeekSessionCard({ item, onOpen }) {
+  const [expanded, setExpanded] = useState(item.kind === "linked");
+  const toneColor = liveSessionToneColor(item.statusTone);
+  const type = activityTypes[item.activityType] || activityTypes.hybrid;
+  const hasCompletedDetail = Boolean(item.completedSession?.id);
+  return (
+    <article className={`liveSessionCard ${expanded ? "expanded" : ""}`} style={{ "--type": type.color, "--status": toneColor }}>
+      <button type="button" className="liveSessionHeader" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
+        <div className="activityBadge">
+          {item.kind === "planned" ? <CalendarDays size={18} /> : <Activity size={18} />}
+        </div>
+        <div className="liveSessionMain">
+          <span>{[item.time, item.typeLabel].filter(Boolean).join(" · ") || formatDateLong(item.date)}</span>
+          <strong>{item.title}</strong>
+          {item.summary && <p>{item.summary}</p>}
+          <div className="activityMetrics">
+            {item.chips.map((chip) => <span key={chip}>{chip}</span>)}
+          </div>
+        </div>
+        <div className="liveSessionFlags">
+          <span className={`liveStatusChip ${item.statusTone}`}>{item.statusLabel}</span>
+          {item.coach && <span>Coach</span>}
+          {item.matchConfidence && <span>Vinculada</span>}
+          <ChevronRight size={16} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="liveSessionDetail">
+          {item.planned && <LivePlanSection plan={item.planned} />}
+          {item.completed && <LiveCompletedSection completed={item.completed} onOpen={hasCompletedDetail ? onOpen : null} />}
+          {item.comparison && <PlanVsActualComparison comparison={item.comparison} />}
+          {!item.planned && item.completed && <p className="liveMutedText">Sin plan previo vinculado.</p>}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function LivePlanSection({ plan }) {
+  return (
+    <section className="liveSessionSection">
+      <header>
+        <span>Plan</span>
+      </header>
+      {plan.objective && <p>{plan.objective}</p>}
+      <div className="liveInfoGrid">
+        {plan.intensity && <span><b>Intensidad</b>{plan.intensity}</span>}
+        {plan.duration && <span><b>Duracion prevista</b>{plan.duration}</span>}
+        {plan.adaptationReason && <span><b>Adaptacion</b>{plan.adaptationReason}</span>}
+      </div>
+      {plan.blocks.length > 0 && (
+        <ol className="liveBlockList">
+          {plan.blocks.map((block) => (
+            <li key={block.id || `${block.block_order}-${block.title}`}>
+              <strong>{block.title}</strong>
+              {block.objective && <span>{block.objective}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {plan.constraints.length > 0 && (
+        <div className="liveConstraintList">
+          {plan.constraints.map((constraint) => <span key={constraint}>{constraint}</span>)}
+        </div>
+      )}
+      {plan.notes && <p className="liveMutedText">{plan.notes}</p>}
+    </section>
+  );
+}
+
+function LiveCompletedSection({ completed, onOpen }) {
+  return (
+    <section className="liveSessionSection">
+      <header>
+        <span>Ejecutado</span>
+        {onOpen && (
+          <button type="button" onClick={onOpen}>
+            Ver detalle
+          </button>
+        )}
+      </header>
+      <div className="liveInfoGrid">
+        {completed.garmin && <span><b>Garmin</b>{completed.garmin}</span>}
+        {completed.coach && <span><b>Coach</b>{completed.coach}</span>}
+        {completed.avgHr && <span><b>FC media</b>{Math.round(completed.avgHr)} ppm</span>}
+        {completed.calories && <span><b>Calorias</b>{Math.round(completed.calories)} kcal</span>}
+      </div>
+      {completed.highlights.length > 0 && (
+        <div className="liveConstraintList">
+          {completed.highlights.map((highlight) => <span key={highlight}>{highlight}</span>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PlanVsActualComparison({ comparison }) {
+  return (
+    <section className="liveSessionSection planComparison">
+      <header>
+        <span>Planificado vs Ejecutado</span>
+      </header>
+      <p>{comparison.summary}</p>
+      <div className="comparisonList">
+        {comparison.items.map((item) => (
+          <section key={item.key} className={`comparisonItem ${item.status}`}>
+            <div>
+              <strong>{item.label}</strong>
+              <span>{comparisonStatusLabel(item.status, item.result)}</span>
+            </div>
+            <p><b>Plan:</b> {item.plan || "Sin dato suficiente"}</p>
+            <p><b>Real:</b> {item.actual || "Sin dato suficiente"}</p>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function liveSessionToneColor(tone) {
+  return {
+    blue: "#4aa8ff",
+    green: "#65d86b",
+    amber: "#ff9b43",
+    gray: "#a8b0b6",
+    purple: "#c47dff",
+    red: "#e63b41",
+  }[tone] || "#4aa8ff";
+}
+
+function comparisonStatusLabel(status, result) {
+  const prefix = {
+    ok: "OK",
+    warning: "Atencion",
+    danger: "Revisar",
+    unknown: "Sin dato",
+  }[status] || "Sin dato";
+  return result ? `${prefix} · ${result}` : prefix;
 }
 
 function ActivityHistoryCard({ item, onOpen }) {
@@ -5908,7 +6140,9 @@ function mapTrainingSession(item) {
     max_hr: heartRate.max_bpm ?? null,
     calories_total: calories.total_kcal ?? null,
     garmin_sets_total: strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? null,
-    has_conversation: Boolean(item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
+    coach_blocks_count: Number(item.coach_blocks_count || 0),
+    coach_exercises_count: Number(item.coach_exercises_count || 0),
+    has_conversation: Boolean(item.coach_blocks_count || item.coach_exercises_count || item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
     started_at: item.started_at,
     local_date: item.local_date,
     created_at: item.created_at,
@@ -6201,6 +6435,9 @@ function summarizeActivityPeriod(items, dayCount) {
 }
 
 function sortSessionsChronological(a, b) {
+  const left = `${sessionDateKey(a)}T${a.time || (a.started_at ? new Date(a.started_at).toTimeString().slice(0, 5) : "23:59")}`;
+  const right = `${sessionDateKey(b)}T${b.time || (b.started_at ? new Date(b.started_at).toTimeString().slice(0, 5) : "23:59")}`;
+  if (left !== right) return left.localeCompare(right);
   return `${a.started_at || a.created_at || ""}`.localeCompare(`${b.started_at || b.created_at || ""}`);
 }
 
@@ -6281,7 +6518,9 @@ function activityTrainingSubtitle(activityType) {
 }
 
 function sessionDateKey(session) {
+  if (session.date) return session.date;
   if (session.local_date) return session.local_date;
+  if (session.planned_date) return session.planned_date;
   if (session.started_at) return new Date(session.started_at).toISOString().slice(0, 10);
   if (session.created_at) return new Date(session.created_at).toISOString().slice(0, 10);
   return new Date().toISOString().slice(0, 10);

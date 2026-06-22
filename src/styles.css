@@ -2516,6 +2516,271 @@ button:disabled {
   background: rgba(255, 255, 255, 0.055);
 }
 
+.liveSessionCard {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--status) 30%, var(--border));
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--status) 7%, transparent), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.035);
+  overflow: hidden;
+}
+
+.liveSessionCard.expanded {
+  border-color: color-mix(in srgb, var(--status) 44%, var(--border));
+}
+
+.liveSessionHeader {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.liveSessionHeader:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.liveSessionMain {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.liveSessionMain > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.liveSessionMain strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liveSessionMain p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 80%, var(--muted));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.liveSessionFlags {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 7px;
+  align-items: center;
+}
+
+.liveSessionFlags span,
+.liveStatusChip {
+  min-height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.liveStatusChip {
+  color: #06100d;
+  border-color: transparent;
+  background: var(--status);
+}
+
+.liveSessionDetail {
+  display: grid;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+
+.liveSessionSection {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.liveSessionSection header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.liveSessionSection header span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.liveSessionSection header button {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.liveSessionSection p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.liveInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.liveInfoGrid span {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 13px;
+}
+
+.liveInfoGrid b {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.liveBlockList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.liveBlockList li {
+  border-left: 2px solid var(--status);
+  display: grid;
+  gap: 3px;
+  padding-left: 10px;
+}
+
+.liveBlockList strong {
+  font-size: 13px;
+}
+
+.liveBlockList span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.liveConstraintList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.liveConstraintList span {
+  min-height: 26px;
+  border: 1px solid color-mix(in srgb, var(--status) 25%, var(--border));
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+  background: color-mix(in srgb, var(--status) 7%, transparent);
+  font-size: 12px;
+}
+
+.liveMutedText {
+  color: var(--muted) !important;
+}
+
+.planComparison {
+  border-color: color-mix(in srgb, var(--status) 22%, var(--border));
+}
+
+.comparisonList {
+  display: grid;
+  gap: 8px;
+}
+
+.comparisonItem {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left-width: 3px;
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.comparisonItem.ok {
+  border-left-color: #65d86b;
+}
+
+.comparisonItem.warning {
+  border-left-color: #ff9b43;
+}
+
+.comparisonItem.danger {
+  border-left-color: #e63b41;
+}
+
+.comparisonItem.unknown {
+  border-left-color: #a8b0b6;
+}
+
+.comparisonItem div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.comparisonItem strong {
+  font-size: 13px;
+}
+
+.comparisonItem div span {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.comparisonItem p {
+  color: var(--muted);
+}
+
+.comparisonItem p b {
+  color: var(--text);
+}
+
 .activityBadge {
   width: 48px;
   height: 48px;
@@ -4447,6 +4712,27 @@ button:disabled {
 
   .activityList .activityHistoryCard {
     grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .liveSessionHeader {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .liveSessionFlags {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .liveInfoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparisonItem div {
+    display: grid;
+  }
+
+  .comparisonItem div span {
+    text-align: left;
   }
 
   .activityFlags {
