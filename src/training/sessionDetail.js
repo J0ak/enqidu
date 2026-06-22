@@ -6,7 +6,10 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
   const heartRateSamples = normalizeHeartRateSamples(garminSamples.heart_rate || []);
   const respirationSamples = normalizeRespirationSamples(garminSamples.respiration || []);
   const garminBlocks = normalizeGarminLaps(garminDetail.laps || []);
-  const zones = normalizeHeartRateZones(garminDetail.zones?.heart_rate || []);
+  const reportedZones = normalizeHeartRateZones(garminDetail.zones?.heart_rate || []);
+  const zones = reportedZones.length
+    ? reportedZones
+    : deriveHeartRateZonesFromSamples(heartRateSamples, numberOrNull(sourceSession.duration_seconds ?? garminSummary.duration_seconds));
   const blocks = (payload.blocks || []).map((block, blockIndex) => normalizePilotBlock(block, blockIndex));
   const exercises = blocks.flatMap((block) => block.exerciseDetails || []);
   const stats = buildSessionStats(blocks);
@@ -63,8 +66,11 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
     universalTrainingIntegration: { ready: false, session: null, reason: "pilot_rpc_detail" },
     hasConversationBlocks: blocks.length > 0,
     samples: heartRateSamples,
+    heartRateSamples,
     respirationSamples,
     zones,
+    heartRateZones: zones,
+    laps: garminBlocks,
     summary: {
       duration_elapsed_seconds: numberOrNull(garminSummary.duration_seconds),
       duration_total_seconds: numberOrNull(garminSummary.duration_seconds),
@@ -183,13 +189,82 @@ function normalizeHeartRateZones(rows = []) {
   return rows.map((row, index) => ({
     key: row.zone || row.label || `Z${index + 1}`,
     label: row.label || row.zone || `Z${index + 1}`,
-    shortLabel: row.zone || row.label || `Z${index + 1}`,
+    shortLabel: row.zone || row.short_label || row.label || `Z${index + 1}`,
     name: row.name || "",
+    color: row.color || defaultHeartRateZoneColor(row.zone || row.label || `Z${index + 1}`),
     min: numberOrNull(row.min_bpm),
-    max: numberOrNull(row.max_bpm),
+    max: numberOrNull(row.max_bpm) ?? Infinity,
+    range: formatHeartRateZoneRange(numberOrNull(row.min_bpm), numberOrNull(row.max_bpm)),
     seconds: numberOrNull(row.seconds),
     percent: numberOrNull(row.percent),
   }));
+}
+
+const DEFAULT_GARMIN_HEART_RATE_ZONES = [
+  { key: "Z1", label: "Zona 1", shortLabel: "Z1", name: "Calentamiento", min: 91, max: 108, color: "#a8b0b6" },
+  { key: "Z2", label: "Zona 2", shortLabel: "Z2", name: "Suave", min: 109, max: 126, color: "#25a9ff" },
+  { key: "Z3", label: "Zona 3", shortLabel: "Z3", name: "Aerobica", min: 127, max: 144, color: "#7bdc21" },
+  { key: "Z4", label: "Zona 4", shortLabel: "Z4", name: "Umbral", min: 145, max: 162, color: "#ff981f" },
+  { key: "Z5", label: "Zona 5", shortLabel: "Z5", name: "Maximo", min: 163, max: Infinity, color: "#ff3b35" },
+];
+
+function deriveHeartRateZonesFromSamples(samples = [], durationSeconds = null) {
+  const validSamples = samples
+    .map((sample) => ({
+      elapsed_seconds: numberOrNull(sample.elapsed_seconds),
+      heart_rate_bpm: numberOrNull(sample.heart_rate_bpm),
+    }))
+    .filter((sample) => sample.elapsed_seconds != null && sample.heart_rate_bpm != null && sample.heart_rate_bpm >= 30 && sample.heart_rate_bpm <= 230)
+    .sort((a, b) => a.elapsed_seconds - b.elapsed_seconds);
+
+  if (!validSamples.length) return [];
+
+  const secondsByZone = new Map(DEFAULT_GARMIN_HEART_RATE_ZONES.map((zone) => [zone.key, 0]));
+  const fallbackSeconds = estimateSampleSeconds(validSamples);
+  validSamples.forEach((sample, index) => {
+    const zone = DEFAULT_GARMIN_HEART_RATE_ZONES.find((item) => sample.heart_rate_bpm >= item.min && sample.heart_rate_bpm <= item.max);
+    if (!zone) return;
+    secondsByZone.set(zone.key, secondsByZone.get(zone.key) + sampleSecondsAt(validSamples, index, fallbackSeconds));
+  });
+
+  const totalSeconds = Math.max(1, numberOrNull(durationSeconds) ?? [...secondsByZone.values()].reduce((sum, value) => sum + value, 0));
+  return DEFAULT_GARMIN_HEART_RATE_ZONES.map((zone) => {
+    const seconds = Math.round(secondsByZone.get(zone.key) || 0);
+    return {
+      ...zone,
+      range: formatHeartRateZoneRange(zone.min, zone.max),
+      seconds,
+      percent: Math.round((seconds / totalSeconds) * 100),
+    };
+  });
+}
+
+function estimateSampleSeconds(samples) {
+  if (samples.length < 2) return 1;
+  const deltas = samples
+    .slice(1, 12)
+    .map((sample, index) => Number(sample.elapsed_seconds || 0) - Number(samples[index].elapsed_seconds || 0))
+    .filter((value) => value > 0);
+  const averageDelta = deltas.length ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length : 1;
+  return Math.max(1, Math.round(averageDelta || 1));
+}
+
+function sampleSecondsAt(samples, index, fallbackSeconds) {
+  const current = Number(samples[index]?.elapsed_seconds);
+  const next = Number(samples[index + 1]?.elapsed_seconds);
+  const delta = next - current;
+  if (Number.isFinite(delta) && delta > 0 && delta <= 30) return delta;
+  return fallbackSeconds;
+}
+
+function formatHeartRateZoneRange(min, max) {
+  if (min == null) return "";
+  if (max == null || max === Infinity) return `> ${min - 1} ppm`;
+  return `${min} - ${max} ppm`;
+}
+
+function defaultHeartRateZoneColor(key) {
+  return DEFAULT_GARMIN_HEART_RATE_ZONES.find((zone) => zone.key === `${key}`.toUpperCase())?.color || "#a8b0b6";
 }
 
 function normalizePilotBlock(block = {}, blockIndex = 0) {

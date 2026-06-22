@@ -88,7 +88,19 @@ function buildPilotDetailPayload() {
         cadence: [],
         speed: [],
       },
-      laps: [],
+      laps: [
+        {
+          lap_order: 1,
+          duration_seconds: 3484,
+          elapsed_seconds: 3484,
+          distance_m: 0,
+          calories_kcal: 486,
+          heart_rate_avg_bpm: 113,
+          heart_rate_max_bpm: 156,
+          active_seconds: 2507,
+          rest_seconds: 978,
+        },
+      ],
       zones: { heart_rate: [], power: [] },
       series_metadata: {
         source: "fit_records_sanitized",
@@ -320,6 +332,7 @@ test("pilot RPC detail normalizer preserves real Garmin HR series", () => {
   assert.deepEqual(hrValues, [72, 130, 103]);
   assert.equal(new Set(hrValues).size > 1, true);
   assert.equal(detail.samples[1].heartRateBpm, 130);
+  assert.equal(detail.heartRateSamples.length, 3);
   assert.equal(detail.respirationSamples.length, 2);
 });
 
@@ -331,6 +344,18 @@ test("pilot RPC detail normalizer does not create flat HR fallback without sampl
   assert.equal(detail.session.avg_hr, 113);
   assert.equal(detail.session.max_hr, 156);
   assert.equal(detail.samples.length, 0);
+});
+
+test("pilot RPC detail normalizer preserves old Garmin card zones and laps contract", () => {
+  const detail = normalizeSessionDetailFromPilotRpc(buildPilotDetailPayload());
+
+  assert.equal(detail.zones.length, 5);
+  assert.equal(detail.heartRateZones.length, 5);
+  assert.ok(detail.heartRateZones.find((zone) => zone.key === "Z3" && zone.seconds > 0));
+  assert.equal(detail.garminBlocks.length, 1);
+  assert.equal(detail.laps.length, 1);
+  assert.equal(detail.laps[0].durationSeconds, 3484);
+  assert.equal(detail.laps[0].heartRateMaxBpm, 156);
 });
 
 test("pilot RPC detail normalizer preserves reps per side without flattening source data", () => {

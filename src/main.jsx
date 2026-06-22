@@ -3835,13 +3835,6 @@ function HeartRateGarminLikeChart({ samples, avgHr, durationSeconds, mode = "cla
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const prepared = buildHeartRateSegments(samples);
-  if (!prepared.segments.length) {
-    return (
-      <div className="garminHrChart">
-        <div className="softEmpty">Serie temporal no disponible.</div>
-      </div>
-    );
-  }
   const { yMin, yMax, ticks: yTicks } = getHrDomain(prepared.validValues);
   const xTicks = getTimeTicks(durationSeconds);
   const avg = Number(avgHr || average(prepared.validValues) || 0);
