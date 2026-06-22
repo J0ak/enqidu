@@ -1,8 +1,11 @@
 # PlannedWeek Contract
 
-Contrato para que ChatGPT genere semanas planificadas y las grabe mediante:
+Contrato para que ChatGPT genere sesiones o semanas planificadas y las grabe mediante RPCs seguras:
 
 ```sql
+select public.chatgpt_pilot_preview_planned_session($json$...$json$::jsonb);
+select public.chatgpt_pilot_apply_planned_session($json$...$json$::jsonb);
+select public.chatgpt_pilot_preview_week_plan($json$...$json$::jsonb);
 select public.chatgpt_pilot_apply_week_plan($json$...$json$::jsonb);
 ```
 
@@ -112,14 +115,83 @@ Si `status` falta, la RPC usa `planned`.
 
 - No incluir `user_id`; la RPC usa `chatgpt_pilot_config.pilot_user_id`.
 - No incluir `linked_completed_session_id` en V1.
-- No crear comparación plan/real.
-- No crear matching automático.
+- No crear comparaciÃ³n plan/real.
+- No crear matching automÃ¡tico.
 - No incluir payloads crudos, SQL, claves, tokens ni secretos.
 - `planned_duration_min` no puede ser mayor que `planned_duration_max`.
 - `constraints`, `blocks` y `planned_exercises` deben ser arrays cuando aparezcan.
-- La clave lógica anti-duplicados es `user_id + planned_date + planned_time + title`.
-- Si ya existe una sesión con esa clave, `apply` actualiza la sesión y reemplaza sus bloques planificados.
+- La clave lÃ³gica anti-duplicados es `user_id + planned_date + planned_time + title`.
+- Si ya existe una sesiÃ³n con esa clave, `apply` actualiza la sesiÃ³n y reemplaza sus bloques planificados.
 
+## ChatGPT Pilot Write Flow
+
+Usa las RPCs de sesión cuando el payload sea grande o cuando ChatGPT quiera grabar una semana paso a paso:
+
+```sql
+select public.chatgpt_pilot_preview_planned_session($json$
+{
+  "planned_date": "2026-06-24",
+  "planned_time": "07:00",
+  "title": "Híbrido fuera de casa",
+  "session_type": "hybrid",
+  "status": "planned",
+  "planned_intensity": "RPE 7-8",
+  "planned_duration_min": 45,
+  "planned_duration_max": 60,
+  "objective": "Sesión híbrida controlada.",
+  "blocks": [
+    {
+      "block_order": 1,
+      "title": "Movilidad + activación",
+      "block_type": "warmup",
+      "planned_duration_seconds": 600,
+      "planned_exercises": []
+    }
+  ]
+}
+$json$::jsonb);
+```
+
+Si el preview devuelve `ok=true` y `valid=true`, aplica exactamente el mismo JSON validado:
+
+```sql
+select public.chatgpt_pilot_apply_planned_session($json$
+{
+  "...": "mismo JSON validado"
+}
+$json$::jsonb);
+```
+
+Usa las RPCs de semana cuando el payload sea pequeño y cómodo de enviar de una vez:
+
+```sql
+select public.chatgpt_pilot_preview_week_plan($json$
+{
+  "week_start": "2026-06-22",
+  "source": "chatgpt_pilot",
+  "sessions": []
+}
+$json$::jsonb);
+```
+
+Si el preview semanal devuelve `ok=true`, `chatgpt_pilot_apply_week_plan` itera `sessions[]` y aplica cada sesión mediante la misma lógica de `chatgpt_pilot_apply_planned_session`.
+
+### Cuándo Usar Cada RPC
+
+- `preview_planned_session`: validar una sola planned, revisar duplicados y contar bloques sin escribir.
+- `apply_planned_session`: grabar una sola planned robustamente desde ChatGPT.
+- `preview_week_plan`: validar una semana completa sin escribir.
+- `apply_week_plan`: grabar una semana completa reutilizando el flujo de sesión.
+
+### Idempotencia
+
+La clave lógica es:
+
+```text
+pilot_user_id + planned_date + planned_time + title
+```
+
+Si la sesión ya existe, la RPC actualiza sus campos planificados y reemplaza sus `planned_session_blocks`. No toca `training_sessions`, `session_blocks`, `session_exercises`, `session_samples`, `session_laps` ni `session_metrics`.
 ## Ejemplo
 
 ```json
@@ -130,25 +202,25 @@ Si `status` falta, la RPC usa `planned`.
     {
       "planned_date": "2026-06-24",
       "planned_time": "07:00",
-      "title": "Híbrido fuera de casa",
+      "title": "HÃ­brido fuera de casa",
       "session_type": "hybrid",
       "status": "planned",
       "location_type": "outside_home",
       "planned_intensity": "RPE 7-8",
       "planned_duration_min": 45,
       "planned_duration_max": 60,
-      "objective": "Sesión híbrida controlada sin castigar la zona lumbar.",
-      "coach_notes": "Evitar peso muerto pesado, máximos y saltos excesivos.",
+      "objective": "SesiÃ³n hÃ­brida controlada sin castigar la zona lumbar.",
+      "coach_notes": "Evitar peso muerto pesado, mÃ¡ximos y saltos excesivos.",
       "constraints": [
         "evitar peso muerto pesado",
-        "evitar máximos",
+        "evitar mÃ¡ximos",
         "controlar saltos",
         "mantener lumbar neutro"
       ],
       "blocks": [
         {
           "block_order": 1,
-          "title": "Movilidad + activación",
+          "title": "Movilidad + activaciÃ³n",
           "block_type": "warmup",
           "objective": "Preparar cadera, core y hombros.",
           "planned_duration_seconds": 600,
@@ -159,14 +231,14 @@ Si `status` falta, la RPC usa `planned`.
         },
         {
           "block_order": 2,
-          "title": "Empuje / tracción",
+          "title": "Empuje / tracciÃ³n",
           "block_type": "strength_skill",
-          "objective": "Trabajo técnico sin máxima carga.",
+          "objective": "Trabajo tÃ©cnico sin mÃ¡xima carga.",
           "planned_duration_seconds": 900,
           "planned_rounds": null,
           "planned_exercises": [],
           "constraints": [
-            "RPE máximo 7"
+            "RPE mÃ¡ximo 7"
           ],
           "notes": null
         }

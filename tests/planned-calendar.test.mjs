@@ -171,3 +171,33 @@ test("planned backend migration creates safe planned-only RPC surface", async ()
   assert.doesNotMatch(source, /insert into public\.session_laps/);
   assert.doesNotMatch(source, /insert into public\.session_metrics/);
 });
+
+test("planned session writer migration exposes small ChatGPT RPCs without executed writes", async () => {
+  const source = await readFile(path.join(root, "supabase", "migrations", "20260622_chatgpt_planned_session_writer_rpc.sql"), "utf8");
+
+  assert.match(source, /create or replace function public\.chatgpt_pilot_preview_planned_session\(p_session jsonb\)/);
+  assert.match(source, /create or replace function public\.chatgpt_pilot_apply_planned_session\(p_session jsonb\)/);
+  assert.match(source, /create or replace function public\.chatgpt_pilot_preview_week_plan\(p_plan jsonb\)/);
+  assert.match(source, /create or replace function public\.chatgpt_pilot_apply_week_plan\(p_plan jsonb\)/);
+  assert.match(source, /public\.chatgpt_pilot_apply_planned_session/);
+  assert.match(source, /grant execute on function public\.chatgpt_pilot_apply_planned_session\(jsonb\) to anon, authenticated, service_role/);
+  assert.match(source, /grant execute on function public\.chatgpt_pilot_preview_planned_session\(jsonb\) to anon, authenticated, service_role/);
+  assert.doesNotMatch(source, /insert into public\.training_sessions/);
+  assert.doesNotMatch(source, /update public\.training_sessions/);
+  assert.doesNotMatch(source, /delete from public\.training_sessions/);
+  assert.doesNotMatch(source, /insert into public\.session_blocks/);
+  assert.doesNotMatch(source, /insert into public\.session_exercises/);
+  assert.doesNotMatch(source, /insert into public\.session_samples/);
+  assert.doesNotMatch(source, /insert into public\.session_laps/);
+  assert.doesNotMatch(source, /insert into public\.session_metrics/);
+});
+
+test("planned week contract documents ChatGPT pilot write flow", async () => {
+  const source = await readFile(path.join(root, "docs", "planned-week-contract.md"), "utf8");
+
+  assert.match(source, /chatgpt_pilot_preview_planned_session/);
+  assert.match(source, /chatgpt_pilot_apply_planned_session/);
+  assert.match(source, /chatgpt_pilot_preview_week_plan/);
+  assert.match(source, /chatgpt_pilot_apply_week_plan/);
+  assert.match(source, /Idempotencia/);
+});
