@@ -1577,7 +1577,7 @@ function PlannedSessionDetail({ plannedSession, onBack }) {
 
       <article className="activityMainCard plannedNoticeCard">
         <ClipboardList size={20} />
-        <span>Sesión planificada. Todavía no tiene datos Garmin.</span>
+        <span>Sesión planificada. Todavía no tiene datos ejecutados.</span>
       </article>
 
       <section className="plannedDetailGrid">
@@ -1619,12 +1619,8 @@ function PlannedSessionDetail({ plannedSession, onBack }) {
         <PlannedDetailCard title="Bloques previstos" wide>
           {blocks.length ? (
             <ol className="plannedBlockList">
-              {blocks.map((block) => (
-                <li key={block.id}>
-                  <strong>{block.title}</strong>
-                  {block.description && <p>{block.description}</p>}
-                  {block.exercises?.length ? <small>{block.exercises.join(" · ")}</small> : null}
-                </li>
+              {blocks.map((block, index) => (
+                <PlannedBlockCard key={block.id || `${block.title}-${index}`} block={block} fallbackOrder={index + 1} />
               ))}
             </ol>
           ) : (
@@ -1643,6 +1639,31 @@ function PlannedSessionDetail({ plannedSession, onBack }) {
         </PlannedDetailCard>
       </section>
     </section>
+  );
+}
+
+function PlannedBlockCard({ block, fallbackOrder }) {
+  const order = block.order || fallbackOrder;
+  const duration = block.durationLabel || (block.durationSeconds ? formatDurationClock(block.durationSeconds) : "");
+
+  return (
+    <li className="plannedBlockCard">
+      <div className="plannedBlockCardHeader">
+        <span className="plannedBlockNumber">{order}</span>
+        <div>
+          <strong>{block.title}</strong>
+          <small>Planificado</small>
+        </div>
+        {duration && <time>{duration}</time>}
+      </div>
+      {block.description && <p>{block.description}</p>}
+      {block.exercises?.length ? (
+        <div className="plannedBlockExercises">
+          <span>Ejercicios previstos</span>
+          <small>{block.exercises.join(" · ")}</small>
+        </div>
+      ) : null}
+    </li>
   );
 }
 

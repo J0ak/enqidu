@@ -78,6 +78,7 @@ test("planned items preserve planned blocks from pilot migration columns", () =>
         block_order: 1,
         title: "Movilidad + activación",
         objective: "Preparar cadera, core y hombros.",
+        planned_duration_seconds: 600,
         planned_exercises: [{ name: "Dead bug" }, { name: "Band pull-apart" }],
       },
     ],
@@ -86,6 +87,8 @@ test("planned items preserve planned blocks from pilot migration columns", () =>
   assert.equal(item.blocksCount, 1);
   assert.equal(item.blocks[0].title, "Movilidad + activación");
   assert.equal(item.blocks[0].description, "Preparar cadera, core y hombros.");
+  assert.equal(item.blocks[0].durationSeconds, 600);
+  assert.equal(item.blocks[0].durationLabel, "10:00");
   assert.deepEqual(item.blocks[0].exercises, ["Dead bug", "Band pull-apart"]);
 });
 

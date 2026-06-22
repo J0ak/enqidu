@@ -207,8 +207,20 @@ function normalizePlannedBlocks(blocks = []) {
       order: Number(block.block_order ?? block.order_index ?? index + 1),
       title: text(block.title || block.name || block.block_type || `Bloque ${index + 1}`),
       description: text(block.objective || block.description || block.notes || block.prescription),
+      durationSeconds: numberOrNull(block.planned_duration_seconds ?? block.duration_seconds ?? block.target_duration_seconds),
+      durationLabel: plannedBlockDurationLabel(block),
       exercises: normalizeTextList(block.planned_exercises || block.exercises || block.suggested_exercises || block.items),
     }));
+}
+
+function plannedBlockDurationLabel(block = {}) {
+  const direct = text(block.planned_duration_label || block.duration_label || block.target_duration_label);
+  if (direct) return direct;
+  const seconds = numberOrNull(block.planned_duration_seconds ?? block.duration_seconds ?? block.target_duration_seconds);
+  if (seconds == null || seconds <= 0) return "";
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function normalizePlannedTypeKey(value) {

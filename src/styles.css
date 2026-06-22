@@ -1206,10 +1206,83 @@ button:disabled {
 .plannedBlockList {
   display: grid;
   gap: 12px;
+  padding-left: 0;
+  list-style: none;
 }
 
-.plannedBlockList p {
+.plannedBlockCard {
+  display: grid;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--planned-accent) 28%, var(--border));
+  border-radius: 8px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--surface-2) 86%, var(--planned-accent));
+}
+
+.plannedBlockCardHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.plannedBlockNumber {
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--planned-accent) 58%, transparent);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.plannedBlockCard strong {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.plannedBlockCardHeader small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plannedBlockCard time {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.plannedBlockCard p {
   margin: 4px 0;
+}
+
+.plannedBlockExercises {
+  display: grid;
+  gap: 4px;
+}
+
+.plannedBlockExercises span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plannedBlockExercises small {
+  color: var(--planned-accent);
 }
 
 .plannedExerciseChips {
@@ -4131,6 +4204,15 @@ button:disabled {
 
   .plannedDetailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .plannedBlockCardHeader {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .plannedBlockCard time {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .activityMetricRow {
