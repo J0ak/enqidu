@@ -1,6 +1,12 @@
 export function normalizeSessionDetailFromPilotRpc(payload = {}) {
   const sourceSession = payload.session || {};
   const garminSummary = payload.garmin_summary || {};
+  const garminDetail = payload.garmin_detail || {};
+  const garminSamples = garminDetail.samples || {};
+  const heartRateSamples = normalizeHeartRateSamples(garminSamples.heart_rate || []);
+  const respirationSamples = normalizeRespirationSamples(garminSamples.respiration || []);
+  const garminBlocks = normalizeGarminLaps(garminDetail.laps || []);
+  const zones = normalizeHeartRateZones(garminDetail.zones?.heart_rate || []);
   const blocks = (payload.blocks || []).map((block, blockIndex) => normalizePilotBlock(block, blockIndex));
   const exercises = blocks.flatMap((block) => block.exerciseDetails || []);
   const stats = buildSessionStats(blocks);
@@ -48,7 +54,7 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
     },
     exercises,
     blocks,
-    garminBlocks: [],
+    garminBlocks,
     garminSeries: [],
     sessionStructure: {},
     enrichmentPayload: {},
@@ -56,9 +62,9 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
     canonicalTrainingSession: { ready: false, session: null, reason: "pilot_rpc_detail" },
     universalTrainingIntegration: { ready: false, session: null, reason: "pilot_rpc_detail" },
     hasConversationBlocks: blocks.length > 0,
-    samples: [],
-    respirationSamples: [],
-    zones: [],
+    samples: heartRateSamples,
+    respirationSamples,
+    zones,
     summary: {
       duration_elapsed_seconds: numberOrNull(garminSummary.duration_seconds),
       duration_total_seconds: numberOrNull(garminSummary.duration_seconds),
@@ -80,8 +86,110 @@ export function normalizeSessionDetailFromPilotRpc(payload = {}) {
       },
     },
     metrics: payload.metrics || [],
+    garminDetail: {
+      ...garminDetail,
+      samples: {
+        ...garminSamples,
+        heart_rate: heartRateSamples,
+        respiration: respirationSamples,
+      },
+      laps: garminBlocks,
+      zones: {
+        ...(garminDetail.zones || {}),
+        heart_rate: zones,
+      },
+    },
     sourceWarnings: payload.source_warnings || [],
   };
+}
+
+function normalizeHeartRateSamples(rows = []) {
+  return rows
+    .map((row, index) => {
+      const elapsed = numberOrNull(row.elapsed_seconds);
+      const heartRate = numberOrNull(row.heart_rate_bpm);
+      return {
+        sample_order: numberOrNull(row.sample_order) ?? index + 1,
+        sampleOrder: numberOrNull(row.sample_order) ?? index + 1,
+        recorded_at: row.recorded_at || null,
+        recordedAt: row.recorded_at || null,
+        elapsed_seconds: elapsed,
+        elapsedSeconds: elapsed,
+        heart_rate_bpm: heartRate,
+        heartRateBpm: heartRate,
+        speed_mps: numberOrNull(row.speed_mps),
+        speedMps: numberOrNull(row.speed_mps),
+        cadence_rpm: numberOrNull(row.cadence_rpm),
+        cadenceRpm: numberOrNull(row.cadence_rpm),
+        power_w: numberOrNull(row.power_w),
+        powerW: numberOrNull(row.power_w),
+        altitude_m: numberOrNull(row.altitude_m),
+        altitudeM: numberOrNull(row.altitude_m),
+        distance_m: numberOrNull(row.distance_m),
+        distanceM: numberOrNull(row.distance_m),
+        temperature_c: numberOrNull(row.temperature_c),
+        temperatureC: numberOrNull(row.temperature_c),
+      };
+    })
+    .filter((row) => row.elapsed_seconds != null && row.heart_rate_bpm != null)
+    .sort((a, b) => a.elapsed_seconds - b.elapsed_seconds);
+}
+
+function normalizeRespirationSamples(rows = []) {
+  return rows
+    .map((row, index) => {
+      const elapsed = numberOrNull(row.elapsed_seconds);
+      const respiration = numberOrNull(row.respiration_brpm);
+      return {
+        sample_order: numberOrNull(row.sample_order) ?? index + 1,
+        sampleOrder: numberOrNull(row.sample_order) ?? index + 1,
+        recorded_at: row.recorded_at || null,
+        recordedAt: row.recorded_at || null,
+        elapsed_seconds: elapsed,
+        elapsedSeconds: elapsed,
+        respiration_brpm: respiration,
+        respirationBrpm: respiration,
+      };
+    })
+    .filter((row) => row.elapsed_seconds != null && row.respiration_brpm != null)
+    .sort((a, b) => a.elapsed_seconds - b.elapsed_seconds);
+}
+
+function normalizeGarminLaps(rows = []) {
+  return rows.map((row, index) => ({
+    id: `lap-${numberOrNull(row.lap_order) ?? index + 1}`,
+    order: numberOrNull(row.lap_order) ?? index + 1,
+    lapOrder: numberOrNull(row.lap_order) ?? index + 1,
+    duration_seconds: numberOrNull(row.duration_seconds),
+    durationSeconds: numberOrNull(row.duration_seconds),
+    elapsed_seconds: numberOrNull(row.elapsed_seconds),
+    elapsedSeconds: numberOrNull(row.elapsed_seconds),
+    distance_meters: numberOrNull(row.distance_m),
+    distanceM: numberOrNull(row.distance_m),
+    calories: numberOrNull(row.calories_kcal),
+    caloriesKcal: numberOrNull(row.calories_kcal),
+    heart_rate_avg_bpm: numberOrNull(row.heart_rate_avg_bpm),
+    heartRateAvgBpm: numberOrNull(row.heart_rate_avg_bpm),
+    heart_rate_max_bpm: numberOrNull(row.heart_rate_max_bpm),
+    heartRateMaxBpm: numberOrNull(row.heart_rate_max_bpm),
+    active_seconds: numberOrNull(row.active_seconds),
+    activeSeconds: numberOrNull(row.active_seconds),
+    rest_seconds: numberOrNull(row.rest_seconds),
+    restSeconds: numberOrNull(row.rest_seconds),
+  }));
+}
+
+function normalizeHeartRateZones(rows = []) {
+  return rows.map((row, index) => ({
+    key: row.zone || row.label || `Z${index + 1}`,
+    label: row.label || row.zone || `Z${index + 1}`,
+    shortLabel: row.zone || row.label || `Z${index + 1}`,
+    name: row.name || "",
+    min: numberOrNull(row.min_bpm),
+    max: numberOrNull(row.max_bpm),
+    seconds: numberOrNull(row.seconds),
+    percent: numberOrNull(row.percent),
+  }));
 }
 
 function normalizePilotBlock(block = {}, blockIndex = 0) {

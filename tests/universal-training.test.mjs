@@ -73,6 +73,29 @@ function buildPilotDetailPayload() {
       training_effect_anaerobic: 0.5,
       respiration_avg: 26.79,
     },
+    garmin_detail: {
+      samples: {
+        heart_rate: [
+          { sample_order: 1, elapsed_seconds: 0, recorded_at: "2026-06-22T04:59:54.000Z", heart_rate_bpm: 72 },
+          { sample_order: 2, elapsed_seconds: 120, recorded_at: "2026-06-22T05:01:54.000Z", heart_rate_bpm: 130 },
+          { sample_order: 3, elapsed_seconds: 3484, recorded_at: "2026-06-22T05:57:58.000Z", heart_rate_bpm: 103 },
+        ],
+        respiration: [
+          { sample_order: 1, elapsed_seconds: 0, recorded_at: "2026-06-22T04:59:54.000Z", respiration_brpm: 18.5 },
+          { sample_order: 2, elapsed_seconds: 120, recorded_at: "2026-06-22T05:01:54.000Z", respiration_brpm: 28.2 },
+        ],
+        power: [],
+        cadence: [],
+        speed: [],
+      },
+      laps: [],
+      zones: { heart_rate: [], power: [] },
+      series_metadata: {
+        source: "fit_records_sanitized",
+        downsampled: true,
+        max_points: 600,
+      },
+    },
     metrics: [],
     blocks: blockSpecs.map(([block_type, name, exercises], blockIndex) => ({
       id: `block-${blockIndex + 1}`,
@@ -277,12 +300,37 @@ test("pilot RPC detail normalizer preserves rich blocks, exercises and loads", (
   assert.equal(detail.hasConversationBlocks, true);
   assert.equal(detail.session.avg_hr, 113);
   assert.equal(detail.session.training_effect_aerobic, 3);
+  assert.equal(detail.session.calories_total, 486);
+  assert.equal(detail.session.active_seconds, 2507);
+  assert.equal(detail.session.rest_seconds, 978);
   assert.ok(exercises.find((exercise) => exercise.name === "Kettlebell high pull / remo alto").detailText.includes("16 kg"));
   assert.ok(exercises.find((exercise) => exercise.name.startsWith("Step-up lateral")).detailText.includes("20 kg"));
   assert.ok(exercises.find((exercise) => exercise.name.startsWith("Media wall ball")).detailText.includes("12 kg"));
   assert.ok(exercises.find((exercise) => exercise.name.startsWith("Leñador")).detailText.includes("12 kg"));
   assert.ok(exercises.find((exercise) => exercise.name === "Assault bike").detailText.includes("77 rpm"));
   assert.ok(exercises.find((exercise) => exercise.name === "Remo ergómetro").detailText.includes("45 spm"));
+});
+
+test("pilot RPC detail normalizer preserves real Garmin HR series", () => {
+  const detail = normalizeSessionDetailFromPilotRpc(buildPilotDetailPayload());
+  const hrValues = detail.samples.map((sample) => sample.heart_rate_bpm);
+
+  assert.equal(detail.samples.length, 3);
+  assert.deepEqual(detail.samples.map((sample) => sample.elapsed_seconds), [0, 120, 3484]);
+  assert.deepEqual(hrValues, [72, 130, 103]);
+  assert.equal(new Set(hrValues).size > 1, true);
+  assert.equal(detail.samples[1].heartRateBpm, 130);
+  assert.equal(detail.respirationSamples.length, 2);
+});
+
+test("pilot RPC detail normalizer does not create flat HR fallback without samples", () => {
+  const payload = buildPilotDetailPayload();
+  payload.garmin_detail.samples.heart_rate = [];
+  const detail = normalizeSessionDetailFromPilotRpc(payload);
+
+  assert.equal(detail.session.avg_hr, 113);
+  assert.equal(detail.session.max_hr, 156);
+  assert.equal(detail.samples.length, 0);
 });
 
 test("pilot RPC detail normalizer preserves reps per side without flattening source data", () => {
@@ -293,6 +341,35 @@ test("pilot RPC detail normalizer preserves reps per side without flattening sou
   assert.equal(stepUp.detailText.includes("6/lado"), true);
   assert.equal(stepUp.loadValue, 20);
   assert.equal(stepUp.loadUnit, "kg");
+});
+
+test("live week keeps Yoga as Yoga and filters it away from strength", () => {
+  const sessions = buildCalendarSessionViewModels({
+    plannedSessions: [],
+    completedSessions: [{
+      session_id: "472f5409-4e50-4374-9a8c-905ddadb16e7",
+      date: "2026-06-18",
+      title: "Yoga",
+      source_type: "garmin_fit",
+      garmin_type_key: "yoga",
+      garmin_type_label: "Yoga",
+      duration_seconds: 3570,
+      blocks_count: 1,
+      exercises_count: 1,
+      has_fit: true,
+      has_coach_blocks: true,
+      status: "completed",
+    }],
+    weekStart: "2026-06-15",
+    weekEnd: "2026-06-21",
+  });
+
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].typeKey, "yoga");
+  assert.equal(sessions[0].typeLabel, "Yoga");
+  assert.equal(sessions[0].chips.includes("Yoga"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "yoga"), true);
+  assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "strength"), false);
 });
 
 test("live week merges planned week with completed monday and preserves source filters", () => {

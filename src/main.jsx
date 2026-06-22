@@ -172,6 +172,7 @@ const activityTypes = {
   hiit: { label: "HIIT", color: "#d6ff35" },
   hybrid: { label: "Híbrido", color: "#d6ff35" },
   strength: { label: "Fuerza", color: "#ff8a1f" },
+  yoga: { label: "Yoga", color: "#c47dff" },
   pilates: { label: "Pilates", color: "#c47dff" },
   cycling: { label: "Ciclismo", color: "#f5c84b" },
   multisport: { label: "Multideporte", color: "#8df018" },
@@ -181,6 +182,7 @@ const activityTypes = {
 const GARMIN_PRIMARY_ACTIVITY_FILTERS = [
   ["hiit", "HIIT"],
   ["strength", "Fuerza"],
+  ["yoga", "Yoga"],
   ["pilates", "Pilates"],
   ["running", "Carrera"],
   ["trail_running", "Trail running"],
@@ -200,6 +202,7 @@ const GARMIN_ACTIVITY_ALIASES = [
   ["cycling", ["cycling", "cycle", "bike", "biking", "ciclismo", "road_biking", "mountain_biking", "mountain_bike", "e_biking"]],
   ["multisport", ["multisport", "multi_sport", "multideporte"]],
   ["strength", ["strength_training", "strength", "entreno_de_fuerza", "fuerza", "weight_training", "weights", "training", "fitness_equipment"]],
+  ["yoga", ["yoga"]],
   ["pilates", ["pilates"]],
   ["hiit", ["hiit", "interval_training", "interval", "workout", "cardio_training", "cardio"]],
   ["running", ["running", "run", "carrera", "correr"]],
@@ -3832,6 +3835,13 @@ function HeartRateGarminLikeChart({ samples, avgHr, durationSeconds, mode = "cla
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const prepared = buildHeartRateSegments(samples);
+  if (!prepared.segments.length) {
+    return (
+      <div className="garminHrChart">
+        <div className="softEmpty">Serie temporal no disponible.</div>
+      </div>
+    );
+  }
   const { yMin, yMax, ticks: yTicks } = getHrDomain(prepared.validValues);
   const xTicks = getTimeTicks(durationSeconds);
   const avg = Number(avgHr || average(prepared.validValues) || 0);
@@ -6429,7 +6439,8 @@ function activityTypeFromGarminKey(key = "") {
   if (text.includes("cycling")) return "cycling";
   if (text.includes("multisport")) return "multisport";
   if (text.includes("strength") || text.includes("fuerza") || text.includes("weight") || text.includes("fitness_equipment")) return "strength";
-  if (text.includes("yoga") || text.includes("pilates")) return "pilates";
+  if (text.includes("yoga")) return "yoga";
+  if (text.includes("pilates")) return "pilates";
   if (text.includes("hiit") || text.includes("cardio") || text.includes("interval") || text.includes("workout")) return "hiit";
   if (text === "other") return "other";
   return "hybrid";
