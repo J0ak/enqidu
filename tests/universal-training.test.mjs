@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { resolveExerciseAlias } from "../src/training/exerciseCatalog.js";
 import { buildCalendarSessionViewModels, calendarSessionMatchesFilters } from "../src/training/liveWeek.js";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView, calculateSummaryMetrics, validateAndNormalizeTrainingSession } from "../src/training/metrics.js";
+import { normalizeSessionDetailFromPilotRpc } from "../src/training/sessionDetail.js";
 import { buildTrainingSessionCardView } from "../src/training/smartCardView.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,6 +14,85 @@ const root = path.join(__dirname, "..");
 
 async function fixture(name) {
   return JSON.parse(await readFile(path.join(root, "fixtures", name), "utf8"));
+}
+
+function buildPilotDetailPayload() {
+  const blockSpecs = [
+    ["mobility", "Estiramientos y movilidad inicial", [["Movilidad y estiramientos generales"]]],
+    ["warmup", "Calentamiento con kettlebell y escaladores", [
+      ["Kettlebell high pull / remo alto", { rounds_completed: 2, load_value: 16, load_unit: "kg", side: "bilateral" }],
+      ["Remo unilateral con kettlebell", { rounds_completed: 2, reps_per_set: [{ each_side: 10 }, { each_side: 10 }], load_value: 16, load_unit: "kg", side: "each_side" }],
+      ["Escaladores", { rounds_completed: 2, reps_per_set: [10, 10], side: "alternating" }],
+    ]],
+    ["conditioning", "Híbrido A", [
+      ["Lunge con press hacia arriba y vuelos laterales", { load_value: 5, load_unit: "kg", side: "alternating" }],
+      ["Plancha con empuje y tracción de saco", { reps_per_set: [{ each_side: 6 }], side: "each_side" }],
+      ["Step-up lateral al cajón con rodilla arriba y kettlebell en goblet", { reps_per_set: [{ each_side: 6 }], load_value: 20, load_unit: "kg", side: "each_side" }],
+      ["Remo ergómetro", { duration_seconds: 30, load_value: 45, load_unit: "spm", side: "na" }],
+    ]],
+    ["conditioning", "Híbrido B", [
+      ["Media wall ball / sentadilla con balón medicinal a media altura", { rounds_completed: 2, reps_per_set: [10, 10], load_value: 12, load_unit: "kg" }],
+      ["Remo en anillas unilateral con brazo contrario extendido arriba", { rounds_completed: 2, reps_per_set: [{ each_side: 6 }, { each_side: 6 }], side: "each_side" }],
+      ["Leñador con kettlebell", { rounds_completed: 2, reps_per_set: [{ each_side: 6 }, { each_side: 6 }], load_value: 12, load_unit: "kg", side: "each_side" }],
+      ["Assault bike", { rounds_completed: 2, duration_seconds: 30, load_value: 77, load_unit: "rpm", side: "na" }],
+    ]],
+    ["metcon", "Finisher corto carrera / escaladores / salto sentadilla", [
+      ["Shuttle run 8 m", { load_value: 8, load_unit: "m", side: "na" }],
+      ["Escaladores", { reps_per_set: [10], side: "alternating" }],
+      ["Sentadilla con salto", { reps_per_set: [8], side: "bilateral" }],
+    ]],
+    ["cooldown", "Vuelta a la calma", [["Estiramientos finales"]]],
+  ];
+
+  return {
+    ok: true,
+    session: {
+      session_id: "26a5b01a-7bb3-4500-bac6-948185922ae2",
+      date: "2026-06-22",
+      title: "HIIT",
+      status: "completed",
+      session_kind: "completed",
+      source_type: "garmin_fit",
+      garmin_type_key: "hiit",
+      garmin_type_label: "HIIT",
+      has_fit: true,
+      has_coach_blocks: true,
+      duration_seconds: 3484,
+      blocks_count: 6,
+      exercises_count: 16,
+      metrics_count: 2,
+    },
+    garmin_summary: {
+      duration_seconds: 3484,
+      active_seconds: 2507,
+      rest_seconds: 978,
+      calories_kcal: 486,
+      heart_rate_avg_bpm: 113,
+      heart_rate_max_bpm: 156,
+      training_effect_aerobic: 3,
+      training_effect_anaerobic: 0.5,
+      respiration_avg: 26.79,
+    },
+    metrics: [],
+    blocks: blockSpecs.map(([block_type, name, exercises], blockIndex) => ({
+      id: `block-${blockIndex + 1}`,
+      block_order: blockIndex + 1,
+      block_type,
+      name,
+      execution_notes: `${name} notas`,
+      data_confidence: "reported",
+      exercises: exercises.map(([reported_name, rest = {}], exerciseIndex) => ({
+        id: `exercise-${blockIndex + 1}-${exerciseIndex + 1}`,
+        exercise_order: exerciseIndex + 1,
+        reported_name,
+        execution_type: "performed",
+        equipment_snapshot: {},
+        data_confidence: "reported",
+        ...rest,
+      })),
+    })),
+    source_warnings: [],
+  };
 }
 
 test("all general fixtures validate against the AI contract", async () => {
@@ -182,6 +262,37 @@ test("live week accepts pilot RPC completed session summaries", () => {
   assert.equal(calendarSessionMatchesFilters(sessions[0], "garmin", "all"), true);
   assert.equal(calendarSessionMatchesFilters(sessions[0], "coach", "all"), true);
   assert.equal(calendarSessionMatchesFilters(sessions[0], "mixed", "all"), true);
+});
+
+test("pilot RPC detail normalizer preserves rich blocks, exercises and loads", () => {
+  const payload = buildPilotDetailPayload();
+  const detail = normalizeSessionDetailFromPilotRpc(payload);
+  const exercises = detail.blocks.flatMap((block) => block.exerciseDetails);
+
+  assert.equal(detail.session.id, "26a5b01a-7bb3-4500-bac6-948185922ae2");
+  assert.equal(detail.session.duration_seconds, 3484);
+  assert.equal(detail.session.hasFit, true);
+  assert.equal(detail.blocks.length, 6);
+  assert.equal(exercises.length, 16);
+  assert.equal(detail.hasConversationBlocks, true);
+  assert.equal(detail.session.avg_hr, 113);
+  assert.equal(detail.session.training_effect_aerobic, 3);
+  assert.ok(exercises.find((exercise) => exercise.name === "Kettlebell high pull / remo alto").detailText.includes("16 kg"));
+  assert.ok(exercises.find((exercise) => exercise.name.startsWith("Step-up lateral")).detailText.includes("20 kg"));
+  assert.ok(exercises.find((exercise) => exercise.name.startsWith("Media wall ball")).detailText.includes("12 kg"));
+  assert.ok(exercises.find((exercise) => exercise.name.startsWith("Leñador")).detailText.includes("12 kg"));
+  assert.ok(exercises.find((exercise) => exercise.name === "Assault bike").detailText.includes("77 rpm"));
+  assert.ok(exercises.find((exercise) => exercise.name === "Remo ergómetro").detailText.includes("45 spm"));
+});
+
+test("pilot RPC detail normalizer preserves reps per side without flattening source data", () => {
+  const detail = normalizeSessionDetailFromPilotRpc(buildPilotDetailPayload());
+  const stepUp = detail.blocks.flatMap((block) => block.exerciseDetails).find((exercise) => exercise.name.startsWith("Step-up lateral"));
+
+  assert.deepEqual(stepUp.repsPerSet, [{ each_side: 6 }]);
+  assert.equal(stepUp.detailText.includes("6/lado"), true);
+  assert.equal(stepUp.loadValue, 20);
+  assert.equal(stepUp.loadUnit, "kg");
 });
 
 test("live week merges planned week with completed monday and preserves source filters", () => {

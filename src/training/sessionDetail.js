@@ -1,0 +1,286 @@
+export function normalizeSessionDetailFromPilotRpc(payload = {}) {
+  const sourceSession = payload.session || {};
+  const garminSummary = payload.garmin_summary || {};
+  const blocks = (payload.blocks || []).map((block, blockIndex) => normalizePilotBlock(block, blockIndex));
+  const exercises = blocks.flatMap((block) => block.exerciseDetails || []);
+  const stats = buildSessionStats(blocks);
+
+  return {
+    session: {
+      id: sourceSession.session_id,
+      sessionId: sourceSession.session_id,
+      title: cleanText(sourceSession.title || "Sesion"),
+      garmin_original_title: cleanText(sourceSession.garmin_type_label || ""),
+      session_status: sourceSession.status || "completed",
+      session_kind: sourceSession.session_kind || "completed",
+      source_type: sourceSession.source_type || "",
+      hasFit: Boolean(sourceSession.has_fit),
+      hasCoachBlocks: Boolean(sourceSession.has_coach_blocks),
+      activity_type: sourceSession.garmin_type_key || "other",
+      garminActivityTypeKey: sourceSession.garmin_type_key || "other",
+      garminActivityTypeLabel: sourceSession.garmin_type_label || "",
+      local_date: sourceSession.date,
+      started_at: sourceSession.started_at || null,
+      ended_at: sourceSession.ended_at || null,
+      duration_seconds: numberOrNull(sourceSession.duration_seconds ?? garminSummary.duration_seconds),
+      durationSeconds: numberOrNull(sourceSession.duration_seconds ?? garminSummary.duration_seconds),
+      active_seconds: numberOrNull(garminSummary.active_seconds),
+      rest_seconds: numberOrNull(garminSummary.rest_seconds),
+      distance_meters: numberOrNull(sourceSession.distance_meters ?? garminSummary.distance_meters),
+      distanceMeters: numberOrNull(sourceSession.distance_meters ?? garminSummary.distance_meters),
+      calories_total: numberOrNull(garminSummary.calories_kcal),
+      avg_hr: numberOrNull(garminSummary.heart_rate_avg_bpm),
+      heartRateAvgBpm: numberOrNull(garminSummary.heart_rate_avg_bpm),
+      max_hr: numberOrNull(garminSummary.heart_rate_max_bpm),
+      heartRateMaxBpm: numberOrNull(garminSummary.heart_rate_max_bpm),
+      training_effect_aerobic: numberOrNull(garminSummary.training_effect_aerobic),
+      training_effect_anaerobic: numberOrNull(garminSummary.training_effect_anaerobic),
+      respiration_avg_brpm: numberOrNull(garminSummary.respiration_avg),
+      respiration_max_brpm: numberOrNull(garminSummary.respiration_max),
+      respiration_min_brpm: numberOrNull(garminSummary.respiration_min),
+      block_count: numberOrNull(sourceSession.blocks_count) ?? blocks.length,
+      blocksCount: numberOrNull(sourceSession.blocks_count) ?? blocks.length,
+      exercisesCount: numberOrNull(sourceSession.exercises_count) ?? exercises.length,
+      metricsCount: numberOrNull(sourceSession.metrics_count),
+      total_reps: stats.totalReps || undefined,
+      total_sets: stats.totalSets || undefined,
+      volume_total: stats.loadLabel || undefined,
+    },
+    exercises,
+    blocks,
+    garminBlocks: [],
+    garminSeries: [],
+    sessionStructure: {},
+    enrichmentPayload: {},
+    executiveSummaryTable: [],
+    canonicalTrainingSession: { ready: false, session: null, reason: "pilot_rpc_detail" },
+    universalTrainingIntegration: { ready: false, session: null, reason: "pilot_rpc_detail" },
+    hasConversationBlocks: blocks.length > 0,
+    samples: [],
+    respirationSamples: [],
+    zones: [],
+    summary: {
+      duration_elapsed_seconds: numberOrNull(garminSummary.duration_seconds),
+      duration_total_seconds: numberOrNull(garminSummary.duration_seconds),
+      duration_work_seconds: numberOrNull(garminSummary.active_seconds),
+      duration_rest_seconds: numberOrNull(garminSummary.rest_seconds),
+      calories: { total_kcal: numberOrNull(garminSummary.calories_kcal) },
+      heart_rate: {
+        avg_bpm: numberOrNull(garminSummary.heart_rate_avg_bpm),
+        max_bpm: numberOrNull(garminSummary.heart_rate_max_bpm),
+      },
+      respiration: {
+        avg_brpm: numberOrNull(garminSummary.respiration_avg),
+        max_brpm: numberOrNull(garminSummary.respiration_max),
+        min_brpm: numberOrNull(garminSummary.respiration_min),
+      },
+      training_effect: {
+        aerobic: numberOrNull(garminSummary.training_effect_aerobic),
+        anaerobic: numberOrNull(garminSummary.training_effect_anaerobic),
+      },
+    },
+    metrics: payload.metrics || [],
+    sourceWarnings: payload.source_warnings || [],
+  };
+}
+
+function normalizePilotBlock(block = {}, blockIndex = 0) {
+  const exercises = (block.exercises || []).map((exercise, exerciseIndex) => normalizePilotExercise(exercise, exerciseIndex, block));
+  return {
+    id: block.id,
+    blockOrder: numberOrNull(block.block_order) ?? blockIndex + 1,
+    orderText: `${numberOrNull(block.block_order) ?? blockIndex + 1}`,
+    blockType: block.block_type || "",
+    typeLabel: labelize(block.block_type || "Bloque"),
+    name: cleanText(block.name || block.title || `Bloque ${blockIndex + 1}`),
+    duration_seconds: numberOrNull(block.duration_seconds),
+    durationSeconds: numberOrNull(block.duration_seconds),
+    active_seconds: numberOrNull(block.active_seconds),
+    rest_seconds: numberOrNull(block.rest_seconds),
+    rounds_completed: numberOrNull(block.rounds_completed),
+    roundsCompleted: numberOrNull(block.rounds_completed),
+    executionNotes: cleanText(block.execution_notes || ""),
+    executionText: cleanText(block.execution_notes || ""),
+    temporal: {
+      fcMedia: numberOrNull(block.heart_rate_avg_bpm) ?? "N/D",
+      fcMax: numberOrNull(block.heart_rate_max_bpm) ?? "N/D",
+    },
+    temporalWindow: {
+      start: numberOrNull(block.start_elapsed_seconds),
+      end: numberOrNull(block.end_elapsed_seconds),
+    },
+    temporalReconciled: false,
+    summaryText: cleanText(block.summary || block.execution_notes || exercises.map((exercise) => exercise.name).join(", ")),
+    sensationText: cleanText(block.objective || ""),
+    exerciseDetails: exercises,
+    sourceText: block.data_confidence || "reported",
+    warningText: "",
+    dataConfidence: block.data_confidence || "",
+  };
+}
+
+function normalizePilotExercise(exercise = {}, exerciseIndex = 0, block = {}) {
+  const name = cleanText(exercise.reported_name || exercise.name || `Ejercicio ${exerciseIndex + 1}`);
+  const detailText = formatSessionExerciseDetail({
+    ...exercise,
+    name,
+    rounds_completed: exercise.rounds_completed ?? block.rounds_completed,
+  });
+  const loadValue = numberOrNull(exercise.load_value);
+  const loadUnit = `${exercise.load_unit || ""}`.trim();
+  const reps = repsTotal(exercise.reps_per_set);
+  const sets = numberOrNull(exercise.sets_completed) || numberOrNull(exercise.rounds_completed) || numberOrNull(block.rounds_completed) || 0;
+  return {
+    id: exercise.id,
+    exerciseOrder: numberOrNull(exercise.exercise_order) ?? exerciseIndex + 1,
+    name,
+    reportedName: name,
+    detailText,
+    executionType: exercise.execution_type || "",
+    setsCompleted: numberOrNull(exercise.sets_completed),
+    roundsCompleted: numberOrNull(exercise.rounds_completed),
+    repsPerSet: exercise.reps_per_set,
+    durationSeconds: numberOrNull(exercise.duration_seconds),
+    loadValue,
+    loadUnit,
+    equipmentSnapshot: exercise.equipment_snapshot || {},
+    tempoOrPause: exercise.tempo_or_pause || "",
+    side: exercise.side || "",
+    notes: cleanText(exercise.notes || ""),
+    dataConfidence: exercise.data_confidence || "",
+    stats: {
+      sets,
+      reps,
+      repSets: reps,
+      isometricSeconds: numberOrNull(exercise.duration_seconds) || 0,
+      externalLoadKg: loadUnit === "kg" && loadValue ? loadValue * Math.max(1, sets || 1) : 0,
+    },
+  };
+}
+
+export function formatSessionExerciseDetail(exercise = {}) {
+  return [
+    formatRounds(exercise.rounds_completed),
+    formatSets(exercise.sets_completed, exercise.rounds_completed),
+    formatReps(exercise.reps_per_set, exercise.side, exercise.rounds_completed),
+    formatDuration(exercise.duration_seconds),
+    formatLoad(exercise.load_value, exercise.load_unit),
+    formatEquipment(exercise.equipment_snapshot, exercise.name || exercise.reported_name),
+  ].filter(Boolean).join(" · ");
+}
+
+export function formatLoad(loadValue, loadUnit) {
+  const value = numberOrNull(loadValue);
+  const unit = `${loadUnit || ""}`.trim();
+  if (value == null || !unit) return "";
+  return `${formatNumber(value)} ${unit}`;
+}
+
+function formatDuration(seconds) {
+  const value = numberOrNull(seconds);
+  if (value == null || value <= 0) return "";
+  if (value < 60) return `${Math.round(value)} s`;
+  const total = Math.round(value);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${`${secs}`.padStart(2, "0")}`;
+}
+
+function formatRounds(rounds) {
+  const value = numberOrNull(rounds);
+  if (value == null || value <= 0) return "";
+  return `${formatNumber(value)} ${value === 1 ? "ronda" : "rondas"}`;
+}
+
+function formatSets(sets, rounds) {
+  const setsValue = numberOrNull(sets);
+  const roundsValue = numberOrNull(rounds);
+  if (setsValue == null || setsValue <= 0 || setsValue === roundsValue) return "";
+  return `${formatNumber(setsValue)} ${setsValue === 1 ? "serie" : "series"}`;
+}
+
+function formatReps(value, side, rounds) {
+  const normalized = normalizeRepsPerSet(value);
+  if (!normalized.length) return "";
+  const first = normalized[0];
+  const same = normalized.every((item) => item.total === first.total && item.eachSide === first.eachSide);
+  const roundsValue = numberOrNull(rounds);
+  const prefix = roundsValue && normalized.length === roundsValue && same ? "" : normalized.length > 1 ? `${normalized.length}x` : "";
+  if (first.eachSide != null && same) return `${prefix}${formatNumber(first.eachSide)}/lado`;
+  if (first.total != null && same) return `${prefix}${formatNumber(first.total)} reps`;
+  const total = normalized.reduce((sum, item) => sum + (item.total || (item.eachSide ? item.eachSide * 2 : 0)), 0);
+  return total ? `${formatNumber(total)} reps` : "";
+}
+
+function normalizeRepsPerSet(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.flatMap((item) => normalizeRepsPerSet(item));
+  if (typeof value === "number" || /^\d+(\.\d+)?$/.test(`${value}`)) return [{ total: numberOrNull(value) }];
+  if (typeof value === "object") {
+    if (value.each_side != null) return [{ eachSide: numberOrNull(value.each_side) }];
+    if (value.eachSide != null) return [{ eachSide: numberOrNull(value.eachSide) }];
+    if (value.total != null) return [{ total: numberOrNull(value.total) }];
+    if (value.reps != null) return [{ total: numberOrNull(value.reps) }];
+  }
+  return [];
+}
+
+function formatEquipment(snapshot = {}, exerciseName = "") {
+  const equipment = Array.isArray(snapshot?.equipment) ? snapshot.equipment : [];
+  const compact = equipment
+    .map((item) => labelize(item))
+    .filter((item) => item && !exerciseName.toLowerCase().includes(item.toLowerCase()));
+  return compact.slice(0, 2).join(" · ");
+}
+
+function buildSessionStats(blocks = []) {
+  const details = blocks.flatMap((block) => block.exerciseDetails || []);
+  const totalSets = details.reduce((sum, item) => sum + (numberOrNull(item.stats?.sets) || 0), 0);
+  const totalReps = details.reduce((sum, item) => sum + (numberOrNull(item.stats?.reps) || 0), 0);
+  const totalLoad = details.reduce((sum, item) => sum + (numberOrNull(item.stats?.externalLoadKg) || 0), 0);
+  return {
+    totalSets: Math.round(totalSets),
+    totalReps: Math.round(totalReps),
+    loadLabel: totalLoad ? `${formatNumber(totalLoad)} kg` : "",
+  };
+}
+
+function repsTotal(value) {
+  return normalizeRepsPerSet(value).reduce((sum, item) => sum + (item.total || (item.eachSide ? item.eachSide * 2 : 0)), 0);
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatNumber(value) {
+  const number = numberOrNull(value);
+  if (number == null) return "";
+  return Number.isInteger(number) ? `${number}` : `${Number(number.toFixed(1))}`;
+}
+
+function cleanText(value) {
+  return repairMojibakeText(value).replace(/\s+/g, " ").trim();
+}
+
+function labelize(value) {
+  return cleanText(`${value || ""}`.replace(/_/g, " ")).replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function repairMojibakeText(value) {
+  if (value == null) return "";
+  const replacements = [
+    ["\u00c2\u00b7", "·"],
+    ["\u00c3\u00a1", "á"],
+    ["\u00c3\u00a9", "é"],
+    ["\u00c3\u00ad", "í"],
+    ["\u00c3\u00b3", "ó"],
+    ["\u00c3\u00ba", "ú"],
+    ["\u00c3\u00b1", "ñ"],
+    ["\u00e2\u20ac\u201d", "—"],
+    ["\u00c2", ""],
+  ];
+  return replacements.reduce((text, [from, to]) => text.replaceAll(from, to), `${value}`);
+}

@@ -15,6 +15,7 @@ import {
   isDateInInclusiveRange as isCalendarDateInRange,
   toLocalDateKey as toCalendarDateKey,
 } from "@/training/liveWeek";
+import { normalizeSessionDetailFromPilotRpc } from "@/training/sessionDetail";
 import {
   Activity,
   ArrowLeft,
@@ -818,6 +819,27 @@ function App() {
     };
   };
 
+  const loadSessionDetail = async (sessionOrId) => {
+    const sessionId = typeof sessionOrId === "string" ? sessionOrId : sessionOrId?.id || sessionOrId?.session_id;
+    if (!supabase || !sessionId) return null;
+
+    const pilotResult = await supabase.rpc("chatgpt_pilot_get_session_detail", {
+      p_session_id: sessionId,
+    });
+
+    if (!pilotResult.error && pilotResult.data?.ok) {
+      logEnqiduDetailDiagnostic("chatgpt_pilot_get_session_detail.ok", {
+        sessionId,
+        blocks: pilotResult.data.blocks?.length || 0,
+        exercises: (pilotResult.data.blocks || []).reduce((sum, block) => sum + (block.exercises?.length || 0), 0),
+      });
+      return normalizeSessionDetailFromPilotRpc(pilotResult.data);
+    }
+
+    warnEnqiduDetailDiagnostic("chatgpt_pilot_get_session_detail.failed", pilotResult.error || pilotResult.data);
+    return loadActivityDetail(typeof sessionOrId === "string" ? { id: sessionId } : sessionOrId);
+  };
+
   const loadBackofficeData = async (activeSession = session) => {
     if (!supabase) {
       setDataState({
@@ -1046,7 +1068,7 @@ function App() {
     }
     if (!usedPilotCompletedFallback && sessionResult.data?.[0]?.id) {
       setActivityDetail(null);
-      const detail = await loadActivityDetail(sessionResult.data[0]);
+      const detail = await loadSessionDetail(sessionResult.data[0]);
       setActivityDetail(detail);
     }
     if (profileResult.data) {
@@ -1147,7 +1169,7 @@ function App() {
     if (selectedSession?.activityType === "pilates") setDiscipline("boyle");
     if (selectedSession?.id) {
       setActivityDetail(null);
-      const detail = await loadActivityDetail(selectedSession);
+      const detail = await loadSessionDetail(selectedSession);
       setActivityDetail(detail);
     }
     setRoute("activityDetail");
@@ -8075,6 +8097,16 @@ function logEnqiduDataDiagnostic(label, payload) {
 function warnEnqiduDataDiagnostic(label, payload) {
   if (!shouldLogEnqiduDataDiagnostics()) return;
   console.warn(`[ENQIDU data] ${label}`, payload);
+}
+
+function logEnqiduDetailDiagnostic(label, payload) {
+  if (!shouldLogEnqiduDataDiagnostics()) return;
+  console.debug(`[ENQIDU detail] ${label}`, payload);
+}
+
+function warnEnqiduDetailDiagnostic(label, payload) {
+  if (!shouldLogEnqiduDataDiagnostics()) return;
+  console.warn(`[ENQIDU detail] ${label}`, payload);
 }
 
 function chronological(rows) {
