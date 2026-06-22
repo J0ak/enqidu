@@ -1626,6 +1626,42 @@ button:disabled {
   color: var(--text);
 }
 
+.conversationExerciseSection {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.conversationExerciseList {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.conversationExerciseList li {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.conversationExerciseList strong {
+  display: block;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.conversationExerciseList small,
+.conversationExerciseList em {
+  display: block;
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--text) 66%, var(--muted));
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
 .conversationPendingNote {
   color: #ffd19b;
 }

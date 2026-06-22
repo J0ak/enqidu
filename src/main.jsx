@@ -687,7 +687,7 @@ function App() {
         .maybeSingle(),
       supabase
         .from("session_exercises")
-        .select("block_id, reported_name, exercise_order, sets_completed, reps_per_set, duration_seconds, load_value, load_unit, side, notes, data_confidence")
+        .select("block_id, reported_name, exercise_order, sets_completed, reps_per_set, duration_seconds, load_value, load_unit, side, notes, equipment_snapshot, data_confidence")
         .eq("session_id", latestSession.id)
         .order("exercise_order", { ascending: true }),
       fetchHeartRateZoneProfile(detailUserId),
@@ -1718,7 +1718,7 @@ function ConversationActivityCard({ view }) {
                 <ChevronRight size={18} />
               </summary>
               <div className="conversationBlockDetail">
-                <ConversationDetailLine label="Trabajo realizado" value={block.workPerformed} />
+                <ConversationExerciseList exercises={block.exercises} fallback={block.workPerformed} />
                 <ConversationDetailLine label="Volumen / dato clave" value={block.volume} />
                 <ConversationDetailLine label="Objetivo" value={block.objective} />
                 {block.pendingNote && <small className="conversationPendingNote">{block.pendingNote}</small>}
@@ -1728,6 +1728,24 @@ function ConversationActivityCard({ view }) {
         </div>
       </section>
     </article>
+  );
+}
+
+function ConversationExerciseList({ exercises = [], fallback }) {
+  if (!exercises.length) return <ConversationDetailLine label="Trabajo realizado" value={fallback} />;
+  return (
+    <section className="conversationExerciseSection">
+      <span>Trabajo realizado</span>
+      <ol className="conversationExerciseList">
+        {exercises.map((exercise, index) => (
+          <li key={`${exercise.name}-${index}`}>
+            <strong>{exercise.name}</strong>
+            {exercise.detailText && <small>{exercise.detailText}</small>}
+            {exercise.notes && <em>{exercise.notes}</em>}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -1750,18 +1768,26 @@ function buildConversationActivityView(detail = {}) {
 }
 
 function executiveRowsView(detail, rows, options = {}) {
+  const richBlocksByOrder = new Map((detail.blocks || []).map((block, index) => [`${block.orderText || index + 1}`, block]));
   const blocks = rows.map((row, index) => {
+    const order = row.block || row.order || index + 1;
+    const richBlock = richBlocksByOrder.get(`${order}`) || detail.blocks?.[index] || null;
+    const exercises = richBlock?.exerciseDetails || [];
+    const volume = formatBlockKeyVolume(richBlock) || cleanText(row.volume_key_data || row.volumeKeyData || row.volume || row.data);
     const work = cleanText(row.work_performed || row.workPerformed || row.summary || row.name);
-    const volume = cleanText(row.volume_key_data || row.volumeKeyData || row.volume || row.data);
     const objective = cleanText(row.objective || row.goal);
+    const closedSummary = exercises.length
+      ? compactExerciseSummary(exercises)
+      : compactConversationText(work, 72);
     return {
       id: row.id || `${options.source || "executive"}-${row.block || index + 1}`,
-      order: row.block || row.order || index + 1,
+      order,
       type: cleanText(row.type || row.name || `Bloque ${index + 1}`),
-      closedSummary: compactConversationText(work, 72),
-      workPerformed: work,
+      closedSummary,
+      workPerformed: exercises.length ? exercises.map((exercise) => exercise.name).join(" · ") : work,
       volume,
       objective,
+      exercises,
       pendingNote: pendingNoteFromRow(row, volume),
     };
   });
@@ -1794,16 +1820,12 @@ function legacyConversationRows(blocks = []) {
     .filter((block) => hasDisplayValue(block.name) || hasDisplayValue(block.summaryText) || hasDisplayValue(block.executionText))
     .map((block, index) => {
       const exercises = (block.exerciseDetails || []).map((exercise) => exercise.name).filter(Boolean).join(", ");
-      const volume = [
-        block.executionText,
-        block.temporal?.tiempo && block.temporal.tiempo !== "N/D" ? block.temporal.tiempo : null,
-      ].filter(Boolean).join(" · ");
       return {
         id: block.id || `legacy-${index + 1}`,
         block: block.orderText && block.orderText !== "N/D" ? block.orderText : index + 1,
         type: block.name || block.typeLabel || `Bloque ${index + 1}`,
         work_performed: block.summaryText && block.summaryText !== "N/D" ? block.summaryText : exercises,
-        volume_key_data: volume || "Pendiente",
+        volume_key_data: formatBlockKeyVolume(block),
         objective: block.sensationText && block.sensationText !== "N/D" ? block.sensationText : block.typeLabel,
         pending_note: block.warningText,
       };
@@ -1864,6 +1886,13 @@ function conversationKeyChips(blocks) {
     });
   });
   return chips;
+}
+
+function compactExerciseSummary(exercises = []) {
+  const names = exercises.map((exercise) => simplifyExerciseName(exercise.name)).filter(Boolean);
+  if (!names.length) return "";
+  if (names.length <= 3) return names.join(" · ");
+  return `${names.slice(0, 3).join(" · ")} · +${names.length - 3}`;
 }
 
 function extractKeyChips(text = "") {
@@ -3798,6 +3827,32 @@ function dictationTranscriptDelta(previous, current) {
   return now;
 }
 
+function isDuplicateSegment(next, previous) {
+  if (!next || !previous) return false;
+  const a = comparableDictationText(next);
+  const b = comparableDictationText(previous);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length > 20 && b.includes(a)) return true;
+  if (b.length > 20 && a.includes(b) && a.length - b.length < 8) return true;
+  return false;
+}
+
+function dedupeConsecutiveDictationText(value) {
+  const text = repairMojibakeText(value).replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const chunks = text
+    .split(/(?<=[.!?])\s+|\s{2,}/u)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  if (chunks.length <= 1) return text;
+  return chunks.reduce((parts, chunk) => {
+    const previous = parts[parts.length - 1];
+    if (!isDuplicateSegment(chunk, previous)) parts.push(chunk);
+    return parts;
+  }, []).join(" ");
+}
+
 function comparableDictationText(value) {
   return repairMojibakeText(value)
     .normalize("NFD")
@@ -3883,7 +3938,6 @@ function useLongDictation({ value, onChange, onNotice }) {
   const valueRef = useRef(value);
   const interimRef = useRef("");
   const lastFinalTranscriptRef = useRef("");
-  const recognitionFinalRef = useRef("");
 
   useEffect(() => {
     valueRef.current = value;
@@ -3899,9 +3953,9 @@ function useLongDictation({ value, onChange, onNotice }) {
   const appendTranscript = (transcript) => {
     const text = repairMojibakeText(transcript).replace(/\s+/g, " ").trim();
     if (!text) return;
-    if (lastFinalTranscriptRef.current.toLowerCase() === text.toLowerCase()) return;
+    if (isDuplicateSegment(text, lastFinalTranscriptRef.current)) return;
     const current = valueRef.current || "";
-    const next = mergeDictationTranscript(current, text);
+    const next = dedupeConsecutiveDictationText(mergeDictationTranscript(current, text));
     if (next === current) return;
     lastFinalTranscriptRef.current = text;
     valueRef.current = next;
@@ -3910,13 +3964,7 @@ function useLongDictation({ value, onChange, onNotice }) {
   };
 
   const appendRecognitionTranscript = (transcript) => {
-    const text = repairMojibakeText(transcript).replace(/\s+/g, " ").trim();
-    if (!text) return;
-    const previous = recognitionFinalRef.current;
-    const merged = mergeDictationTranscript(previous, text);
-    const delta = dictationTranscriptDelta(previous, merged);
-    recognitionFinalRef.current = merged;
-    if (delta) appendTranscript(delta);
+    appendTranscript(transcript);
   };
 
   const commitInterim = () => {
@@ -3924,7 +3972,13 @@ function useLongDictation({ value, onChange, onNotice }) {
     if (text) appendRecognitionTranscript(text);
     interimRef.current = "";
     setInterimTranscript("");
-    return valueRef.current || "";
+    const next = dedupeConsecutiveDictationText(valueRef.current || "");
+    if (next !== valueRef.current) {
+      valueRef.current = next;
+      onChange(next);
+      localStorage.setItem(storageKeys.coachDraft, JSON.stringify(next));
+    }
+    return next;
   };
 
   const isSecureMicrophoneContext = () => {
@@ -3949,7 +4003,6 @@ function useLongDictation({ value, onChange, onNotice }) {
     recognition.onstart = () => {
       startingRef.current = false;
       listeningRef.current = true;
-      recognitionFinalRef.current = "";
       restartDelayRef.current = 450;
       setPermissionError("");
       setIsListening(true);
@@ -3957,21 +4010,16 @@ function useLongDictation({ value, onChange, onNotice }) {
       onNotice("Escuchando. Puedes hablar durante varios minutos; enviarás cuando quieras.");
     };
     recognition.onresult = (event) => {
-      const finalParts = [];
-      const interimParts = [];
-      for (let index = 0; index < event.results.length; index += 1) {
+      let interim = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
-        const transcript = result?.[0]?.transcript || "";
-        if (result?.isFinal) finalParts.push(transcript);
-        else interimParts.push(transcript);
+        const transcript = repairMojibakeText(result?.[0]?.transcript || "").replace(/\s+/g, " ").trim();
+        if (!transcript) continue;
+        if (result?.isFinal) appendTranscript(transcript);
+        else interim = mergeDictationTranscript(interim, transcript);
       }
-      const finalText = finalParts.reduce((text, part) => mergeDictationTranscript(text, part), "");
-      if (finalText) appendRecognitionTranscript(finalText);
-      const cleanedInterim = interimParts
-        .reduce((text, part) => mergeDictationTranscript(text, part), "")
-        .trim();
-      interimRef.current = cleanedInterim;
-      setInterimTranscript(cleanedInterim);
+      interimRef.current = interim;
+      setInterimTranscript(interim);
     };
     recognition.onerror = (event) => {
       startingRef.current = false;
@@ -6865,6 +6913,8 @@ function mapExerciseBlocks(blockRows, exerciseRows) {
       orderText: safeValue(block.block_order),
       typeLabel: blockTypeLabel(block.block_type),
       name: repairMojibakeText(block.name || "Bloque"),
+      duration_seconds: optionalNumber(block.duration_seconds),
+      rounds_completed: optionalNumber(block.rounds_completed),
       executionText: buildBlockExecution(block),
       temporal: getBlockTemporalMetrics(block),
       temporalWindow: {
@@ -6975,18 +7025,24 @@ function buildConversationExerciseDetails(block, rows = []) {
     const fallback = plannedExerciseFallback(name);
     const sets = optionalNumber(item.sets_completed ?? row.sets_completed ?? fallback?.sets);
     const work = resolveExerciseWork(item, row, fallback, sets);
-    const parts = [];
     const loadValue = optionalNumber(item.load_value ?? row.load_value);
-    const loadUnit = item.load_unit || row.load_unit || "kg";
-    if (sets) parts.push(`${formatNumberValue(sets)} series`);
-    if (work.text) parts.push(work.text);
-    if (item.side === "each_side" || row.side === "each_side") {
-      if (!/lado/i.test(parts.join(" "))) parts.push("por lado");
-    }
-    if (loadValue) parts.push(`${formatNumberValue(loadValue)} ${loadUnit}`);
+    const loadUnit = item.load_unit || row.load_unit;
+    const detailText = formatExerciseDetail({
+      ...item,
+      ...row,
+      name,
+      rounds_completed: item.rounds_completed ?? row.rounds_completed ?? block.rounds_completed,
+      sets_completed: item.sets_completed ?? row.sets_completed,
+      reps_per_set: item.reps_per_set ?? row.reps_per_set,
+      duration_seconds: item.duration_seconds ?? row.duration_seconds,
+      load_value: item.load_value ?? row.load_value,
+      load_unit: item.load_unit ?? row.load_unit,
+      side: item.side ?? row.side,
+      equipment_snapshot: item.equipment_snapshot ?? row.equipment_snapshot,
+    });
     return {
       name,
-      detailText: parts.length ? parts.join(" · ") : "N/D",
+      detailText,
       notes: normalizeNotes(item.notes ?? row.notes),
       stats: {
         sets: sets || 0,
@@ -6997,6 +7053,140 @@ function buildConversationExerciseDetails(block, rows = []) {
       },
     };
   });
+}
+
+function formatExerciseDetail(exercise = {}) {
+  const parts = [];
+  const rounds = formatRounds(exercise.rounds_completed);
+  const roundsValue = optionalNumber(exercise.rounds_completed);
+  const setsValue = optionalNumber(exercise.sets_completed);
+  const sets = roundsValue && setsValue === roundsValue ? "" : formatSets(exercise.sets_completed);
+  const reps = formatReps(exercise.reps_per_set, exercise.side, exercise.rounds_completed);
+  const duration = formatCoachDuration(exercise.duration_seconds);
+  const load = formatLoad(exercise.load_value, exercise.load_unit);
+  const equipment = formatEquipment(exercise.equipment_snapshot, exercise.name || exercise.reported_name);
+
+  if (rounds) parts.push(rounds);
+  if (sets) parts.push(sets);
+  if (reps) parts.push(reps);
+  if (duration) parts.push(duration);
+  if (load) parts.push(load);
+  if (equipment) parts.push(equipment);
+
+  return parts.join(" · ");
+}
+
+function formatBlockKeyVolume(block = {}) {
+  const parts = [];
+  const rounds = formatRounds(block.rounds_completed ?? block.rounds);
+  const exerciseCount = block.exerciseDetails?.length || 0;
+  const duration = formatCoachDuration(block.duration_seconds ?? block.duration_s ?? block.temporal?.seconds);
+
+  if (rounds) parts.push(rounds);
+  if (exerciseCount) parts.push(`${exerciseCount} ${exerciseCount === 1 ? "ejercicio" : "ejercicios"}`);
+  if (duration) parts.push(duration);
+
+  return parts.join(" · ");
+}
+
+function formatLoad(loadValue, loadUnit) {
+  const value = optionalNumber(loadValue);
+  const unit = `${loadUnit || ""}`.trim();
+  if (value == null || !unit) return "";
+  return `${formatNumberValue(value)} ${unit}`;
+}
+
+function formatCoachDuration(seconds) {
+  const value = optionalNumber(seconds);
+  if (value == null || value <= 0) return "";
+  const total = Math.round(value);
+  if (total < 60) return `${total} s`;
+  return formatDurationClock(total);
+}
+
+function formatRounds(rounds) {
+  const value = optionalNumber(rounds);
+  if (value == null || value <= 0) return "";
+  const rounded = Number.isInteger(value) ? value : Number(value.toFixed(1));
+  return `${formatNumberValue(rounded)} ${rounded === 1 ? "ronda" : "rondas"}`;
+}
+
+function formatSets(sets) {
+  const value = optionalNumber(sets);
+  if (value == null || value <= 0) return "";
+  return `${formatNumberValue(value)} ${value === 1 ? "serie" : "series"}`;
+}
+
+function formatReps(value, side, rounds) {
+  const reps = normalizeRepsPerSet(value);
+  if (!reps.length) return "";
+  const roundCount = optionalNumber(rounds);
+  const allEqual = reps.every((item) => sameRepValue(item, reps[0]));
+  if (allEqual) {
+    const label = repValueLabel(reps[0], side);
+    if (!label) return "";
+    return roundCount && reps.length === roundCount ? label : reps.length > 1 ? `${label} x ${reps.length}` : label;
+  }
+  return reps.map((item) => repValueLabel(item, side)).filter(Boolean).join(" + ");
+}
+
+function normalizeRepsPerSet(value) {
+  const parsed = parseJsonish(value);
+  if (parsed == null || parsed === "") return [];
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+function parseJsonish(value) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!/^[\[{]/.test(trimmed)) return trimmed;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function sameRepValue(a, b) {
+  return comparableDictationText(repValueLabel(a)) === comparableDictationText(repValueLabel(b));
+}
+
+function repValueLabel(value, side) {
+  if (typeof value === "number" || (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value)))) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    return isPerSide(side) ? `${formatNumberValue(number)}/lado` : `${formatNumberValue(number)} reps`;
+  }
+  if (typeof value === "string") return repairMojibakeText(value).trim();
+  if (!value || typeof value !== "object") return "";
+  const perSide = firstPresent(value, ["each_side", "per_side", "reps_per_side"]);
+  if (perSide != null) return `${formatNumberValue(perSide)}/lado`;
+  const total = firstPresent(value, ["total", "reps", "count"]);
+  if (total != null) return `${formatNumberValue(total)} reps`;
+  return "";
+}
+
+function isPerSide(side) {
+  return /side|lado|each/i.test(`${side || ""}`);
+}
+
+function formatEquipment(snapshot, exerciseName = "") {
+  const parsed = parseJsonish(snapshot);
+  const equipment = Array.isArray(parsed?.equipment)
+    ? parsed.equipment
+    : Array.isArray(parsed)
+      ? parsed
+      : parsed?.name
+        ? [parsed.name]
+        : [];
+  const nameText = comparableDictationText(exerciseName);
+  return equipment
+    .map((item) => repairMojibakeText(item).replaceAll("_", " ").trim())
+    .filter(Boolean)
+    .filter((item) => !nameText.includes(comparableDictationText(item)))
+    .slice(0, 2)
+    .join(" · ");
 }
 
 function resolveExerciseWork(item = {}, row = {}, fallback = {}, sets) {
@@ -7099,21 +7289,20 @@ function buildBlockExecution(block) {
   const format = prescription.format;
   const completed = prescription.rounds_completed ?? block.rounds_completed ?? prescription.sets_completed;
   const planned = prescription.rounds_planned;
-  const cut = Boolean(prescription.reason_for_cut || `${block.execution_notes || ""}`.toLowerCase().includes("cort"));
 
   if (planned && completed) {
-    return `${formatNumberValue(completed)}/${formatNumberValue(planned)} rondas${cut ? " · cortado" : ""}`;
+    return `${formatNumberValue(completed)}/${formatNumberValue(planned)} rondas`;
   }
   if (completed && format === "superserie") return `${formatNumberValue(completed)} superseries`;
-  if (completed) return `${formatNumberValue(completed)} rondas suaves`;
+  if (completed) return formatRounds(completed);
   if (format) return format;
-  return cut ? "cortado" : "N/D";
+  return "";
 }
 
 function buildBlockSummary(block, rows) {
   const prescriptionSummary = blockDescriptionFromPrescription(block.prescription);
   const summary = prescriptionSummary || rows.map((row) => simplifyExerciseName(row.reported_name)).filter(Boolean).join(" · ");
-  return compactBlockSummary(summary) || "N/D";
+  return compactBlockSummary(summary) || "";
 }
 
 function buildBlockSensation(block, rows = []) {
@@ -7122,7 +7311,7 @@ function buildBlockSensation(block, rows = []) {
   if (block.execution_notes) parts.push(block.execution_notes);
   if (prescription.reason_for_cut) parts.push(prescription.reason_for_cut);
   if (Array.isArray(prescription.coach_interpretation)) parts.push(...prescription.coach_interpretation);
-  return compactSentences(parts) || "N/D";
+  return compactSentences(parts) || "";
 }
 
 function getBlockTemporalMetrics(block) {
