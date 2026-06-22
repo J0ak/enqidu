@@ -206,8 +206,8 @@ function normalizePlannedBlocks(blocks = []) {
       id: String(block.id || `${index + 1}`),
       order: Number(block.block_order ?? block.order_index ?? index + 1),
       title: text(block.title || block.name || block.block_type || `Bloque ${index + 1}`),
-      description: text(block.description || block.notes || block.prescription),
-      exercises: normalizeTextList(block.exercises || block.suggested_exercises || block.items),
+      description: text(block.objective || block.description || block.notes || block.prescription),
+      exercises: normalizeTextList(block.planned_exercises || block.exercises || block.suggested_exercises || block.items),
     }));
 }
 

@@ -64,6 +64,31 @@ test("planned items read pilot migration duration and intensity columns", () => 
   assert.equal(item.plannedDurationLabel, "45-60 min");
 });
 
+test("planned items preserve planned blocks from pilot migration columns", () => {
+  const item = normalizePlannedCalendarItem(
+    {
+      id: "planned-24",
+      title: "Híbrido fuera de casa",
+      planned_date: "2026-06-24",
+      session_type: "hybrid",
+    },
+    [
+      {
+        id: "block-1",
+        block_order: 1,
+        title: "Movilidad + activación",
+        objective: "Preparar cadera, core y hombros.",
+        planned_exercises: [{ name: "Dead bug" }, { name: "Band pull-apart" }],
+      },
+    ],
+  );
+
+  assert.equal(item.blocksCount, 1);
+  assert.equal(item.blocks[0].title, "Movilidad + activación");
+  assert.equal(item.blocks[0].description, "Preparar cadera, core y hombros.");
+  assert.deepEqual(item.blocks[0].exercises, ["Dead bug", "Band pull-apart"]);
+});
+
 test("planned is routed to planned detail, not ActivityView", () => {
   assert.equal(resolveCalendarItemRoute({ kind: "planned", id: "planned-1" }), "plannedSessionDetail");
 });
@@ -122,4 +147,27 @@ test("only documented planned statuses are accepted", () => {
   assert.equal(normalizePlannedStatus("confirmed"), "confirmed");
   assert.equal(normalizePlannedStatus("rescheduled"), "rescheduled");
   assert.equal(normalizePlannedStatus("custom-status"), "planned");
+});
+
+test("planned backend migration creates safe planned-only RPC surface", async () => {
+  const source = await readFile(path.join(root, "supabase", "migrations", "20260622_ai_planned_sessions_pilot_rpc.sql"), "utf8");
+
+  assert.match(source, /create table if not exists public\.planned_training_sessions/);
+  assert.match(source, /create table if not exists public\.planned_session_blocks/);
+  assert.match(source, /create or replace function public\.chatgpt_pilot_apply_week_plan\(p_plan jsonb\)/);
+  assert.match(source, /create or replace function public\.chatgpt_pilot_preview_week_plan\(p_plan jsonb\)/);
+  assert.match(source, /security definer[\s\S]*set search_path = public, pg_temp/);
+  assert.match(source, /alter table public\.planned_training_sessions enable row level security/);
+  assert.match(source, /alter table public\.planned_session_blocks enable row level security/);
+  assert.match(source, /revoke all on public\.planned_training_sessions from anon, authenticated/);
+  assert.match(source, /grant select on public\.planned_training_sessions to authenticated/);
+  assert.doesNotMatch(source, /grant select, insert, update, delete on public\.planned_training_sessions to authenticated/);
+  assert.doesNotMatch(source, /delete from public\.training_sessions/);
+  assert.doesNotMatch(source, /insert into public\.training_sessions/);
+  assert.doesNotMatch(source, /update public\.training_sessions/);
+  assert.doesNotMatch(source, /insert into public\.session_blocks/);
+  assert.doesNotMatch(source, /insert into public\.session_exercises/);
+  assert.doesNotMatch(source, /insert into public\.session_samples/);
+  assert.doesNotMatch(source, /insert into public\.session_laps/);
+  assert.doesNotMatch(source, /insert into public\.session_metrics/);
 });
