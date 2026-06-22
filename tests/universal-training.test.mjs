@@ -147,6 +147,71 @@ test("live week includes completed Garmin and Coach sessions without a plan", ()
   assert.equal(calendarSessionMatchesFilters(sessions[0], "all", "strength"), false);
 });
 
+test("live week merges planned week with completed monday and preserves source filters", () => {
+  const completed = {
+    id: "completed-1",
+    title: "HIIT",
+    local_date: "2026-06-22",
+    duration_seconds: 3484,
+    source_id: "source-1",
+    external_reference: "fit:abc",
+    garminActivityTypeKey: "hiit",
+    garminActivityTypeLabel: "HIIT",
+    coach_blocks_count: 6,
+    coach_exercises_count: 16,
+    has_conversation: true,
+  };
+  const planned = [
+    ["2026-06-23", null, "Recuperacion activa", "recovery", "planned"],
+    ["2026-06-24", "07:00", "Hibrido fuera de casa", "hybrid", "planned"],
+    ["2026-06-25", "18:00", "Yoga", "yoga", "confirmed"],
+    ["2026-06-26", null, "Fuerza tecnica en casa", "strength", "adaptable"],
+    ["2026-06-27", null, "Funcional", "functional", "probable"],
+    ["2026-06-28", null, "Descanso", "recovery", "recommended"],
+  ].map(([planned_date, planned_time, title, session_type, status], index) => ({
+    id: `planned-${index}`,
+    planned_date,
+    planned_time,
+    title,
+    session_type,
+    status,
+    objective: `${title} objetivo`,
+    planned_session_blocks: [{
+      id: `block-${index}`,
+      block_order: 1,
+      title: `${title} bloque`,
+      objective: "Trabajo previsto",
+      planned_exercises: [],
+      constraints: [],
+    }],
+  }));
+  const sessions = buildCalendarSessionViewModels({
+    plannedSessions: planned,
+    completedSessions: [completed],
+    weekStart: "2026-06-22",
+    weekEnd: "2026-06-28",
+  });
+
+  assert.equal(sessions.length, 7);
+  assert.deepEqual(sessions.map((session) => session.date), [
+    "2026-06-22",
+    "2026-06-23",
+    "2026-06-24",
+    "2026-06-25",
+    "2026-06-26",
+    "2026-06-27",
+    "2026-06-28",
+  ]);
+  assert.equal(sessions.filter((session) => calendarSessionMatchesFilters(session, "all", "all")).length, 7);
+  assert.equal(sessions.filter((session) => calendarSessionMatchesFilters(session, "garmin", "all")).length, 1);
+  assert.equal(sessions.filter((session) => calendarSessionMatchesFilters(session, "coach", "all")).length, 1);
+  assert.equal(sessions.filter((session) => calendarSessionMatchesFilters(session, "mixed", "all")).length, 1);
+  assert.equal(sessions.filter((session) => calendarSessionMatchesFilters(session, "all", "hiit")).length, 1);
+  assert.equal(sessions.find((session) => session.status === "adaptable").statusLabel, "Adaptable");
+  assert.equal(sessions.find((session) => session.status === "probable").statusLabel, "Probable");
+  assert.equal(sessions.find((session) => session.status === "recommended").statusLabel, "Recomendada");
+});
+
 test("external adapter fixtures do not require Garmin/FIT as canonical model", async () => {
   const result = validateAndNormalizeTrainingSession(await fixture("hybrid-session.json"));
   assert.equal(result.session.source_links.length, 0);

@@ -6,6 +6,9 @@ const STATUS_META = {
   enriched: { label: "Ejecutada + Coach", tone: "green" },
   skipped: { label: "No realizada", tone: "gray" },
   rescheduled: { label: "Reprogramada", tone: "purple" },
+  probable: { label: "Probable", tone: "gray" },
+  adaptable: { label: "Adaptable", tone: "amber" },
+  recommended: { label: "Recomendada", tone: "gray" },
 };
 
 const TYPE_LABELS = {
