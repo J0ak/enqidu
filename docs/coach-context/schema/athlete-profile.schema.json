@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/athlete-profile.schema.json",
+  "title": "ENQIDU Athlete Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["athlete_type", "training_style"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "athlete_type": {
+      "type": "string",
+      "examples": ["hybrid", "strength", "endurance", "general_fitness"]
+    },
+    "height_cm": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "weight_kg": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "training_style": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "current_focus": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "experience_level": {
+      "type": ["string", "null"],
+      "examples": ["beginner", "intermediate", "advanced", "elite"]
+    },
+    "coach_mode": {
+      "type": ["string", "null"],
+      "examples": ["supportive", "technical", "performance", "rehab_aware"]
+    },
+    "preferred_language": {
+      "type": ["string", "null"],
+      "examples": ["es", "en"]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  }
+}
+

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "athlete_type": "hybrid",
+  "height_cm": 185,
+  "weight_kg": null,
+  "training_style": [
+    "hybrid",
+    "strength",
+    "functional",
+    "trail",
+    "mobility"
+  ],
+  "current_focus": [
+    "lean_mass",
+    "leg_strength",
+    "hybrid_performance",
+    "trail_capacity",
+    "skills"
+  ],
+  "experience_level": "advanced",
+  "coach_mode": "technical_rehab_aware",
+  "preferred_language": "es",
+  "notes": "Piloto JOTASON. No usar como default universal de ENQIDU."
+}
+

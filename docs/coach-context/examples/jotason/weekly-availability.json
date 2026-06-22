@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0.0",
+  "timezone": "Europe/Madrid",
+  "week_start_policy": "monday",
+  "default_session_duration_min": 45,
+  "days": [
+    {
+      "day_of_week": "monday",
+      "windows": [
+        {
+          "start": "07:00",
+          "end": "08:00",
+          "location_id": "home",
+          "intensity_preference": "adaptive"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "hybrid",
+        "strength"
+      ],
+      "constraints": [
+        "revisar lumbar al despertar"
+      ]
+    },
+    {
+      "day_of_week": "tuesday",
+      "windows": [
+        {
+          "start": "07:00",
+          "end": "07:45",
+          "location_id": "home",
+          "intensity_preference": "low"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "mobility",
+        "recovery"
+      ],
+      "constraints": [
+        "descargar cadera y lumbar"
+      ]
+    },
+    {
+      "day_of_week": "wednesday",
+      "windows": [
+        {
+          "start": "07:00",
+          "end": "08:00",
+          "location_id": "home",
+          "intensity_preference": "moderate"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "hybrid",
+        "strength"
+      ],
+      "constraints": [
+        "no repetir estres lumbar alto"
+      ]
+    },
+    {
+      "day_of_week": "thursday",
+      "windows": [
+        {
+          "start": "18:00",
+          "end": "19:00",
+          "location_id": "home",
+          "intensity_preference": "low"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "yoga",
+        "mobility"
+      ],
+      "constraints": [
+        "mantener intensidad baja"
+      ]
+    },
+    {
+      "day_of_week": "friday",
+      "windows": [
+        {
+          "start": "07:00",
+          "end": "08:00",
+          "location_id": "gym",
+          "intensity_preference": "adaptive"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "strength",
+        "functional"
+      ],
+      "constraints": [
+        "solo progresar carga si lumbar 0-1/10"
+      ]
+    },
+    {
+      "day_of_week": "saturday",
+      "windows": [
+        {
+          "start": "10:00",
+          "end": "12:00",
+          "location_id": "outdoor",
+          "intensity_preference": "adaptive"
+        }
+      ],
+      "unavailable": false,
+      "preferred_session_types": [
+        "trail",
+        "functional"
+      ],
+      "constraints": [
+        "adaptar impacto segun carga semanal"
+      ]
+    },
+    {
+      "day_of_week": "sunday",
+      "windows": [],
+      "unavailable": false,
+      "preferred_session_types": [
+        "recovery",
+        "rest"
+      ],
+      "constraints": [
+        "priorizar recuperacion"
+      ]
+    }
+  ],
+  "notes": "Disponibilidad piloto aproximada para validar el contrato generico."
+}
+

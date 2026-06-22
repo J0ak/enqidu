@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/weekly-availability.schema.json",
+  "title": "ENQIDU Weekly Availability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["timezone", "days"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "timezone": {
+      "type": "string",
+      "examples": ["Europe/Madrid", "America/New_York"]
+    },
+    "week_start_policy": {
+      "type": ["string", "null"],
+      "examples": ["monday", "sunday"]
+    },
+    "days": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/day"
+      }
+    },
+    "default_session_duration_min": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "day": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["day_of_week", "windows"],
+      "properties": {
+        "day_of_week": {
+          "type": "string",
+          "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/window"
+          }
+        },
+        "unavailable": {
+          "type": "boolean",
+          "default": false
+        },
+        "preferred_session_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "end": {
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "location_id": {
+          "type": ["string", "null"]
+        },
+        "intensity_preference": {
+          "type": ["string", "null"],
+          "examples": ["low", "moderate", "high", "adaptive"]
+        }
+      }
+    }
+  }
+}
+

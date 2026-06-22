@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/equipment-inventory.schema.json",
+  "title": "ENQIDU Equipment Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["locations"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/location"
+      }
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "equipment"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "location_type": {
+          "type": ["string", "null"],
+          "examples": ["home", "gym", "outdoor", "travel"]
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/equipment_item"
+          }
+        }
+      }
+    },
+    "equipment_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": ["string", "null"],
+          "examples": ["barbell", "dumbbell", "machine", "cardio", "calisthenics", "mobility"]
+        },
+        "quantity": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "load_range": {
+          "type": ["string", "null"]
+        },
+        "availability": {
+          "type": ["string", "null"],
+          "examples": ["always", "sometimes", "unknown"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
+

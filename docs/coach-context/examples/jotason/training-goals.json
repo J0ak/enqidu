@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "planning_horizon_weeks": 4,
+  "goals": [
+    {
+      "id": "jotason-lean-mass",
+      "category": "body_composition",
+      "title": "Ganar masa magra sin perder capacidad hibrida",
+      "priority": "high",
+      "status": "active",
+      "target_date": null,
+      "measurable_targets": [
+        "mantener consistencia semanal de fuerza",
+        "sostener sesiones hibridas sin agravar lumbar"
+      ],
+      "notes": "Priorizar progreso sostenible sobre maximos puntuales."
+    },
+    {
+      "id": "jotason-leg-strength",
+      "category": "strength",
+      "title": "Mejorar fuerza de pierna",
+      "priority": "high",
+      "status": "active",
+      "target_date": null,
+      "measurable_targets": [
+        "acumular volumen tecnico de pierna",
+        "progresar cargas si lumbar esta estable"
+      ],
+      "notes": "Evitar bisagra pesada cuando haya sensibilidad lumbar."
+    },
+    {
+      "id": "jotason-trail-hybrid",
+      "category": "hybrid",
+      "title": "Combinar trail, fuerza y rendimiento funcional",
+      "priority": "medium",
+      "status": "active",
+      "target_date": null,
+      "measurable_targets": [
+        "incluir trabajo de trail o carrera cuando la recuperacion lo permita",
+        "mantener una sesion funcional o hibrida semanal adaptable"
+      ],
+      "notes": "Ajustar impacto segun lumbar, sueno y carga reciente."
+    }
+  ],
+  "skill_goals": [
+    {
+      "name": "strict pull-up strength",
+      "status": "building",
+      "progress_marker": "mejorar control y volumen tecnico",
+      "constraints": [
+        "evitar compensaciones lumbares"
+      ]
+    },
+    {
+      "name": "rings and bar control",
+      "status": "building",
+      "progress_marker": "acumular practica tecnica sin fatiga excesiva",
+      "constraints": [
+        "priorizar calidad sobre volumen"
+      ]
+    },
+    {
+      "name": "core control",
+      "status": "maintaining",
+      "progress_marker": "mantener tolerancia lumbar con anti-extension y anti-rotacion",
+      "constraints": [
+        "cortar si aparece dolor lumbar o gluteo"
+      ]
+    }
+  ]
+}
+

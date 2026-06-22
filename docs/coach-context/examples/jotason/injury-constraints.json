@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "global_risk_policy": "reduce_load_on_pain_increase",
+  "constraints": [
+    {
+      "region": "lumbar",
+      "status": "monitor",
+      "severity": "medium",
+      "pain_scale_limit": 2,
+      "avoid": [
+        "heavy deadlift",
+        "maximal lifts",
+        "high fatigue hinge volume",
+        "excessive jumping",
+        "loaded spinal flexion"
+      ],
+      "prefer": [
+        "neutral spine",
+        "controlled tempo",
+        "single-leg strength when tolerated",
+        "anti-extension core",
+        "hip mobility",
+        "low impact conditioning"
+      ],
+      "monitoring_questions": [
+        "Dolor lumbar de 0 a 10 al despertar",
+        "Dolor durante bisagra o impacto",
+        "Rigidez posterior o glutea despues de entrenar"
+      ],
+      "updated_at": null,
+      "notes": "Lumbar sensible en el piloto actual. Ajustar intensidad antes de perseguir maximos."
+    }
+  ]
+}
+

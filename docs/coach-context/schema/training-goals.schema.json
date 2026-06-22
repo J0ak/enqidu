@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/training-goals.schema.json",
+  "title": "ENQIDU Training Goals",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["goals"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/goal"
+      }
+    },
+    "skill_goals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skill_goal"
+      }
+    },
+    "planning_horizon_weeks": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    }
+  },
+  "$defs": {
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "title", "priority", "status"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "examples": ["strength", "hybrid", "endurance", "mobility", "body_composition", "skill"]
+        },
+        "title": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "completed"]
+        },
+        "target_date": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "measurable_targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "skill_goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["learning", "building", "maintaining", "paused"]
+        },
+        "progress_marker": {
+          "type": ["string", "null"]
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+

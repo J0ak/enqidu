@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enqidu.local/schemas/coach-context/planned-week.schema.json",
+  "title": "ENQIDU Planned Week",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["week_start", "sessions"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "1.0.0"
+    },
+    "week_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "source": {
+      "type": ["string", "null"],
+      "examples": ["coach_ai", "manual", "template", "integration"]
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/planned_session"
+      }
+    },
+    "planning_notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "planned_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned_date", "title", "session_type"],
+      "properties": {
+        "planned_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "planned_time": {
+          "type": ["string", "null"],
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "session_type": {
+          "type": "string",
+          "examples": ["hybrid", "strength", "functional", "yoga", "mobility", "recovery", "running", "trail", "swim", "rest"]
+        },
+        "status": {
+          "type": ["string", "null"],
+          "examples": ["planned", "confirmed", "adaptable", "probable", "recommended", "modified", "skipped", "rescheduled"]
+        },
+        "location_type": {
+          "type": ["string", "null"]
+        },
+        "planned_intensity": {
+          "type": ["string", "null"]
+        },
+        "planned_duration_min": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "planned_duration_max": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "objective": {
+          "type": ["string", "null"]
+        },
+        "coach_notes": {
+          "type": ["string", "null"]
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "readiness_snapshot": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/planned_block"
+          }
+        }
+      }
+    },
+    "planned_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "block_order": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "block_type": {
+          "type": ["string", "null"]
+        },
+        "objective": {
+          "type": ["string", "null"]
+        },
+        "planned_duration_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "planned_rounds": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "planned_exercises": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/planned_exercise"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "planned_exercise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "target_sets": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "target_reps": {
+          "type": ["string", "null"]
+        },
+        "load": {
+          "type": ["string", "null"]
+        },
+        "duration_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
+

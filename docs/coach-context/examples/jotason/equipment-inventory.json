@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0.0",
+  "locations": [
+    {
+      "id": "home",
+      "name": "Casa",
+      "location_type": "home",
+      "equipment": [
+        {
+          "name": "pull-up bar",
+          "category": "calisthenics",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": "Para dominadas, hangs y trabajo tecnico."
+        },
+        {
+          "name": "rings",
+          "category": "calisthenics",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": "Usar con control tecnico."
+        },
+        {
+          "name": "resistance bands",
+          "category": "mobility",
+          "quantity": null,
+          "load_range": "various",
+          "availability": "always",
+          "notes": "Activacion, asistencia y prehab."
+        },
+        {
+          "name": "yoga mat",
+          "category": "mobility",
+          "quantity": 1,
+          "load_range": null,
+          "availability": "always",
+          "notes": "Movilidad, core y recovery."
+        }
+      ]
+    },
+    {
+      "id": "gym",
+      "name": "Gimnasio",
+      "location_type": "gym",
+      "equipment": [
+        {
+          "name": "barbell",
+          "category": "barbell",
+          "quantity": null,
+          "load_range": "standard gym loads",
+          "availability": "sometimes",
+          "notes": "Evitar bisagra pesada si lumbar esta sensible."
+        },
+        {
+          "name": "dumbbells",
+          "category": "dumbbell",
+          "quantity": null,
+          "load_range": "standard gym loads",
+          "availability": "sometimes",
+          "notes": "Preferibles para fuerza unilateral y controlada."
+        },
+        {
+          "name": "bench",
+          "category": "strength",
+          "quantity": null,
+          "load_range": null,
+          "availability": "sometimes",
+          "notes": null
+        },
+        {
+          "name": "cable machine",
+          "category": "machine",
+          "quantity": null,
+          "load_range": "standard gym loads",
+          "availability": "sometimes",
+          "notes": "Util para traccion controlada y core."
+        },
+        {
+          "name": "rower or bike",
+          "category": "cardio",
+          "quantity": null,
+          "load_range": null,
+          "availability": "sometimes",
+          "notes": "Condicionamiento de bajo impacto."
+        }
+      ]
+    },
+    {
+      "id": "outdoor",
+      "name": "Exterior / trail",
+      "location_type": "outdoor",
+      "equipment": [
+        {
+          "name": "trail routes",
+          "category": "endurance",
+          "quantity": null,
+          "load_range": null,
+          "availability": "sometimes",
+          "notes": "Ajustar desnivel e impacto segun recuperacion."
+        }
+      ]
+    }
+  ],
+  "notes": "Inventario piloto. Debe sustituirse por inventario real por usuario cuando exista en Supabase."
+}
+
