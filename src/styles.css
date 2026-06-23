@@ -1155,6 +1155,12 @@ button:disabled {
   gap: 12px;
 }
 
+.plannedCompletedDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .plannedDetailCard {
   display: grid;
   gap: 12px;
@@ -2680,6 +2686,12 @@ button:disabled {
     rgba(255, 255, 255, 0.035);
 }
 
+.activityList .plannedCompletedActivityHistoryCard {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--type) 18%, transparent), transparent 52%),
+    rgba(255, 255, 255, 0.05);
+}
+
 .plannedActivityBadge {
   color: #d7dde2;
   background: color-mix(in srgb, var(--type) 12%, rgba(255, 255, 255, 0.05));
@@ -4129,7 +4141,8 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .plannedDetailGrid {
+  .plannedDetailGrid,
+  .plannedCompletedDetailGrid {
     grid-template-columns: 1fr;
   }
 

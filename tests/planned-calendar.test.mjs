@@ -109,6 +109,70 @@ test("planned and executed on the same day coexist without merging", () => {
   assert.deepEqual(items.map((item) => item.id), ["executed-22", "planned-24"]);
 });
 
+test("linked planned sessions render as one planned completed item with executed metrics", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "executed-22",
+        title: "HIIT",
+        local_date: "2026-06-22",
+        started_at: "2026-06-22T07:00:00",
+        duration_seconds: 1800,
+      },
+      {
+        id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        started_at: "2026-06-23T08:30:00",
+        duration_seconds: 2071,
+        avg_hr: 105,
+        max_hr: 152,
+        calories_total: 275,
+        training_effect_aerobic: 2.0,
+        training_effect_anaerobic: 0.9,
+        source_id: "fit-import",
+      },
+    ],
+    [
+      {
+        id: "06beb578-8b11-4525-b9de-c387e2bc9511",
+        title: "Recuperacion activa",
+        planned_date: "2026-06-23",
+        planned_time: "09:00",
+        session_type: "recovery",
+        planned_intensity: "RPE 2-3",
+        planned_duration_min: 25,
+        planned_duration_max: 40,
+        linked_completed_session_id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+      },
+      {
+        id: "planned-24",
+        title: "Yoga",
+        planned_date: "2026-06-24",
+        type_key: "yoga",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((item) => item.kind), ["executed", "planned_completed", "planned"]);
+  assert.ok(!items.some((item) => item.kind === "executed" && item.id === "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b"));
+
+  const linked = items.find((item) => item.kind === "planned_completed");
+  assert.equal(linked.title, "Recuperacion activa");
+  assert.equal(linked.displayTitle, "Recuperacion activa");
+  assert.equal(linked.statusLabel, "Completada");
+  assert.equal(linked.displaySource, "FIT");
+  assert.equal(linked.garminTitle, "Fuerza");
+  assert.equal(linked.duration_seconds, 2071);
+  assert.equal(linked.avg_hr, 105);
+  assert.equal(linked.max_hr, 152);
+  assert.equal(linked.calories_total, 275);
+  assert.equal(linked.training_effect_aerobic, 2.0);
+  assert.equal(linked.training_effect_anaerobic, 0.9);
+  assert.equal(resolveCalendarItemRoute(linked), "activityDetail");
+});
+
 test("Yoga planned sessions stay Yoga", () => {
   const item = normalizePlannedCalendarItem({
     id: "planned-yoga",

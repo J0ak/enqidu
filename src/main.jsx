@@ -308,6 +308,27 @@ function getInitialRoute() {
   return visibleRoutes.includes(hash) ? hash : "coach";
 }
 
+function decorateLinkedPlannedActivityDetail(detail, item) {
+  if (!detail?.session || !item?.planned) return detail;
+  const garminTitle = item.garminTitle || item.executed?.title || detail.session.garmin_original_title || detail.session.title;
+  return {
+    ...detail,
+    plannedSession: item.planned,
+    linkedActivityItem: item,
+    effectiveStatusLabel: item.statusLabel || "Completada",
+    displaySource: item.displaySource || "FIT",
+    canRename: false,
+    session: {
+      ...detail.session,
+      title: item.planned.title || detail.session.title,
+      garmin_original_title: garminTitle,
+      session_status: "completed",
+      planned_session_id: item.planned_id,
+      linked_completed_session_id: item.executed_id,
+    },
+  };
+}
+
 async function fetchAllSessionSamples(sessionId) {
   const pageSize = 1000;
   const rows = [];
@@ -826,7 +847,7 @@ function App() {
 
     const sessionQuery = supabase
       .from("training_sessions")
-      .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure")
+      .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics")
       .or("session_status.is.null,session_status.neq.archived")
       .order("local_date", { ascending: false, nullsFirst: false })
       .order("started_at", { ascending: false, nullsFirst: false })
@@ -1044,10 +1065,15 @@ function App() {
     if (selectedSession?.activityType === "strength") setDiscipline("crossfit");
     if (selectedSession?.activityType === "run") setDiscipline("trail");
     if (selectedSession?.activityType === "pilates") setDiscipline("boyle");
-    if (selectedSession?.id) {
+    const executedSession = selectedSession?.kind === "planned_completed"
+      ? selectedSession.executed
+      : selectedSession;
+    if (executedSession?.id) {
       setActivityDetail(null);
-      const detail = await loadActivityDetail(selectedSession);
-      setActivityDetail(detail);
+      const detail = await loadActivityDetail(executedSession);
+      setActivityDetail(selectedSession?.kind === "planned_completed"
+        ? decorateLinkedPlannedActivityDetail(detail, selectedSession)
+        : detail);
     }
     setRoute("activityDetail");
   };
@@ -1669,7 +1695,8 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
         minimal={hasConversationView}
         subtitle={conversationView?.subtitle}
       />
-      <ActivitySummaryMetrics detail={activityDetail} />
+      <LinkedPlannedSessionPanel detail={activityDetail} />
+      {!activityDetail.plannedSession && <ActivitySummaryMetrics detail={activityDetail} />}
       {hasConversationView && <ConversationActivityCard view={conversationView} />}
       <PhysiologyCard detail={activityDetail} />
       <ActivityTrainingEffectCard detail={activityDetail} />
@@ -1729,10 +1756,15 @@ function ActivitySummaryCard({ detail }) {
 
 function ActivityDetailHeader({ detail, onBack, onRenameSession, minimal = false, subtitle = "" }) {
   const session = detail.session || {};
+  const isLinkedPlanned = Boolean(detail.plannedSession);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(session.title || "");
   const [status, setStatus] = useState("");
-  const isEditing = editing && !minimal;
+  const canRename = !minimal && detail.canRename !== false;
+  const isEditing = editing && canRename;
+  const statusLine = isLinkedPlanned
+    ? [detail.effectiveStatusLabel, detail.displaySource].filter(Boolean).join(" · ")
+    : [formatActivityDateTime(session.started_at, session.local_date), readableSessionStatus(session.session_status)].filter(Boolean).join(" · ");
 
   useEffect(() => {
     setDraft(session.title || "");
@@ -1775,14 +1807,14 @@ function ActivityDetailHeader({ detail, onBack, onRenameSession, minimal = false
         ) : (
           <div className="activityTitleLine">
             <h1>{session.title}</h1>
-            {!minimal && <button type="button" className="inlineEditButton" onClick={() => setEditing(true)} aria-label="Renombrar sesión">
+            {canRename && <button type="button" className="inlineEditButton" onClick={() => setEditing(true)} aria-label="Renombrar sesión">
               <Edit3 size={17} />
             </button>}
           </div>
         )}
         {subtitle && <p>{subtitle}</p>}
-        <p>{[formatActivityDateTime(session.started_at, session.local_date), readableSessionStatus(session.session_status)].filter(Boolean).join(" · ")}</p>
-        {!minimal && session.garmin_original_title && session.garmin_original_title !== session.title && <small>Garmin: {session.garmin_original_title}</small>}
+        <p>{statusLine}</p>
+        {(!minimal || isLinkedPlanned) && session.garmin_original_title && session.garmin_original_title !== session.title && <small>Garmin: {session.garmin_original_title}</small>}
         {status && <small>{status}</small>}
       </div>
       {!minimal && <div className="activityHeaderActions">
@@ -1795,6 +1827,84 @@ function ActivityDetailHeader({ detail, onBack, onRenameSession, minimal = false
       </div>}
     </header>
   );
+}
+
+function LinkedPlannedSessionPanel({ detail }) {
+  const planned = detail.plannedSession;
+  if (!planned) return null;
+  const session = detail.session || {};
+  const realMetrics = [
+    { label: "Duración real", value: formatOptionalDuration(session.duration_seconds) },
+    { label: "FC media", value: session.avg_hr == null ? "" : `${session.avg_hr} ppm` },
+    { label: "FC máxima", value: session.max_hr == null ? "" : `${session.max_hr} ppm` },
+    { label: "Calorías", value: session.calories_total == null ? "" : `${session.calories_total} kcal` },
+    { label: "Training Effect", value: formatTrainingEffectPair(session.training_effect_aerobic, session.training_effect_anaerobic) },
+  ].filter((item) => hasLinkedPanelValue(item.value));
+  const planMetrics = [
+    { label: "Objetivo previsto", value: planned.objective },
+    { label: "RPE previsto", value: planned.intensityLabel },
+    { label: "Duración prevista", value: planned.plannedDurationLabel },
+    { label: "Restricciones", value: planned.restrictions?.join(" · ") },
+  ].filter((item) => hasLinkedPanelValue(item.value));
+  const blocks = planned.blocks || [];
+
+  return (
+    <section className="plannedCompletedDetailGrid" aria-label="Sesión planificada completada">
+      <PlannedDetailCard title="Datos Garmin/FIT">
+        <dl className="plannedDefinitionList">
+          {realMetrics.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </PlannedDetailCard>
+
+      <PlannedDetailCard title="Plan previsto">
+        <dl className="plannedDefinitionList">
+          {planMetrics.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </PlannedDetailCard>
+
+      <PlannedDetailCard title="Bloques previstos" wide>
+        {blocks.length ? (
+          <ol className="plannedBlockList">
+            {blocks.map((block) => (
+              <li key={block.id}>
+                <strong>{block.title}</strong>
+                {block.description && <p>{block.description}</p>}
+                {block.exercises?.length ? <small>{block.exercises.join(" · ")}</small> : null}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p>No hay bloques planificados registrados.</p>
+        )}
+      </PlannedDetailCard>
+    </section>
+  );
+}
+
+function hasLinkedPanelValue(value) {
+  if (value == null) return false;
+  const text = `${value}`.trim();
+  return Boolean(text) && text !== "N/D";
+}
+
+function formatTrainingEffectPair(aerobic, anaerobic) {
+  const aerobicValue = optionalNumber(aerobic);
+  const anaerobicValue = optionalNumber(anaerobic);
+  if (aerobicValue == null && anaerobicValue == null) return "";
+  return [aerobicValue, anaerobicValue]
+    .map((value) => value == null ? null : value.toFixed(1))
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function ActivitySummaryMetrics({ detail }) {
@@ -3224,6 +3334,7 @@ function ActivitySelectedDayFilters({ dates, onRemove }) {
 }
 
 function ActivityHistoryCard({ item, onOpen }) {
+  if (item.kind === "planned_completed") return <PlannedCompletedActivityHistoryCard item={item} onOpen={onOpen} />;
   if (item.kind === "planned") return <PlannedActivityHistoryCard item={item} onOpen={onOpen} />;
   const type = activityTypes[item.activityType] || activityTypes.hybrid;
   const status = readableSessionStatus(item.session_status);
@@ -3252,6 +3363,46 @@ function ActivityHistoryCard({ item, onOpen }) {
       </div>
     </button>
   );
+}
+
+function PlannedCompletedActivityHistoryCard({ item, onOpen }) {
+  const type = activityTypes[item.activityType] || activityTypes.hybrid;
+  const metricItems = linkedActivityMetricItems(item);
+  return (
+    <button className="activityHistoryCard plannedCompletedActivityHistoryCard" onClick={onOpen} style={{ "--type": type.color }}>
+      <div className="activityBadge plannedActivityBadge">
+        <CheckCircle2 size={18} />
+      </div>
+      <div className="activityHistoryMain">
+        <strong>{item.displayTitle || item.title}</strong>
+        <span>{[item.statusLabel || "Completada", item.displaySource].filter(Boolean).join(" · ")}</span>
+        <div className="activityMetrics">
+          {metricItems.map((metric) => (
+            <ActivityMetric key={metric.label} icon={metric.icon} label={metric.label} />
+          ))}
+        </div>
+        {item.garminTitle && <em>Garmin: {item.garminTitle}</em>}
+      </div>
+      <div className="activityFlags plannedActivityFlags">
+        <span>Plan</span>
+        <span>{item.displaySource || "FIT"}</span>
+        <ChevronRight size={16} />
+      </div>
+    </button>
+  );
+}
+
+function linkedActivityMetricItems(item = {}) {
+  const duration = optionalNumber(item.duration_seconds ?? item.durationSeconds);
+  const avgHr = optionalNumber(item.avg_hr);
+  const maxHr = optionalNumber(item.max_hr);
+  const calories = optionalNumber(item.calories_total);
+  return [
+    duration && duration > 0 ? { icon: ClockIcon, label: formatDurationClock(duration) } : null,
+    avgHr ? { icon: HeartPulse, label: `${Math.round(avgHr)} ppm` } : null,
+    maxHr ? { icon: Gauge, label: `${Math.round(maxHr)} max` } : null,
+    calories ? { icon: Flame, label: `${Math.round(calories)} kcal` } : null,
+  ].filter(Boolean);
 }
 
 function PlannedActivityHistoryCard({ item, onOpen }) {
@@ -6081,7 +6232,9 @@ function mapTrainingSession(item) {
   const summary = item.session_structure?.garmin_fit_summary || {};
   const heartRate = summary.heart_rate || {};
   const calories = summary.calories || {};
+  const trainingEffect = summary.training_effect || {};
   const strengthTracking = summary.strength_tracking || {};
+  const summaryMetrics = item.summary_metrics || {};
   const durationMinutes = item.duration_seconds ? Math.round(item.duration_seconds / 60) : null;
   const distanceKm = item.distance_meters ? Number(item.distance_meters) / 1000 : null;
   const score = Math.max(48, Math.min(96, 64 + (durationMinutes ? Math.min(20, durationMinutes / 4) : 8)));
@@ -6094,9 +6247,11 @@ function mapTrainingSession(item) {
     type: item.session_kind || item.session_status || "session",
     duration_seconds: Number(item.duration_seconds || 0),
     distance_meters: Number(item.distance_meters || summary.distance_meters || 0),
-    avg_hr: heartRate.avg_bpm ?? null,
-    max_hr: heartRate.max_bpm ?? null,
-    calories_total: calories.total_kcal ?? null,
+    avg_hr: numberMetricFromObject(summaryMetrics, ["avg_heart_rate", "average_heart_rate"]) ?? heartRate.avg_bpm ?? null,
+    max_hr: numberMetricFromObject(summaryMetrics, ["max_heart_rate", "maximum_heart_rate"]) ?? heartRate.max_bpm ?? null,
+    calories_total: numberMetricFromObject(summaryMetrics, ["calories_total", "total_calories"]) ?? calories.total_kcal ?? null,
+    training_effect_aerobic: numberMetricFromObject(summaryMetrics, ["training_effect_aerobic", "aerobic_training_effect"]) ?? trainingEffect.aerobic ?? null,
+    training_effect_anaerobic: numberMetricFromObject(summaryMetrics, ["training_effect_anaerobic", "anaerobic_training_effect"]) ?? trainingEffect.anaerobic ?? null,
     garmin_sets_total: strengthTracking.garmin_sets_total ?? strengthTracking.set_messages ?? null,
     has_conversation: Boolean(item.session_structure?.executive_summary_table || item.session_structure?.conversation_summary || item.session_structure?.coach_blocks),
     started_at: item.started_at,
@@ -6106,6 +6261,7 @@ function mapTrainingSession(item) {
     external_reference: item.external_reference,
     tags: item.tags || [],
     session_structure: item.session_structure,
+    summary_metrics: item.summary_metrics,
     session_status: item.session_status,
     score: Math.round(score),
     date: item.local_date || (item.started_at ? new Date(item.started_at).toLocaleDateString("es-ES") : "Recent"),
@@ -6113,6 +6269,18 @@ function mapTrainingSession(item) {
       .filter(Boolean)
       .join(" · "),
   };
+}
+
+function numberMetricFromObject(source = {}, keys = []) {
+  for (const key of keys) {
+    const value = source[key] ?? source[key.toLowerCase()] ?? source[key.toUpperCase()];
+    const resolved = typeof value === "object" && value
+      ? value.value_numeric ?? value.value ?? value.numeric ?? value.amount
+      : value;
+    const number = optionalNumber(resolved);
+    if (number != null) return number;
+  }
+  return null;
 }
 
 function classifySession(session) {
@@ -6369,8 +6537,13 @@ function matchesActivityFilters(item, sourceFilter, typeFilter) {
     const typeMatch = typeFilter === "all" || item.typeKey === typeFilter || item.garminActivityTypeKey === typeFilter;
     return sourceMatch && typeMatch;
   }
+  if (item.kind === "planned_completed") {
+    const sourceMatch = sourceFilter === "all" || ["garmin", "planned", "mixed"].includes(sourceFilter);
+    const typeMatch = typeFilter === "all" || item.typeKey === typeFilter || item.garminActivityTypeKey === typeFilter;
+    return sourceMatch && typeMatch;
+  }
   const hasCoach = Boolean(item.has_conversation);
-  const hasGarmin = Boolean(item.source_id || item.external_reference || item.fit_identity || item.garmin_sets_total || item.garmin_reps_total);
+  const hasGarmin = Boolean(item.source_id || item.external_reference || item.fit_identity || item.garmin_sets_total || item.garmin_reps_total || item.session_structure?.garmin_fit_summary);
   const sourceMatch = sourceFilter === "all" ||
     (sourceFilter === "garmin" && hasGarmin) ||
     (sourceFilter === "coach" && hasCoach) ||

@@ -11,6 +11,7 @@ const PLANNED_STATUSES = new Set([
 
 const STATUS_LABELS = {
   planned: "Planificada",
+  completed: "Completada",
   confirmed: "Confirmada",
   adaptable: "Adaptable",
   probable: "Probable",
@@ -66,6 +67,7 @@ export function normalizePlannedCalendarItem(row = {}, blocks = []) {
   return {
     kind: "planned",
     id: String(row.id || row.planned_session_id || row.session_id || ""),
+    linked_completed_session_id: stringOrNull(row.linked_completed_session_id),
     date,
     local_date: date,
     time,
@@ -91,14 +93,51 @@ export function normalizePlannedCalendarItem(row = {}, blocks = []) {
 }
 
 export function normalizeExecutedCalendarItem(row = {}) {
-  return row.kind === "executed" ? row : { ...row, kind: "executed" };
+  const summary = row.session_structure?.garmin_fit_summary || {};
+  const heartRate = summary.heart_rate || {};
+  const calories = summary.calories || {};
+  const trainingEffect = summary.training_effect || {};
+  const summaryMetrics = row.summary_metrics || {};
+  const durationSeconds = numberOrNull(row.duration_seconds ?? row.durationSeconds ?? summary.duration_total_seconds ?? summary.duration_elapsed_seconds);
+  const normalized = {
+    ...row,
+    kind: "executed",
+    duration_seconds: durationSeconds ?? Number(row.duration_seconds || row.durationSeconds || 0),
+    avg_hr: numberOrNull(row.avg_hr ?? row.avg_heart_rate ?? row.average_heart_rate ?? row.average_heart_rate_bpm ?? summaryMetrics.avg_heart_rate ?? summaryMetrics.average_heart_rate ?? heartRate.avg_bpm),
+    max_hr: numberOrNull(row.max_hr ?? row.max_heart_rate ?? row.maximum_heart_rate ?? row.maximum_heart_rate_bpm ?? summaryMetrics.max_heart_rate ?? summaryMetrics.maximum_heart_rate ?? heartRate.max_bpm),
+    calories_total: numberOrNull(row.calories_total ?? row.total_calories ?? summaryMetrics.calories_total ?? summaryMetrics.total_calories ?? calories.total_kcal),
+    training_effect_aerobic: numberOrNull(row.training_effect_aerobic ?? summaryMetrics.training_effect_aerobic ?? summaryMetrics.aerobic_training_effect ?? trainingEffect.aerobic),
+    training_effect_anaerobic: numberOrNull(row.training_effect_anaerobic ?? summaryMetrics.training_effect_anaerobic ?? summaryMetrics.anaerobic_training_effect ?? trainingEffect.anaerobic),
+  };
+  return normalized;
 }
 
 export function mergeExecutedAndPlannedForCalendar(executed = [], planned = []) {
-  return [
-    ...executed.map(normalizeExecutedCalendarItem),
-    ...planned.map((item) => item.kind === "planned" ? item : normalizePlannedCalendarItem(item)),
-  ].sort(sortCalendarItemsChronological);
+  const executedItems = executed.map(normalizeExecutedCalendarItem);
+  const plannedItems = planned.map((item) => item.kind === "planned" ? item : normalizePlannedCalendarItem(item));
+  const executedById = new Map(executedItems.map((item) => [String(item.id || ""), item]));
+  const linkedExecutedIds = new Set();
+  const items = [];
+
+  plannedItems.forEach((plannedItem) => {
+    const linkedId = plannedItem.linked_completed_session_id;
+    const executedItem = linkedId ? executedById.get(linkedId) : null;
+    if (!linkedId || !executedItem) return;
+    linkedExecutedIds.add(String(executedItem.id));
+    items.push(buildPlannedCompletedCalendarItem(plannedItem, executedItem));
+  });
+
+  executedItems.forEach((executedItem) => {
+    if (!linkedExecutedIds.has(String(executedItem.id))) items.push(executedItem);
+  });
+
+  plannedItems.forEach((plannedItem) => {
+    if (!plannedItem.linked_completed_session_id || !linkedExecutedIds.has(plannedItem.linked_completed_session_id)) {
+      items.push(plannedItem);
+    }
+  });
+
+  return items.sort(sortCalendarItemsChronological);
 }
 
 export function resolveCalendarItemRoute(item = {}) {
@@ -156,6 +195,55 @@ function sortCalendarItemsChronological(a, b) {
 
 function calendarTimestamp(item = {}) {
   return item.started_at || item.planned_at || item.created_at || `${item.local_date || item.date || ""}T${item.time || "23:59"}:00`;
+}
+
+function buildPlannedCompletedCalendarItem(planned, executed) {
+  const startedAt = executed.started_at || planned.started_at || planned.planned_at || "";
+  const date = executed.local_date || executed.date || planned.date || planned.local_date || "";
+  const displaySource = displaySourceLabel(executed);
+  return {
+    ...executed,
+    kind: "planned_completed",
+    id: `planned_completed:${planned.id}:${executed.id}`,
+    executed_id: executed.id,
+    planned_id: planned.id,
+    planned,
+    executed,
+    title: planned.title,
+    displayTitle: planned.title,
+    displaySource,
+    effectiveStatus: "completed",
+    statusLabel: STATUS_LABELS.completed,
+    garminTitle: executed.title,
+    started_at: startedAt,
+    local_date: date,
+    date,
+    time: planned.time,
+    typeKey: planned.typeKey,
+    typeLabel: planned.typeLabel,
+    activityType: planned.activityType,
+    garminActivityTypeKey: executed.garminActivityTypeKey,
+    garminActivityTypeLabel: executed.garminActivityTypeLabel,
+    plannedData: {
+      objective: planned.objective,
+      restrictions: planned.restrictions,
+      blocks: planned.blocks,
+      intensityLabel: planned.intensityLabel,
+      durationLabel: planned.plannedDurationLabel,
+    },
+  };
+}
+
+function displaySourceLabel(executed = {}) {
+  const sourceText = normalizeKey([
+    executed.source,
+    executed.source_id,
+    executed.external_reference,
+    executed.session_structure?.garmin_fit_summary?.fit_identity?.external_reference,
+  ].filter(Boolean).join(" "));
+  if (sourceText.includes("fit")) return "FIT";
+  if (sourceText.includes("garmin")) return "Garmin";
+  return executed.session_structure?.garmin_fit_summary ? "FIT" : "Garmin/FIT";
 }
 
 function plannedDate(row = {}) {
@@ -279,6 +367,11 @@ function titleCase(value) {
 
 function text(value) {
   return `${value ?? ""}`.trim();
+}
+
+function stringOrNull(value) {
+  const clean = text(value);
+  return clean || null;
 }
 
 function numberOrNull(value) {
