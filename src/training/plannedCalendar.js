@@ -56,6 +56,7 @@ export function normalizePlannedCalendarItem(row = {}, blocks = []) {
   const restrictions = normalizeTextList(row.restrictions || row.constraints || row.limits || row.limitations);
   const coachNotes = text(row.coach_notes || row.notes || row.coach_note);
   const normalizedBlocks = normalizePlannedBlocks(blocks);
+  const linkedExecuted = row.linkedExecuted || row.linked_executed || null;
   const chips = [
     "Planificada",
     TYPE_LABELS[typeKey] || titleCase(typeKey),
@@ -68,6 +69,7 @@ export function normalizePlannedCalendarItem(row = {}, blocks = []) {
     kind: "planned",
     id: String(row.id || row.planned_session_id || row.session_id || ""),
     linked_completed_session_id: stringOrNull(row.linked_completed_session_id),
+    linkedExecuted: linkedExecuted ? normalizeExecutedCalendarItem(linkedExecuted) : null,
     date,
     local_date: date,
     time,
@@ -121,7 +123,9 @@ export function mergeExecutedAndPlannedForCalendar(executed = [], planned = []) 
 
   plannedItems.forEach((plannedItem) => {
     const linkedId = plannedItem.linked_completed_session_id;
-    const executedItem = linkedId ? executedById.get(linkedId) : null;
+    const executedItem = linkedId
+      ? executedById.get(linkedId) || plannedItem.linkedExecuted || null
+      : null;
     if (!linkedId || !executedItem) return;
     linkedExecutedIds.add(String(executedItem.id));
     items.push(buildPlannedCompletedCalendarItem(plannedItem, executedItem));
@@ -175,8 +179,29 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
   const rows = sessionResult.data || [];
   if (!rows.length) return [];
 
+  const linkedIds = [...new Set(rows.map((row) => row.linked_completed_session_id).filter(Boolean))];
+  let linkedExecutedById = {};
+
+  if (linkedIds.length) {
+    const linkedResult = await supabaseClient
+      .from("training_sessions")
+      .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics")
+      .in("id", linkedIds);
+
+    if (!linkedResult.error) {
+      linkedExecutedById = Object.fromEntries(
+        (linkedResult.data || []).map((row) => [row.id, normalizeExecutedCalendarItem(row)]),
+      );
+    }
+  }
+
   const ids = rows.map((row) => row.id).filter(Boolean);
-  if (!ids.length) return rows.map((row) => normalizePlannedCalendarItem(row));
+  const attachLinkedExecuted = (row) => ({
+    ...row,
+    linkedExecuted: linkedExecutedById[row.linked_completed_session_id] || null,
+  });
+
+  if (!ids.length) return rows.map((row) => normalizePlannedCalendarItem(attachLinkedExecuted(row)));
 
   const blocksResult = await supabaseClient
     .from("planned_session_blocks")
@@ -186,7 +211,7 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
   if (blocksResult.error) throw blocksResult.error;
 
   const blocksBySession = groupBy(blocksResult.data || [], "planned_session_id");
-  return rows.map((row) => normalizePlannedCalendarItem(row, blocksBySession[row.id] || []));
+  return rows.map((row) => normalizePlannedCalendarItem(attachLinkedExecuted(row), blocksBySession[row.id] || []));
 }
 
 function sortCalendarItemsChronological(a, b) {

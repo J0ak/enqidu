@@ -173,6 +173,39 @@ test("linked planned sessions render as one planned completed item with executed
   assert.equal(resolveCalendarItemRoute(linked), "activityDetail");
 });
 
+test("linked planned sessions can merge from embedded linked executed fallback", () => {
+  const planned = normalizePlannedCalendarItem({
+    id: "planned-23",
+    title: "Recuperación activa",
+    planned_date: "2026-06-23",
+    session_type: "recovery",
+    linked_completed_session_id: "executed-23",
+    linkedExecuted: {
+      id: "executed-23",
+      title: "Fuerza",
+      local_date: "2026-06-23",
+      started_at: "2026-06-23T18:55:47",
+      duration_seconds: 2071,
+      avg_hr: 105,
+      max_hr: 152,
+      calories_total: 275,
+      source_id: "garmin-fit",
+    },
+  });
+
+  const items = mergeExecutedAndPlannedForCalendar([], [planned]);
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "planned_completed");
+  assert.equal(items[0].title, "Recuperación activa");
+  assert.equal(items[0].garminTitle, "Fuerza");
+  assert.equal(items[0].duration_seconds, 2071);
+  assert.equal(items[0].avg_hr, 105);
+  assert.equal(items[0].max_hr, 152);
+  assert.equal(items[0].calories_total, 275);
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
 test("Yoga planned sessions stay Yoga", () => {
   const item = normalizePlannedCalendarItem({
     id: "planned-yoga",
