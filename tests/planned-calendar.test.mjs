@@ -109,6 +109,217 @@ test("planned and executed on the same day coexist without merging", () => {
   assert.deepEqual(items.map((item) => item.id), ["executed-22", "planned-24"]);
 });
 
+test("already normalized planned items keep their planned type when merging", () => {
+  const planned = normalizePlannedCalendarItem({
+    id: "planned-recovery",
+    title: "Recuperación activa",
+    planned_date: "2026-06-23",
+    session_type: "recovery",
+    planned_duration_min: 25,
+    planned_duration_max: 40,
+  });
+
+  const items = mergeExecutedAndPlannedForCalendar([], [planned]);
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "planned");
+  assert.equal(items[0].typeKey, "recovery");
+  assert.equal(items[0].typeLabel, "Recovery");
+  assert.equal(items[0].plannedDurationLabel, "25-40 min");
+});
+
+test("linked planned sessions render as one planned completed item with executed metrics", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "executed-22",
+        title: "HIIT",
+        local_date: "2026-06-22",
+        started_at: "2026-06-22T07:00:00",
+        duration_seconds: 1800,
+      },
+      {
+        id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        started_at: "2026-06-23T08:30:00",
+        duration_seconds: 2071,
+        avg_hr: 105,
+        max_hr: 152,
+        calories_total: 275,
+        training_effect_aerobic: 2.0,
+        training_effect_anaerobic: 0.9,
+        source_id: "fit-import",
+      },
+    ],
+    [
+      {
+        id: "06beb578-8b11-4525-b9de-c387e2bc9511",
+        title: "Recuperacion activa",
+        planned_date: "2026-06-23",
+        planned_time: "09:00",
+        session_type: "recovery",
+        planned_intensity: "RPE 2-3",
+        planned_duration_min: 25,
+        planned_duration_max: 40,
+        linked_completed_session_id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+      },
+      {
+        id: "planned-24",
+        title: "Yoga",
+        planned_date: "2026-06-24",
+        type_key: "yoga",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((item) => item.kind), ["executed", "planned_completed", "planned"]);
+  assert.ok(!items.some((item) => item.kind === "executed" && item.id === "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b"));
+
+  const linked = items.find((item) => item.kind === "planned_completed");
+  assert.equal(linked.title, "Recuperacion activa");
+  assert.equal(linked.displayTitle, "Recuperacion activa");
+  assert.equal(linked.statusLabel, "Completada");
+  assert.equal(linked.displaySource, "FIT");
+  assert.equal(linked.garminTitle, "Fuerza");
+  assert.equal(linked.duration_seconds, 2071);
+  assert.equal(linked.avg_hr, 105);
+  assert.equal(linked.max_hr, 152);
+  assert.equal(linked.calories_total, 275);
+  assert.equal(linked.training_effect_aerobic, 2.0);
+  assert.equal(linked.training_effect_anaerobic, 0.9);
+  assert.equal(resolveCalendarItemRoute(linked), "activityDetail");
+});
+
+test("linked Fuerza execution and Recuperacion activa planned render one planned completed card", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        started_at: "2026-06-23T18:55:47",
+        duration_seconds: 2071,
+        avg_hr: 105,
+        max_hr: 152,
+        calories_total: 275,
+        source_id: "garmin-fit",
+      },
+    ],
+    [
+      {
+        id: "06beb578-8b11-4525-b9de-c387e2bc9511",
+        title: "Recuperación activa",
+        planned_date: "2026-06-23",
+        session_type: "recovery",
+        linked_completed_session_id: " 0138b1aa-fc30-4f30-b7ba-2b69f3259a8b ",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items.filter((item) => item.kind === "planned_completed").length, 1);
+  assert.equal(items.filter((item) => item.kind === "executed").length, 0);
+  assert.equal(items.filter((item) => item.kind === "planned").length, 0);
+  assert.equal(items[0].title, "Recuperación activa");
+  assert.equal(items[0].garminTitle, "Fuerza");
+  assert.equal(items[0].executed_id, "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b");
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
+test("linked HIIT execution and Hibrido fuera de casa planned render one planned completed card", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6",
+        title: "HIIT",
+        local_date: "2026-06-24",
+        started_at: "2026-06-24T07:30:00",
+        duration_seconds: 2400,
+        source_id: "garmin-fit",
+      },
+    ],
+    [
+      {
+        id: "0137033d-74af-4d37-bf1f-c417f7432082",
+        title: "Híbrido fuera de casa",
+        planned_date: "2026-06-24",
+        session_type: "hybrid",
+        linked_completed_session_id: "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items.filter((item) => item.kind === "planned_completed").length, 1);
+  assert.equal(items.filter((item) => item.kind === "executed").length, 0);
+  assert.equal(items.filter((item) => item.kind === "planned").length, 0);
+  assert.equal(items[0].title, "Híbrido fuera de casa");
+  assert.equal(items[0].garminTitle, "HIIT");
+  assert.equal(items[0].executed_id, "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6");
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
+test("executed normalization works without summary_metrics", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "executed-without-summary",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        duration_seconds: 2071,
+        session_structure: {
+          garmin_fit_summary: {
+            heart_rate: { avg_bpm: 105, max_bpm: 152 },
+            calories: { total_kcal: 275 },
+          },
+        },
+      },
+    ],
+    [],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "executed");
+  assert.equal(items[0].avg_hr, 105);
+  assert.equal(items[0].max_hr, 152);
+  assert.equal(items[0].calories_total, 275);
+});
+
+test("linked planned sessions can merge from embedded linked executed fallback", () => {
+  const planned = normalizePlannedCalendarItem({
+    id: "planned-23",
+    title: "Recuperación activa",
+    planned_date: "2026-06-23",
+    session_type: "recovery",
+    linked_completed_session_id: "executed-23",
+    linkedExecuted: {
+      id: "executed-23",
+      title: "Fuerza",
+      local_date: "2026-06-23",
+      started_at: "2026-06-23T18:55:47",
+      duration_seconds: 2071,
+      avg_hr: 105,
+      max_hr: 152,
+      calories_total: 275,
+      source_id: "garmin-fit",
+    },
+  });
+
+  const items = mergeExecutedAndPlannedForCalendar([], [planned]);
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "planned_completed");
+  assert.equal(items[0].title, "Recuperación activa");
+  assert.equal(items[0].garminTitle, "Fuerza");
+  assert.equal(items[0].duration_seconds, 2071);
+  assert.equal(items[0].avg_hr, 105);
+  assert.equal(items[0].max_hr, 152);
+  assert.equal(items[0].calories_total, 275);
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
 test("Yoga planned sessions stay Yoga", () => {
   const item = normalizePlannedCalendarItem({
     id: "planned-yoga",

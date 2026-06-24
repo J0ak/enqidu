@@ -1155,6 +1155,13 @@ button:disabled {
   gap: 12px;
 }
 
+.plannedCompletedDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .plannedDetailCard {
   display: grid;
   gap: 12px;
@@ -2680,6 +2687,12 @@ button:disabled {
     rgba(255, 255, 255, 0.035);
 }
 
+.activityList .plannedCompletedActivityHistoryCard {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--type) 18%, transparent), transparent 52%),
+    rgba(255, 255, 255, 0.05);
+}
+
 .plannedActivityBadge {
   color: #d7dde2;
   background: color-mix(in srgb, var(--type) 12%, rgba(255, 255, 255, 0.05));
@@ -4177,6 +4190,12 @@ button:disabled {
   .authForm,
   .tableStatusGrid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .plannedCompletedDetailGrid {
+    grid-template-columns: 1fr;
   }
 }
 
