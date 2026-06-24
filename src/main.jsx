@@ -1696,6 +1696,7 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
   if (activityDetail.session.session_status === "archived") return <ArchivedSessionNotice detail={activityDetail} />;
   const conversationView = buildConversationActivityView(activityDetail);
   const hasConversationView = Boolean(conversationView?.blocks?.length);
+  const isLinkedPlanned = Boolean(activityDetail.plannedSession);
   return (
     <section className="activityDetailView">
       <ActivityDetailHeader
@@ -1706,8 +1707,9 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
         subtitle={conversationView?.subtitle}
       />
       <LinkedPlannedSessionPanel detail={activityDetail} />
+      {isLinkedPlanned && hasConversationView && <ConversationActivityCard view={conversationView} title="Registro realizado / Coach" />}
       <ActivitySummaryMetrics detail={activityDetail} />
-      {hasConversationView && <ConversationActivityCard view={conversationView} />}
+      {!isLinkedPlanned && hasConversationView && <ConversationActivityCard view={conversationView} />}
       <PhysiologyCard detail={activityDetail} />
       <ActivityTrainingEffectCard detail={activityDetail} />
     </section>
@@ -1863,7 +1865,7 @@ function LinkedPlannedSessionPanel({ detail }) {
         </dl>
       </PlannedDetailCard>
 
-      <PlannedDetailCard title="Bloques previstos" wide>
+      <PlannedDetailCard title="Bloques previstos">
         {blocks.length ? (
           <ol className="plannedBlockList">
             {blocks.map((block) => (
@@ -1926,12 +1928,12 @@ function numberMetricTile(label, value, icon, tone, unit = "") {
   return { label, value: `${formatNumberValue(number)}${unit ? ` ${unit}` : ""}`, icon, tone };
 }
 
-function ConversationActivityCard({ view }) {
+function ConversationActivityCard({ view, title = "Resumen" }) {
   if (!view?.blocks?.length) return null;
   return (
     <article className="activityMainCard conversationActivityCard">
       <section className="conversationSummary">
-        <span>Resumen</span>
+        <span>{title}</span>
         <p>{view.summaryText}</p>
         {view.compactLine && <small>{view.compactLine}</small>}
       </section>
