@@ -67,8 +67,8 @@ export function normalizePlannedCalendarItem(row = {}, blocks = []) {
 
   return {
     kind: "planned",
-    id: String(row.id || row.planned_session_id || row.session_id || ""),
-    linked_completed_session_id: stringOrNull(row.linked_completed_session_id),
+    id: normalizedId(row.id || row.planned_session_id || row.session_id),
+    linked_completed_session_id: normalizedId(row.linked_completed_session_id),
     linkedExecuted: linkedExecuted ? normalizeExecutedCalendarItem(linkedExecuted) : null,
     date,
     local_date: date,
@@ -104,6 +104,7 @@ export function normalizeExecutedCalendarItem(row = {}) {
   const normalized = {
     ...row,
     kind: "executed",
+    id: normalizedId(row.id),
     duration_seconds: durationSeconds ?? Number(row.duration_seconds || row.durationSeconds || 0),
     avg_hr: numberOrNull(row.avg_hr ?? row.avg_heart_rate ?? row.average_heart_rate ?? row.average_heart_rate_bpm ?? summaryMetrics.avg_heart_rate ?? summaryMetrics.average_heart_rate ?? heartRate.avg_bpm),
     max_hr: numberOrNull(row.max_hr ?? row.max_heart_rate ?? row.maximum_heart_rate ?? row.maximum_heart_rate_bpm ?? summaryMetrics.max_heart_rate ?? summaryMetrics.maximum_heart_rate ?? heartRate.max_bpm),
@@ -116,27 +117,28 @@ export function normalizeExecutedCalendarItem(row = {}) {
 
 export function mergeExecutedAndPlannedForCalendar(executed = [], planned = []) {
   const executedItems = executed.map(normalizeExecutedCalendarItem);
-  const plannedItems = planned.map((item) => item.kind === "planned" ? item : normalizePlannedCalendarItem(item));
-  const executedById = new Map(executedItems.map((item) => [String(item.id || ""), item]));
+  const plannedItems = planned.map((item) => normalizePlannedCalendarItem(item, item.blocks || []));
+  const executedById = new Map(executedItems.map((item) => [normalizedId(item.id), item]));
   const linkedExecutedIds = new Set();
   const items = [];
 
   plannedItems.forEach((plannedItem) => {
-    const linkedId = plannedItem.linked_completed_session_id;
+    const linkedId = normalizedId(plannedItem.linked_completed_session_id);
     const executedItem = linkedId
       ? executedById.get(linkedId) || plannedItem.linkedExecuted || null
       : null;
     if (!linkedId || !executedItem) return;
-    linkedExecutedIds.add(String(executedItem.id));
+    linkedExecutedIds.add(normalizedId(executedItem.id));
     items.push(buildPlannedCompletedCalendarItem(plannedItem, executedItem));
   });
 
   executedItems.forEach((executedItem) => {
-    if (!linkedExecutedIds.has(String(executedItem.id))) items.push(executedItem);
+    if (!linkedExecutedIds.has(normalizedId(executedItem.id))) items.push(executedItem);
   });
 
   plannedItems.forEach((plannedItem) => {
-    if (!plannedItem.linked_completed_session_id || !linkedExecutedIds.has(plannedItem.linked_completed_session_id)) {
+    const linkedId = normalizedId(plannedItem.linked_completed_session_id);
+    if (!linkedId || !linkedExecutedIds.has(linkedId)) {
       items.push(plannedItem);
     }
   });
@@ -179,7 +181,7 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
   const rows = sessionResult.data || [];
   if (!rows.length) return [];
 
-  const linkedIds = [...new Set(rows.map((row) => row.linked_completed_session_id).filter(Boolean))];
+  const linkedIds = [...new Set(rows.map((row) => normalizedId(row.linked_completed_session_id)).filter(Boolean))];
   let linkedExecutedById = {};
 
   if (linkedIds.length) {
@@ -190,7 +192,7 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
 
     if (!linkedResult.error) {
       linkedExecutedById = Object.fromEntries(
-        (linkedResult.data || []).map((row) => [row.id, normalizeExecutedCalendarItem(row)]),
+        (linkedResult.data || []).map((row) => [normalizedId(row.id), normalizeExecutedCalendarItem(row)]),
       );
     }
   }
@@ -198,7 +200,7 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
   const ids = rows.map((row) => row.id).filter(Boolean);
   const attachLinkedExecuted = (row) => ({
     ...row,
-    linkedExecuted: linkedExecutedById[row.linked_completed_session_id] || null,
+    linkedExecuted: linkedExecutedById[normalizedId(row.linked_completed_session_id)] || null,
   });
 
   if (!ids.length) return rows.map((row) => normalizePlannedCalendarItem(attachLinkedExecuted(row)));
@@ -394,9 +396,8 @@ function text(value) {
   return `${value ?? ""}`.trim();
 }
 
-function stringOrNull(value) {
-  const clean = text(value);
-  return clean || null;
+function normalizedId(value) {
+  return text(value);
 }
 
 function numberOrNull(value) {

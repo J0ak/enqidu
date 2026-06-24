@@ -173,6 +173,75 @@ test("linked planned sessions render as one planned completed item with executed
   assert.equal(resolveCalendarItemRoute(linked), "activityDetail");
 });
 
+test("linked Fuerza execution and Recuperacion activa planned render one planned completed card", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        started_at: "2026-06-23T18:55:47",
+        duration_seconds: 2071,
+        avg_hr: 105,
+        max_hr: 152,
+        calories_total: 275,
+        source_id: "garmin-fit",
+      },
+    ],
+    [
+      {
+        id: "06beb578-8b11-4525-b9de-c387e2bc9511",
+        title: "Recuperación activa",
+        planned_date: "2026-06-23",
+        session_type: "recovery",
+        linked_completed_session_id: " 0138b1aa-fc30-4f30-b7ba-2b69f3259a8b ",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items.filter((item) => item.kind === "planned_completed").length, 1);
+  assert.equal(items.filter((item) => item.kind === "executed").length, 0);
+  assert.equal(items.filter((item) => item.kind === "planned").length, 0);
+  assert.equal(items[0].title, "Recuperación activa");
+  assert.equal(items[0].garminTitle, "Fuerza");
+  assert.equal(items[0].executed_id, "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b");
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
+test("linked HIIT execution and Hibrido fuera de casa planned render one planned completed card", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6",
+        title: "HIIT",
+        local_date: "2026-06-24",
+        started_at: "2026-06-24T07:30:00",
+        duration_seconds: 2400,
+        source_id: "garmin-fit",
+      },
+    ],
+    [
+      {
+        id: "0137033d-74af-4d37-bf1f-c417f7432082",
+        title: "Híbrido fuera de casa",
+        planned_date: "2026-06-24",
+        session_type: "hybrid",
+        linked_completed_session_id: "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6",
+      },
+    ],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items.filter((item) => item.kind === "planned_completed").length, 1);
+  assert.equal(items.filter((item) => item.kind === "executed").length, 0);
+  assert.equal(items.filter((item) => item.kind === "planned").length, 0);
+  assert.equal(items[0].title, "Híbrido fuera de casa");
+  assert.equal(items[0].garminTitle, "HIIT");
+  assert.equal(items[0].executed_id, "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6");
+  assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
 test("linked planned sessions can merge from embedded linked executed fallback", () => {
   const planned = normalizePlannedCalendarItem({
     id: "planned-23",
