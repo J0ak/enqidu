@@ -1706,7 +1706,7 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
         subtitle={conversationView?.subtitle}
       />
       <LinkedPlannedSessionPanel detail={activityDetail} />
-      {!activityDetail.plannedSession && <ActivitySummaryMetrics detail={activityDetail} />}
+      <ActivitySummaryMetrics detail={activityDetail} />
       {hasConversationView && <ConversationActivityCard view={conversationView} />}
       <PhysiologyCard detail={activityDetail} />
       <ActivityTrainingEffectCard detail={activityDetail} />
@@ -1842,14 +1842,6 @@ function ActivityDetailHeader({ detail, onBack, onRenameSession, minimal = false
 function LinkedPlannedSessionPanel({ detail }) {
   const planned = detail.plannedSession;
   if (!planned) return null;
-  const session = detail.session || {};
-  const realMetrics = [
-    { label: "Duración real", value: formatOptionalDuration(session.duration_seconds) },
-    { label: "FC media", value: session.avg_hr == null ? "" : `${session.avg_hr} ppm` },
-    { label: "FC máxima", value: session.max_hr == null ? "" : `${session.max_hr} ppm` },
-    { label: "Calorías", value: session.calories_total == null ? "" : `${session.calories_total} kcal` },
-    { label: "Training Effect", value: formatTrainingEffectPair(session.training_effect_aerobic, session.training_effect_anaerobic) },
-  ].filter((item) => hasLinkedPanelValue(item.value));
   const planMetrics = [
     { label: "Objetivo previsto", value: planned.objective },
     { label: "RPE previsto", value: planned.intensityLabel },
@@ -1860,17 +1852,6 @@ function LinkedPlannedSessionPanel({ detail }) {
 
   return (
     <section className="plannedCompletedDetailGrid" aria-label="Sesión planificada completada">
-      <PlannedDetailCard title="Datos Garmin/FIT">
-        <dl className="plannedDefinitionList">
-          {realMetrics.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </PlannedDetailCard>
-
       <PlannedDetailCard title="Plan previsto">
         <dl className="plannedDefinitionList">
           {planMetrics.map((item) => (
@@ -1905,16 +1886,6 @@ function hasLinkedPanelValue(value) {
   if (value == null) return false;
   const text = `${value}`.trim();
   return Boolean(text) && text !== "N/D";
-}
-
-function formatTrainingEffectPair(aerobic, anaerobic) {
-  const aerobicValue = optionalNumber(aerobic);
-  const anaerobicValue = optionalNumber(anaerobic);
-  if (aerobicValue == null && anaerobicValue == null) return "";
-  return [aerobicValue, anaerobicValue]
-    .map((value) => value == null ? null : value.toFixed(1))
-    .filter(Boolean)
-    .join(" / ");
 }
 
 function ActivitySummaryMetrics({ detail }) {
