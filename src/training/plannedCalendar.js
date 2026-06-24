@@ -46,7 +46,7 @@ export function normalizePlannedStatus(status) {
 
 export function normalizePlannedCalendarItem(row = {}, blocks = []) {
   const status = normalizePlannedStatus(row.status || row.session_status || row.planned_status);
-  const typeKey = normalizePlannedTypeKey(row.type_key || row.session_type || row.activity_type || row.type || row.discipline || "other");
+  const typeKey = normalizePlannedTypeKey(row.typeKey || row.type_key || row.session_type || row.activity_type || row.type || row.discipline || "other");
   const date = plannedDate(row);
   const time = plannedTime(row);
   const title = text(row.title || row.name || row.session_title || TYPE_LABELS[typeKey] || "Sesión planificada");
@@ -117,7 +117,9 @@ export function normalizeExecutedCalendarItem(row = {}) {
 
 export function mergeExecutedAndPlannedForCalendar(executed = [], planned = []) {
   const executedItems = executed.map(normalizeExecutedCalendarItem);
-  const plannedItems = planned.map((item) => normalizePlannedCalendarItem(item, item.blocks || []));
+  const plannedItems = planned.map((item) =>
+    item.kind === "planned" ? item : normalizePlannedCalendarItem(item)
+  );
   const executedById = new Map(executedItems.map((item) => [normalizedId(item.id), item]));
   const linkedExecutedIds = new Set();
   const items = [];
@@ -182,20 +184,7 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
   if (!rows.length) return [];
 
   const linkedIds = [...new Set(rows.map((row) => normalizedId(row.linked_completed_session_id)).filter(Boolean))];
-  let linkedExecutedById = {};
-
-  if (linkedIds.length) {
-    const linkedResult = await supabaseClient
-      .from("training_sessions")
-      .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics")
-      .in("id", linkedIds);
-
-    if (!linkedResult.error) {
-      linkedExecutedById = Object.fromEntries(
-        (linkedResult.data || []).map((row) => [normalizedId(row.id), normalizeExecutedCalendarItem(row)]),
-      );
-    }
-  }
+  const linkedExecutedById = await fetchLinkedExecutedSessions(supabaseClient, linkedIds);
 
   const ids = rows.map((row) => row.id).filter(Boolean);
   const attachLinkedExecuted = (row) => ({
@@ -214,6 +203,34 @@ export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
 
   const blocksBySession = groupBy(blocksResult.data || [], "planned_session_id");
   return rows.map((row) => normalizePlannedCalendarItem(attachLinkedExecuted(row), blocksBySession[row.id] || []));
+}
+
+async function fetchLinkedExecutedSessions(supabaseClient, linkedIds = []) {
+  if (!linkedIds.length) return {};
+
+  const fullSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics";
+  const safeSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure";
+
+  let result = await supabaseClient
+    .from("training_sessions")
+    .select(fullSelect)
+    .in("id", linkedIds);
+
+  if (result.error) {
+    result = await supabaseClient
+      .from("training_sessions")
+      .select(safeSelect)
+      .in("id", linkedIds);
+  }
+
+  if (result.error) {
+    if (import.meta.env?.DEV) console.warn("[planned-calendar] linked executed unavailable", result.error);
+    return {};
+  }
+
+  return Object.fromEntries(
+    (result.data || []).map((row) => [normalizedId(row.id), normalizeExecutedCalendarItem(row)]),
+  );
 }
 
 function sortCalendarItemsChronological(a, b) {
@@ -295,14 +312,14 @@ function plannedStartedAt(date, time) {
 }
 
 function plannedDurationSeconds(row = {}) {
-  const seconds = numberOrNull(row.planned_duration_seconds ?? row.duration_seconds ?? row.target_duration_seconds);
+  const seconds = numberOrNull(row.durationSeconds ?? row.planned_duration_seconds ?? row.duration_seconds ?? row.target_duration_seconds);
   if (seconds != null) return seconds;
   const minutes = numberOrNull(row.planned_duration_minutes ?? row.duration_minutes ?? row.target_duration_minutes);
   return minutes != null ? minutes * 60 : 0;
 }
 
 function plannedDurationLabel(row = {}) {
-  const direct = text(row.planned_duration_label || row.duration_label || row.target_duration_label);
+  const direct = text(row.plannedDurationLabel || row.planned_duration_label || row.duration_label || row.target_duration_label);
   if (direct) return direct;
   const min = numberOrNull(row.planned_duration_min ?? row.duration_min_minutes ?? row.min_duration_minutes);
   const max = numberOrNull(row.planned_duration_max ?? row.duration_max_minutes ?? row.max_duration_minutes);

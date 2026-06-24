@@ -109,6 +109,25 @@ test("planned and executed on the same day coexist without merging", () => {
   assert.deepEqual(items.map((item) => item.id), ["executed-22", "planned-24"]);
 });
 
+test("already normalized planned items keep their planned type when merging", () => {
+  const planned = normalizePlannedCalendarItem({
+    id: "planned-recovery",
+    title: "Recuperación activa",
+    planned_date: "2026-06-23",
+    session_type: "recovery",
+    planned_duration_min: 25,
+    planned_duration_max: 40,
+  });
+
+  const items = mergeExecutedAndPlannedForCalendar([], [planned]);
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "planned");
+  assert.equal(items[0].typeKey, "recovery");
+  assert.equal(items[0].typeLabel, "Recovery");
+  assert.equal(items[0].plannedDurationLabel, "25-40 min");
+});
+
 test("linked planned sessions render as one planned completed item with executed metrics", () => {
   const items = mergeExecutedAndPlannedForCalendar(
     [
@@ -240,6 +259,32 @@ test("linked HIIT execution and Hibrido fuera de casa planned render one planned
   assert.equal(items[0].garminTitle, "HIIT");
   assert.equal(items[0].executed_id, "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6");
   assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+});
+
+test("executed normalization works without summary_metrics", () => {
+  const items = mergeExecutedAndPlannedForCalendar(
+    [
+      {
+        id: "executed-without-summary",
+        title: "Fuerza",
+        local_date: "2026-06-23",
+        duration_seconds: 2071,
+        session_structure: {
+          garmin_fit_summary: {
+            heart_rate: { avg_bpm: 105, max_bpm: 152 },
+            calories: { total_kcal: 275 },
+          },
+        },
+      },
+    ],
+    [],
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "executed");
+  assert.equal(items[0].avg_hr, 105);
+  assert.equal(items[0].max_hr, 152);
+  assert.equal(items[0].calories_total, 275);
 });
 
 test("linked planned sessions can merge from embedded linked executed fallback", () => {

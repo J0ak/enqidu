@@ -329,6 +329,23 @@ function decorateLinkedPlannedActivityDetail(detail, item) {
   };
 }
 
+function fetchTrainingSessionsForActivities(supabaseClient) {
+  const fullSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics";
+  const safeSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure";
+  const buildQuery = (selectColumns) => supabaseClient
+    .from("training_sessions")
+    .select(selectColumns)
+    .or("session_status.is.null,session_status.neq.archived")
+    .order("local_date", { ascending: false, nullsFirst: false })
+    .order("started_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(100);
+
+  return buildQuery(fullSelect).then((result) => (
+    result.error ? buildQuery(safeSelect) : result
+  ));
+}
+
 async function fetchAllSessionSamples(sessionId) {
   const pageSize = 1000;
   const rows = [];
@@ -845,14 +862,7 @@ function App() {
       .order("calendar_date", { ascending: false })
       .limit(1);
 
-    const sessionQuery = supabase
-      .from("training_sessions")
-      .select("id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics")
-      .or("session_status.is.null,session_status.neq.archived")
-      .order("local_date", { ascending: false, nullsFirst: false })
-      .order("started_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false, nullsFirst: false })
-      .limit(100);
+    const sessionQuery = fetchTrainingSessionsForActivities(supabase);
 
     const profileQuery = userId
       ? supabase
