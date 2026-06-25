@@ -1,0 +1,133 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-09",
+  "day_type": "strength_lower_hybrid",
+  "sessions": [
+    {
+      "session_type": "strength_lower_body",
+      "title": "Hybrid lower strength + trail stability",
+      "duration": {
+        "total": "01:07:00"
+      },
+      "training_focus": {
+        "primary_objectives": [
+          "lower body strength",
+          "trail transfer",
+          "ankle stability",
+          "posterior chain development",
+          "hybrid athleticism"
+        ],
+        "rpe_global": 8
+      },
+      "warmup_activation": {
+        "mobility": [
+          "90/90 hip mobility",
+          "dynamic hip opening",
+          "leg swings",
+          "pectoral opening",
+          "scapular mobility"
+        ],
+        "stability": [
+          "single-leg balance",
+          "dynamic ankle activation"
+        ]
+      },
+      "strength_blocks": [
+        {
+          "exercise": "Front Squat",
+          "sets": [
+            {
+              "weight_kg": 20,
+              "reps": 8,
+              "type": "warmup"
+            },
+            {
+              "weight_kg": 40,
+              "reps": 5,
+              "type": "warmup"
+            },
+            {
+              "weight_kg": 60,
+              "reps": 3,
+              "type": "warmup"
+            },
+            {
+              "weight_kg": 50,
+              "reps": 5,
+              "type": "working"
+            },
+            {
+              "weight_kg": 75,
+              "reps": 5,
+              "type": "working"
+            },
+            {
+              "weight_kg": 75,
+              "reps": 5,
+              "type": "working"
+            },
+            {
+              "weight_kg": 78,
+              "reps": 3,
+              "type": "top_set"
+            }
+          ],
+          "notes": [
+            "Technical quality slightly reduced at 78 kg",
+            "75 kg consolidated"
+          ]
+        },
+        {
+          "exercise": "Romanian Deadlift",
+          "sets": [
+            {
+              "weight_kg": 78,
+              "reps": 8
+            },
+            {
+              "weight_kg": 80,
+              "reps": 8
+            },
+            {
+              "weight_kg": 90,
+              "reps": 8
+            }
+          ],
+          "notes": [
+            "Strong posterior chain response"
+          ]
+        },
+        {
+          "exercise": "Bulgarian Split Squat",
+          "sets": 3,
+          "reps": 8,
+          "weight_per_hand_kg": 17.5
+        },
+        {
+          "exercise": "High Step-Up",
+          "sets": 3,
+          "reps": 8,
+          "weight_kg": 24
+        },
+        {
+          "exercise": "Single-Leg Calf Raise",
+          "sets": 4,
+          "reps": 12,
+          "weight_kg": 24
+        }
+      ],
+      "recovery_status": {
+        "peroneal_area": {
+          "pain": false,
+          "status": "perceived weakness/fatigue without pain"
+        },
+        "overall_feeling": "strong and controlled session"
+      },
+      "technical_assessment": {
+        "front_squat": "strength ahead of technical consolidation at 78 kg",
+        "posterior_chain": "very strong relative to current hybrid/trail level",
+        "ankle_stability": "main current structural limiter"
+      }
+    }
+  ]
+}

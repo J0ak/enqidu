@@ -1,0 +1,497 @@
+{
+  "jotason_version": "4.0_ultra_detailed_competitive",
+  "template_source": "MASTER_TEMPLATE_v8_COMPLETO",
+  "day_date": "2026-04-20",
+  "day_of_week": "lunes",
+  "day_type": "doble_sesion_hibrida",
+  "timezone": "Europe/Madrid",
+  "athlete": "usuario",
+  "coach_mode": "entrenador_personal",
+  "objective_of_day": "trabajo híbrido combinado de HIIT matinal + natación aeróbica regenerativa por la tarde",
+  "vector_db_ready": true,
+  "export_timestamp": "2026-04-20T21:37:26.969843",
+  "data_quality": {
+    "status": "partial_but_high_confidence",
+    "source_priority": [
+      "garmin_screenshots",
+      "user_manual_description"
+    ],
+    "notes": [
+      "HIIT reconstruido con detalle a partir de la descripción manual del usuario y métricas Garmin.",
+      "Natación construida con métricas Garmin; no constan pausas/laps técnicos adicionales fuera de los 2 intervalos de 500 m.",
+      "Se mantienen campos null cuando no aparecen explícitamente en la evidencia."
+    ]
+  },
+  "sessions": [
+    {
+      "session_id": "2026-04-20_am_hiit",
+      "activity_type": "hiit",
+      "sport_subtype": "hybrid_strength_conditioning",
+      "title": "HIIT híbrido con kettlebell, polea, assault bike, wall ball, remo y zancadas",
+      "source": "garmin + descripcion_usuario",
+      "start_time_local": "07:03",
+      "location": {
+        "name": null,
+        "type": "indoor_gym",
+        "city": null
+      },
+      "status": "completed",
+      "session_overview": {
+        "total_time": "00:59:01",
+        "total_time_sec": 3541,
+        "work_time": "00:40:13",
+        "work_time_sec": 2413,
+        "rest_time": "00:18:47",
+        "rest_time_sec": 1127,
+        "heart_rate_avg_bpm": 105,
+        "heart_rate_max_bpm": 154,
+        "calories_rest_kcal": 86,
+        "calories_active_kcal": 348,
+        "calories_total_kcal": 434,
+        "estimated_fluid_loss_ml": 514,
+        "respiration_avg_brpm": 24,
+        "respiration_min_brpm": 13,
+        "respiration_max_brpm": 37,
+        "training_effect_aerobic": 2.3,
+        "training_effect_anaerobic": 2.2,
+        "training_load": 74,
+        "primary_benefit": "Sprint (Anaeróbico)",
+        "temperature_min_c": 22,
+        "temperature_max_c": 28,
+        "garmin_total_reps": 57,
+        "garmin_total_sets": 5,
+        "garmin_avg_reps_per_set": 11.4,
+        "garmin_volume_kg": 0,
+        "body_battery_net_impact": -10
+      },
+      "heart_rate_zones": {
+        "zone_1": {
+          "label": "calentamiento",
+          "range_bpm": "91-108",
+          "time": "00:13:18",
+          "time_sec": 798,
+          "pct": 22
+        },
+        "zone_2": {
+          "label": "suave",
+          "range_bpm": "109-126",
+          "time": "00:12:21",
+          "time_sec": 741,
+          "pct": 20
+        },
+        "zone_3": {
+          "label": "aeróbica",
+          "range_bpm": "127-144",
+          "time": "00:08:17",
+          "time_sec": 497,
+          "pct": 14
+        },
+        "zone_4": {
+          "label": "umbral",
+          "range_bpm": "145-162",
+          "time": "00:04:38",
+          "time_sec": 278,
+          "pct": 7
+        },
+        "zone_5": {
+          "label": "máximo",
+          "range_bpm": ">162",
+          "time": "00:00:00",
+          "time_sec": 0,
+          "pct": 0
+        }
+      },
+      "muscle_focus_from_garmin": {
+        "primary": [
+          "pecho",
+          "espalda_alta",
+          "dorsal",
+          "hombro"
+        ],
+        "secondary": [
+          "core",
+          "brazos"
+        ],
+        "non_target_or_low_target": [
+          "pierna_como_apoyo_metabolico"
+        ]
+      },
+      "blocks": [
+        {
+          "block_id": "A",
+          "block_type": "warmup_mobility",
+          "title": "Movilidad, estiramiento y movilidad activa",
+          "rounds": 1,
+          "format": "continuo",
+          "estimated_duration_min": 8,
+          "exercises": [
+            {
+              "order": 1,
+              "exercise_name": "Movilidad general",
+              "equipment": null,
+              "sets": 1,
+              "reps": null,
+              "duration_sec": null,
+              "rest_sec": null,
+              "load_kg": null,
+              "sides": null,
+              "notes": "Bloque inicial descrito como movilidad, estiramiento y movilidad activa."
+            }
+          ]
+        },
+        {
+          "block_id": "B",
+          "block_type": "kettlebell_complex",
+          "title": "Complejo kettlebell unilateral",
+          "rounds": 3,
+          "format": "por rondas",
+          "estimated_duration_min": 10,
+          "exercises": [
+            {
+              "order": 1,
+              "exercise_name": "Kettlebell high pull / remo vertical subiendo codo unilateral",
+              "equipment": "kettlebell",
+              "sets": 3,
+              "reps": 6,
+              "reps_per_side": 6,
+              "duration_sec": null,
+              "rest_sec": null,
+              "load_kg": 16,
+              "sides": "bilateral_unilateral",
+              "notes": "Descrito como 'con kettle de 16, a cada lado, subiendo codo'."
+            },
+            {
+              "order": 2,
+              "exercise_name": "Kettlebell one-arm swing",
+              "equipment": "kettlebell",
+              "sets": 3,
+              "reps": 6,
+              "reps_per_side": 6,
+              "duration_sec": null,
+              "rest_sec": null,
+              "load_kg": 16,
+              "sides": "bilateral_unilateral",
+              "notes": "6 swing a cada lado con un brazo."
+            },
+            {
+              "order": 3,
+              "exercise_name": "Kettlebell push press unilateral",
+              "equipment": "kettlebell",
+              "sets": 3,
+              "reps": 6,
+              "reps_per_side": 6,
+              "duration_sec": null,
+              "rest_sec": null,
+              "load_kg": 16,
+              "sides": "bilateral_unilateral",
+              "notes": "6 a cada lado."
+            },
+            {
+              "order": 4,
+              "exercise_name": "Escaladores cruzados",
+              "equipment": "bodyweight",
+              "sets": 3,
+              "reps": 6,
+              "reps_per_side": 6,
+              "duration_sec": null,
+              "rest_sec": null,
+              "load_kg": null,
+              "sides": "bilateral_unilateral",
+              "notes": "6 a cada lado."
+            }
+          ]
+        },
+        {
+          "block_id": "C",
+          "block_type": "metabolic_circuit",
+          "title": "Circuito principal metabólico",
+          "rounds": 3,
+          "format": "40 segundos trabajo / 10 segundos descanso por estación",
+          "work_sec_per_station": 40,
+          "rest_sec_per_station": 10,
+          "stations_count": 7,
+          "estimated_duration_min": 15,
+          "exercises": [
+            {
+              "order": 1,
+              "exercise_name": "Remo con kettlebell subiendo codo",
+              "equipment": "kettlebell",
+              "sets": 3,
+              "reps": null,
+              "reps_estimated_per_side": 8,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": 20,
+              "sides": "bilateral_unilateral",
+              "notes": "Entraron unas 8 a cada lado en 40 s."
+            },
+            {
+              "order": 2,
+              "exercise_name": "Step-up / pistol asistido en banco con kettlebell",
+              "equipment": "kettlebell + bench",
+              "sets": 3,
+              "reps": null,
+              "reps_estimated_per_side": 9,
+              "reps_estimated_range_per_side": "9-10",
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": 12,
+              "sides": "bilateral_unilateral",
+              "notes": "Con la pierna del mismo lado de la kettlebell sobre el banco."
+            },
+            {
+              "order": 3,
+              "exercise_name": "Face pull unilateral en posición de caballero",
+              "equipment": "cable",
+              "sets": 3,
+              "reps": null,
+              "reps_estimated_per_side": 10,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": 15,
+              "sides": "bilateral_unilateral",
+              "notes": "10 a cada lado."
+            },
+            {
+              "order": 4,
+              "exercise_name": "Assault bike",
+              "equipment": "assault_bike",
+              "sets": 3,
+              "reps": null,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": null,
+              "sides": null,
+              "rpm_estimated": 74,
+              "rpm_estimated_range": "74-75",
+              "notes": "Cadencia habitual indicada por el usuario."
+            },
+            {
+              "order": 5,
+              "exercise_name": "Wall ball parcial",
+              "equipment": "wall_ball",
+              "sets": 3,
+              "reps": null,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": 9,
+              "sides": null,
+              "notes": "Lanzamiento a media altura por techo bajo."
+            },
+            {
+              "order": 6,
+              "exercise_name": "Remo ergómetro",
+              "equipment": "rowing_machine",
+              "sets": 3,
+              "reps": null,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": null,
+              "sides": null,
+              "pace_reference_500m": "1:40",
+              "notes": "Ritmo medio aproximado indicado por el usuario."
+            },
+            {
+              "order": 7,
+              "exercise_name": "Walking lunge con kettlebell",
+              "equipment": "kettlebell",
+              "sets": 3,
+              "reps": 16,
+              "reps_per_side": 8,
+              "duration_sec": 40,
+              "rest_sec": 10,
+              "load_kg": 16,
+              "sides": "bilateral_unilateral",
+              "notes": "8+8 aprox. dentro de cada estación de 40 s."
+            }
+          ],
+          "notes": [
+            "El usuario corrigió la estructura: 40 segundos activos y 10 segundos de descanso, no 20/10.",
+            "Aunque el listado verbal incluye 7 estaciones, Garmin reporta 5 series totales; se conserva la estructura verbal como referencia principal de entrenador y se marca la discrepancia."
+          ]
+        }
+      ],
+      "coach_interpretation": {
+        "session_character": "metabólica de cuerpo completo con sesgo a tren superior, core y acondicionamiento",
+        "intensity_profile": "moderada-media con picos controlados; no llega a Z5 y pasa relativamente poco tiempo en Z4",
+        "technical_focus": [
+          "control unilateral",
+          "estabilidad escapular",
+          "integración core-hombro",
+          "resistencia local"
+        ],
+        "main_limiters": [
+          "fatiga periférica de hombro/espalda",
+          "densidad del circuito",
+          "carga cardiorrespiratoria progresiva"
+        ],
+        "coach_recommendations": [
+          "Mantener calidad técnica en face pull y high pull antes que aumentar carga.",
+          "En assault bike, priorizar consistencia de rpm sobre sprint temprano.",
+          "En wall ball parcial, buscar patrón limpio de sentadilla y transferencia al tronco, aunque no haya lanzamiento alto.",
+          "En remo ergómetro, intentar estabilidad de split sin salir demasiado fuerte en los primeros 10-15 s.",
+          "Si se repite la sesión, se puede progresar primero por control técnico y después por densidad, no por añadir peso de golpe."
+        ]
+      },
+      "completion_notes": [
+        "Sesión completada según descripción del usuario.",
+        "Reconstrucción apta para entrenador personal y base vectorial."
+      ]
+    },
+    {
+      "session_id": "2026-04-20_pm_swimming",
+      "activity_type": "swimming_pool",
+      "sport_subtype": "aerobic_pool_swim",
+      "title": "Natación en piscina",
+      "source": "garmin_screenshots",
+      "start_time_local": "17:36",
+      "location": {
+        "name": null,
+        "type": "pool",
+        "city": null
+      },
+      "status": "completed",
+      "session_overview": {
+        "distance_m": 1000,
+        "distance_km": 1.0,
+        "total_time": "00:28:51",
+        "total_time_sec": 1731,
+        "moving_time": "00:25:39",
+        "moving_time_sec": 1539,
+        "elapsed_time": "00:29:08",
+        "elapsed_time_sec": 1748,
+        "heart_rate_avg_bpm": 128,
+        "heart_rate_max_bpm": 147,
+        "calories_rest_kcal": 42,
+        "calories_active_kcal": 297,
+        "calories_total_kcal": 339,
+        "pace_avg_per_100m": "2:34",
+        "pace_best_per_100m": "2:07",
+        "speed_avg_kmh": 2.3,
+        "speed_max_kmh": 2.8,
+        "training_effect_aerobic": 2.4,
+        "training_effect_anaerobic": 0.7,
+        "training_load": 56,
+        "primary_benefit": "Recuperación (Aeróbica baja)",
+        "swolf_avg": 55,
+        "strokes_total": 658,
+        "stroke_rate_spm": 26,
+        "strokes_per_length_avg": 16.5,
+        "intensity_minutes_moderate": 20,
+        "intensity_minutes_high": 0
+      },
+      "heart_rate_zones": {
+        "zone_1": {
+          "label": "calentamiento",
+          "range_bpm": "90-107",
+          "time": "00:02:00",
+          "time_sec": 120,
+          "pct": 6
+        },
+        "zone_2": {
+          "label": "suave",
+          "range_bpm": "108-125",
+          "time": "00:05:42",
+          "time_sec": 342,
+          "pct": 19
+        },
+        "zone_3": {
+          "label": "aeróbica",
+          "range_bpm": "126-143",
+          "time": "00:20:05",
+          "time_sec": 1205,
+          "pct": 69
+        },
+        "zone_4": {
+          "label": "umbral",
+          "range_bpm": "144-161",
+          "time": "00:00:52",
+          "time_sec": 52,
+          "pct": 3
+        },
+        "zone_5": {
+          "label": "máximo",
+          "range_bpm": ">161",
+          "time": "00:00:00",
+          "time_sec": 0,
+          "pct": 0
+        }
+      },
+      "laps": [
+        {
+          "lap": 1,
+          "time": "00:12:36.3",
+          "time_sec": 756.3,
+          "distance_m": 500,
+          "avg_pace_per_100m": "2:31"
+        },
+        {
+          "lap": 2,
+          "time": "00:13:03.1",
+          "time_sec": 783.1,
+          "distance_m": 500,
+          "avg_pace_per_100m": "2:36"
+        }
+      ],
+      "coach_interpretation": {
+        "session_character": "aeróbica continua, controlada, con clara función de recuperación y base",
+        "intensity_profile": "muy estable, predominantemente Z3 baja sin deriva agresiva",
+        "technical_focus": [
+          "economía de brazada",
+          "consistencia de ritmo",
+          "eficiencia media correcta para sesión no máxima"
+        ],
+        "main_limiters": [
+          "ligera caída en el segundo 500 m",
+          "eficiencia susceptible de mejora si baja el swolf"
+        ],
+        "coach_recommendations": [
+          "Buena sesión para sumar trabajo aeróbico sin castigar impacto.",
+          "Objetivo futuro: mantener 2:30-2:32/100 m con swolf ≤ 53-54.",
+          "Trabajar técnica de agarre y deslizamiento para recortar brazadas por largo.",
+          "Si esta natación va tras HIIT o fuerza, el uso es correcto como trabajo complementario de descarga activa."
+        ]
+      },
+      "completion_notes": [
+        "Sesión cerrada con 2 bloques de 500 m.",
+        "Predominio claro de trabajo aeróbico controlado."
+      ]
+    }
+  ],
+  "daily_summary": {
+    "sessions_count": 2,
+    "combined_training_time_sec": 5272,
+    "combined_training_time_hms": "01:27:52",
+    "combined_calories_total_kcal": 773,
+    "combined_calories_active_kcal": 645,
+    "combined_calories_rest_kcal": 128,
+    "combined_training_load": 130,
+    "focus_distribution": [
+      "HIIT metabólico con sesgo de tren superior y core",
+      "natación aeróbica regenerativa"
+    ],
+    "coach_day_assessment": {
+      "overall_day_type": "doble_sesion_hibrida_bien_compensada",
+      "overall_fatigue_expected": "moderada",
+      "neuromuscular_cost": "moderado",
+      "cardiovascular_cost": "moderado",
+      "impact_cost": "bajo_moderado",
+      "best_use_of_day": "sumar estímulo metabólico por la mañana y recuperación aeróbica por la tarde"
+    },
+    "recommendations_next_24h": [
+      "Priorizar hidratación y electrolitos por doble sesión.",
+      "Asegurar proteína suficiente y algo de hidrato post-sesión para reponer.",
+      "Dormir bien para consolidar la carga del día.",
+      "Si mañana hay fuerza o carrera, llegar con movilidad de hombro, dorsal y cadera revisada."
+    ]
+  },
+  "export": {
+    "format": "json",
+    "ready_to_copy_paste": true,
+    "intended_use": [
+      "entrenador_personal",
+      "base_de_datos_vectorial",
+      "drive_project_upload"
+    ]
+  }
+}

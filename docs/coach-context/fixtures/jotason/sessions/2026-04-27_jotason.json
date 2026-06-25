@@ -1,0 +1,14 @@
+{
+  "date": "2026-04-27",
+  "jotason_version": "MASTER_TEMPLATE_v8",
+  "day_type": "doble_sesion_hibrido_running",
+  "daily_summary": {
+    "sessions_count": 2,
+    "total_training_time_hms": "01:32:52",
+    "total_calories_kcal": 787,
+    "total_calories_active_kcal": 651,
+    "total_calories_rest_kcal": 136,
+    "hydration_loss_total_ml": 1060,
+    "training_load_total": 113
+  }
+}

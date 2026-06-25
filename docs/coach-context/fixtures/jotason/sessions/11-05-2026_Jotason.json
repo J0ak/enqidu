@@ -1,0 +1,66 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-11",
+  "day_type": "double_session_hybrid_swim",
+  "sessions": [
+    {
+      "session_type": "hybrid_hiit_strength",
+      "session_name": "Upper Pull Hybrid HIIT",
+      "start_time": "2026-05-11T07:05:00",
+      "duration": {
+        "total": "01:01:52",
+        "work": "00:51:35",
+        "rest": "00:10:17"
+      },
+      "training_effect": {
+        "primary_benefit": "Base (Aeróbica baja)",
+        "aerobic": 2.7,
+        "anaerobic": 2.2,
+        "training_load": 93
+      },
+      "heart_rate": {
+        "avg_bpm": 115,
+        "max_bpm": 161
+      },
+      "respiration": {
+        "avg_brpm": 27,
+        "min_brpm": 15,
+        "max_brpm": 44
+      },
+      "calories": {
+        "resting_kcal": 90,
+        "active_kcal": 413,
+        "total_kcal": 503
+      }
+    },
+    {
+      "session_type": "pool_swim",
+      "session_name": "Swimming Recovery Aerobic",
+      "start_time": "2026-05-11T17:39:00",
+      "distance_m": 1100,
+      "duration": {
+        "total": "00:36:35",
+        "moving": "00:26:28"
+      },
+      "pace": {
+        "avg_per_100m": "02:24"
+      },
+      "heart_rate": {
+        "avg_bpm": 111,
+        "max_bpm": 148
+      },
+      "training_effect": {
+        "primary_benefit": "Recuperación (Aeróbica baja)",
+        "aerobic": 2.2,
+        "anaerobic": 0.1,
+        "training_load": 37
+      },
+      "personal_records": [
+        {
+          "record_type": "400m_pool_swim",
+          "time": "08:49"
+        }
+      ]
+    }
+  ]
+}

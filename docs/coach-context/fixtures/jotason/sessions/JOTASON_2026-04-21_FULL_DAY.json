@@ -1,0 +1,50 @@
+{
+  "schema_version": "jotason_daily_master_template_v1",
+  "date": "2026-04-21",
+  "weekday": "martes",
+  "objective_primary": "running_intervalado_control_aerobico_pre_taper",
+  "sessions": [
+    {
+      "session_id": "2026-04-21_PM_RUN",
+      "activity_type": "running",
+      "discipline": "interval_running",
+      "source": {
+        "device": "Garmin",
+        "traceability": "manual_from_screenshots + coach_prescription",
+        "data_quality": "high_enriched"
+      },
+      "coach_prescription": {
+        "objective": "activar sin fatigar",
+        "structure_planned": {
+          "warmup": "10-12 min suave",
+          "main": "4 bloques de 3 min controlados con recuperaci\u00f3n",
+          "cooldown": "8-10 min suave"
+        }
+      },
+      "execution": {
+        "adherence": "alta",
+        "cooldown_shortened": true
+      },
+      "summary": {
+        "title": "Madrid Carrera",
+        "start_time": "17:44",
+        "time_total": "00:36:11",
+        "distance_km": 5.92
+      },
+      "heart_rate": {
+        "avg": 123,
+        "max": 144
+      },
+      "training_effect": {
+        "aerobic": 2.6,
+        "anaerobic": 0.0,
+        "load": 54
+      }
+    }
+  ],
+  "daily_totals": {
+    "time_total": "00:36:11",
+    "distance_total_km": 5.92,
+    "training_load_total": 54
+  }
+}

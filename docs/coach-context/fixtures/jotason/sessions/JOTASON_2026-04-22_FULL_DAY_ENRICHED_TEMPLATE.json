@@ -1,0 +1,393 @@
+{
+  "schema_version": "jotason_daily_master_template_v1",
+  "date": "2026-04-22",
+  "weekday": "miércoles",
+  "objective_primary": "doble_sesion_hibrido_y_natacion_recuperacion_aerobica_baja",
+  "export_timestamp": "2026-04-22T20:34:46.893856",
+  "sessions": [
+    {
+      "session_id": "2026-04-22_AM_HIIT",
+      "activity_type": "hybrid_hiit",
+      "source": {
+        "origin": "garmin_ui + descripcion_usuario",
+        "fit_file": null,
+        "data_quality": "high_enriched"
+      },
+      "summary": {
+        "start_time": "07:04",
+        "time": {
+          "total": "01:01:35",
+          "work": "00:49:01",
+          "rest": "00:12:33"
+        },
+        "heart_rate": {
+          "avg": 109,
+          "max": 156
+        },
+        "training_effect": {
+          "primary": "Recuperación (Aeróbica baja)",
+          "aerobic": 2.3,
+          "anaerobic": 0.5,
+          "load": 49
+        }
+      },
+      "energy": {
+        "calories": {
+          "rest": 90,
+          "active": 390,
+          "total": 480
+        },
+        "hydration_loss_ml": 558,
+        "body_battery_impact": -12
+      },
+      "respiration": {
+        "avg": 26,
+        "min": 16,
+        "max": 42
+      },
+      "zones_fc": [
+        {
+          "z": 1,
+          "range": "91-108",
+          "time": "18:33",
+          "pct": 30
+        },
+        {
+          "z": 2,
+          "range": "109-126",
+          "time": "11:01",
+          "pct": 17
+        },
+        {
+          "z": 3,
+          "range": "127-144",
+          "time": "15:34",
+          "pct": 25
+        },
+        {
+          "z": 4,
+          "range": "145-162",
+          "time": "02:28",
+          "pct": 3
+        },
+        {
+          "z": 5,
+          "range": ">162",
+          "time": "00:00",
+          "pct": 0
+        }
+      ],
+      "strength_metrics": {
+        "sets": 7,
+        "reps_total": 61,
+        "reps_avg": 8.7,
+        "volume_kg": 0
+      },
+      "intensity_minutes": {
+        "moderate": 15,
+        "high": 2,
+        "total": 19
+      },
+      "blocks": [
+        {
+          "block_id": "A",
+          "type": "warmup",
+          "content": "movilidad dinámica + activación general"
+        },
+        {
+          "block_id": "B",
+          "type": "mobility_agility",
+          "rounds": 3,
+          "exercises": [
+            "vallas frontales",
+            "vallas laterales"
+          ]
+        },
+        {
+          "block_id": "C",
+          "type": "kettlebell_complex",
+          "rounds": 3,
+          "load_kg": 12,
+          "exercises": [
+            {
+              "name": "goblet press",
+              "reps": 8
+            },
+            {
+              "name": "swing",
+              "reps": 8
+            },
+            {
+              "name": "remo",
+              "reps_per_side": 4
+            },
+            {
+              "name": "escaladores",
+              "reps_per_leg": 10
+            }
+          ]
+        },
+        {
+          "block_id": "D",
+          "type": "functional_circuit",
+          "rounds": 3,
+          "exercises": [
+            {
+              "name": "wall ball clean squat hold",
+              "load_kg": 7,
+              "reps": 6
+            },
+            {
+              "name": "arrastre saco",
+              "load_kg": 10,
+              "reps_per_side": 4
+            },
+            {
+              "name": "remo erg",
+              "distance_m": 100,
+              "pace": "1:40"
+            }
+          ]
+        },
+        {
+          "block_id": "E",
+          "type": "strength_stability",
+          "rounds": 3,
+          "exercises": [
+            {
+              "name": "press inclinado",
+              "load_kg": 17.5,
+              "reps": 6
+            },
+            {
+              "name": "step box unilateral",
+              "reps_per_side": 5
+            },
+            {
+              "name": "pallof press",
+              "reps_per_side": 5
+            }
+          ]
+        },
+        {
+          "block_id": "F",
+          "type": "core_conditioning",
+          "rounds": 2,
+          "exercises": [
+            {
+              "name": "remo en caballero",
+              "load_kg": 20,
+              "reps_per_side": 5
+            },
+            {
+              "name": "side plank con mancuerna",
+              "load_kg": 5,
+              "reps_per_side": 5
+            },
+            {
+              "name": "assault bike",
+              "structure": "intervalos internos 10s suave / 10s fuerte",
+              "rpm_strong": "70-80",
+              "duration": "40s y 60s en última ronda"
+            }
+          ]
+        }
+      ],
+      "coach_notes": [
+        "Sesión técnica y controlada, baja carga neuromuscular en pierna",
+        "Predominio de estabilidad, core y tren superior",
+        "Compatible con semana de taper",
+        "Carga cardiovascular moderada sin estrés alto"
+      ]
+    },
+    {
+      "session_id": "2026-04-22_PM_SWIM",
+      "activity_type": "swimming_pool",
+      "source": {
+        "origin": "garmin_ui + plan_entrenador_seguido_parcialmente",
+        "fit_file": null,
+        "data_quality": "high_enriched"
+      },
+      "summary": {
+        "start_time": "17:41",
+        "distance_m": 900,
+        "time": {
+          "total": "00:36:30",
+          "moving": "00:21:01",
+          "elapsed": "00:36:36"
+        },
+        "pace": {
+          "avg_100m": "2:28",
+          "best_100m": "1:08"
+        },
+        "speed": {
+          "avg_kmh": 2.4,
+          "max_kmh": 5.3
+        },
+        "heart_rate": {
+          "avg": 115,
+          "max": 155
+        },
+        "training_effect": {
+          "primary": "Recuperación (Aeróbica baja)",
+          "aerobic": 2.3,
+          "anaerobic": 1.5,
+          "load": 59
+        }
+      },
+      "energy": {
+        "calories": {
+          "rest": 53,
+          "active": 294,
+          "total": 347
+        }
+      },
+      "swim_metrics": {
+        "pool_length_m": 25,
+        "swolf": 52,
+        "strokes_total": 419,
+        "stroke_rate": 24,
+        "strokes_per_length": 15.0
+      },
+      "zones_fc": [
+        {
+          "z": 1,
+          "range": "90-107",
+          "time": "12:30",
+          "pct": 34
+        },
+        {
+          "z": 2,
+          "range": "108-125",
+          "time": "08:39",
+          "pct": 23
+        },
+        {
+          "z": 3,
+          "range": "126-143",
+          "time": "08:14",
+          "pct": 22
+        },
+        {
+          "z": 4,
+          "range": "144-161",
+          "time": "03:47",
+          "pct": 10
+        },
+        {
+          "z": 5,
+          "range": ">161",
+          "time": "00:00",
+          "pct": 0
+        }
+      ],
+      "planned_structure_followed": {
+        "objective": "recuperar + soltar + activar sin fatiga",
+        "target_duration_min": "30-35",
+        "target_distance_m": "600-900",
+        "target_intensity": "Z1-Z2 predominante",
+        "warmup_plan": {
+          "content": [
+            "200 m crol muy suave",
+            "100 m técnica / control respiración y agarre",
+            "100 m suave"
+          ],
+          "coach_intent": "soltar y entrar en sesión sin carga"
+        },
+        "main_set_plan": {
+          "content": [
+            "4 x 50 m cómodos",
+            "20-30 s descanso",
+            "opcional 2 x 25 m un poco más vivos"
+          ],
+          "coach_intent": "activar sin fatigar"
+        },
+        "cooldown_plan": {
+          "content": [
+            "100-200 m muy suave"
+          ],
+          "coach_intent": "salir más suelto que entrar"
+        },
+        "adherence_comment": "La sesión real encaja bien con el objetivo de recuperación activa; el patrón de intervalos muestra mezcla de bloques suaves y algunos tramos más vivos sin comprometer el taper."
+      },
+      "intervals": [
+        {
+          "i": 1,
+          "dist": 200,
+          "time": "4:53.5",
+          "pace": "2:27"
+        },
+        {
+          "i": 2,
+          "dist": 125,
+          "time": "2:51.6",
+          "pace": "2:17"
+        },
+        {
+          "i": 3,
+          "dist": 50,
+          "time": "0:53.7",
+          "pace": "1:47"
+        },
+        {
+          "i": 4,
+          "dist": 50,
+          "time": "0:52.8",
+          "pace": "1:46"
+        },
+        {
+          "i": 5,
+          "dist": 50,
+          "time": "0:51.9",
+          "pace": "1:44"
+        },
+        {
+          "i": 6,
+          "dist": 50,
+          "time": "1:09.0",
+          "pace": "2:18"
+        },
+        {
+          "i": 7,
+          "dist": 200,
+          "time": "4:50.6",
+          "pace": "2:25"
+        },
+        {
+          "i": 8,
+          "dist": 25,
+          "time": "0:23.4",
+          "pace": "1:33"
+        },
+        {
+          "i": 9,
+          "dist": 150,
+          "time": "4:14.2",
+          "pace": "2:49"
+        }
+      ],
+      "coach_notes": [
+        "Natación regenerativa bien ejecutada",
+        "Predominio aeróbico con ligera activación en tramos cortos",
+        "Buen complemento tras sesión híbrida",
+        "Carga muy bien ajustada para taper",
+        "Incluye referencia explícita al plan de natación sugerido y su intención técnica"
+      ]
+    }
+  ],
+  "daily_totals": {
+    "time_total": "01:38:05",
+    "calories_total": 827,
+    "calories_active": 684,
+    "distance_total_m": 900,
+    "sweat_loss_known_ml": 558,
+    "training_load_total": 108
+  },
+  "interpretation": {
+    "profile": "doble_sesion_controlada",
+    "cardio": "moderado",
+    "muscular": "moderado_bajo",
+    "objetivo_cumplido": true,
+    "coach_summary": "Día muy bien ejecutado en fase taper. Estímulo suficiente sin generar fatiga residual. Preparación óptima para la competición."
+  }
+}

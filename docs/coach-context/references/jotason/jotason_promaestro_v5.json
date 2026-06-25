@@ -1,0 +1,50 @@
+{
+  "jotason_version": "5.0_promaestro_master_plan",
+  "plan_name": "hybrid_strength_skills_trail_system",
+  "last_update": "2026-04-12",
+  "priorities": {
+    "primary": "functional_lean_mass_full_body",
+    "secondary": "skills_mastery",
+    "tertiary": "endurance_events_trail_triathlon"
+  },
+  "weekly_structure": {
+    "monday": [
+      "hybrid",
+      "swimming_or_z2",
+      "skills_hspu"
+    ],
+    "tuesday": [
+      "full_body_strength",
+      "running_zone5",
+      "skills_pistol"
+    ],
+    "wednesday": [
+      "hybrid",
+      "swimming",
+      "mobility"
+    ],
+    "thursday": [
+      "upper_body_strength",
+      "skills_muscle_up",
+      "mobility_or_light_bike"
+    ],
+    "friday": [
+      "long_cycling_z2",
+      "core_glute_activation_optional"
+    ],
+    "saturday": [
+      "heavy_leg_strength"
+    ],
+    "sunday": [
+      "trail_run_long"
+    ]
+  },
+  "rules": [
+    "priority_mass_over_cardio",
+    "skills_every_week",
+    "only_one_high_intensity_running_day",
+    "friday_no_leg_fatigue",
+    "saturday_primary_strength_day",
+    "sunday_specific_endurance_not_competition"
+  ]
+}

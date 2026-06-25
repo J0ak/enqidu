@@ -1,0 +1,20 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-10",
+  "day_type": "trail_running_aerobic_base",
+  "sessions": [
+    {
+      "session_type": "trail_running",
+      "session_name": "Madrid Trail Running",
+      "distance_km": 8.56,
+      "elapsed_time": "00:59:52",
+      "moving_time": "00:57:13",
+      "avg_hr": 123,
+      "max_hr": 142,
+      "avg_pace": "6:52/km",
+      "ascent_m": 109,
+      "aerobic_training_effect": 2.9,
+      "exercise_load": 68
+    }
+  ]
+}

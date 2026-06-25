@@ -1,0 +1,60 @@
+{
+    "inventory_version": "v4",
+    "last_update": "2026-02-26",
+    "location": "home",
+    "strength_equipment": {
+        "rack": true,
+        "barbell": {
+            "type": "Ohio Bar",
+            "available": true
+        },
+        "plates_kg": {
+            "20kg": 2,
+            "10kg": 2,
+            "5kg": 2,
+            "2_5kg": 2,
+            "1_5kg": 2
+        },
+        "dumbbells_pairs_kg": [
+            17.5,
+            10,
+            5,
+            2.5,
+            2
+        ],
+        "kettlebells_kg": [
+            24,
+            18,
+            16
+        ],
+        "landmine": true,
+        "weighted_vest_kg": {
+            "5kg": true,
+            "10kg": true
+        }
+    },
+    "functional_equipment": {
+        "rings": true,
+        "single_pulley": true,
+        "double_pulley": true,
+        "step_box": true,
+        "bands": true,
+        "sliders": true,
+        "balance_board": true
+    },
+    "conditioning_equipment": {
+        "wall_ball_lb": 18,
+        "slam_ball_lb": 30,
+        "jump_rope": true
+    },
+    "core_recovery": {
+        "abmat": true,
+        "ab_wheel": true,
+        "foam_roller": true,
+        "theragun": true
+    },
+    "constraints": {
+        "cardio_at_home": false,
+        "no_rack_when_rain": false
+    }
+}

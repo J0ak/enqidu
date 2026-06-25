@@ -10,7 +10,7 @@
       "role": "pilot_user_equipment_inventory",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "jotason_promaestro_v5.json",
@@ -19,7 +19,7 @@
       "role": "historical_master_plan_reference",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
@@ -28,7 +28,7 @@
       "role": "historical_session_contract_reference",
       "genericity": "contract_reference_not_product_model",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
@@ -37,7 +37,7 @@
       "role": "monthly_history_aggregation_fixture",
       "genericity": "jotason_fixture_only",
       "required": false,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
@@ -46,7 +46,7 @@
       "role": "daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-04-21_FULL_DAY.json",
@@ -55,7 +55,7 @@
       "role": "daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
@@ -64,7 +64,7 @@
       "role": "daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "2026-04-26_jotason_trail.json",
@@ -73,7 +73,7 @@
       "role": "trail_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "2026-04-27_jotason.json",
@@ -82,7 +82,7 @@
       "role": "daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "2026-04-29_jotason_full_day_v2.json",
@@ -91,7 +91,7 @@
       "role": "full_day_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "2026-05-04_JOTASON_FULL.json",
@@ -100,7 +100,7 @@
       "role": "full_day_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-05-05_strength_lower_body.json",
@@ -109,7 +109,7 @@
       "role": "strength_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-05-06_HIBRIDO_SWIM.json",
@@ -118,7 +118,7 @@
       "role": "hybrid_swim_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-05-07_YOGA_RECOVERY.json",
@@ -127,7 +127,7 @@
       "role": "yoga_recovery_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
@@ -136,7 +136,7 @@
       "role": "hybrid_full_day_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
@@ -145,7 +145,7 @@
       "role": "lower_strength_hybrid_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "jotason_trail_running_2026_05_10.json",
@@ -154,7 +154,7 @@
       "role": "trail_running_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "11-05-2026_Jotason.json",
@@ -163,7 +163,7 @@
       "role": "daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "Jotason_2026-05-12_upper_hybrid_skill_strength.json",
@@ -172,7 +172,7 @@
       "role": "upper_hybrid_skill_strength_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     },
     {
       "file": "Jotason_2026-05-13_COMPLETO.json",
@@ -181,7 +181,7 @@
       "role": "complete_daily_session_fixture",
       "genericity": "jotason_fixture_only",
       "required": true,
-      "status": "missing_source"
+      "status": "copied"
     }
   ]
 }

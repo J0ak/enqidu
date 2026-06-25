@@ -1,0 +1,58 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_STRENGTH",
+  "date": "2026-05-05",
+  "day_type": "strength_lower_body",
+  "sessions": [
+    {
+      "session_type": "strength_training",
+      "focus": "lower_body_hypertrophy_strength",
+      "duration_total": "01:08:36",
+      "heart_rate_avg": 95,
+      "heart_rate_max": 141,
+      "training_effect": {
+        "aerobic": 0.9,
+        "anaerobic": 0.1,
+        "load": 13
+      },
+      "exercises": [
+        {
+          "exercise": "front_squat",
+          "sets": 4,
+          "reps": 6,
+          "weight_kg": 70
+        },
+        {
+          "exercise": "hip_thrust",
+          "sets": 3,
+          "reps": 10,
+          "weight_kg": [
+            70,
+            80,
+            80
+          ]
+        },
+        {
+          "exercise": "romanian_deadlift",
+          "sets": 3,
+          "reps": 8,
+          "weight_kg": 80
+        },
+        {
+          "exercise": "walking_lunges",
+          "sets": 2,
+          "reps": 10,
+          "weight_kg_each_hand": 17.5
+        },
+        {
+          "exercise": "standing_calf_raise",
+          "sets": 3,
+          "reps": 15,
+          "weight_kg": 40
+        },
+        {
+          "exercise": "core_work"
+        }
+      ]
+    }
+  ]
+}
