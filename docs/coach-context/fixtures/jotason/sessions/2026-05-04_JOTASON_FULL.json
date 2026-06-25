@@ -1,0 +1,10 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-04",
+  "day_type": "doble_sesion_hibrido_swim_recovery",
+  "sessions_included": [
+    "hybrid_hiit_detailed",
+    "swimming_pool"
+  ],
+  "status": "ready_for_project_upload"
+}

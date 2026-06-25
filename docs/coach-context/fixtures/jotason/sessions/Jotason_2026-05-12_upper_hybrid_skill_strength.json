@@ -1,0 +1,39 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-12",
+  "day_type": "upper_hybrid_skill_strength",
+  "sessions": [
+    {
+      "session_type": "strength_hybrid_skill",
+      "session_name": "Upper Hybrid Skill + Strength",
+      "source": "Garmin Strength",
+      "start_time": "2026-05-12T18:02:00",
+      "duration_total": "01:32:48",
+      "duration_work": "01:24:04",
+      "duration_rest": "00:08:44",
+      "training_effect": {
+        "aerobic": 0.6,
+        "anaerobic": 0.1,
+        "primary_benefit": "Base (Aeróbica baja)",
+        "training_load": 9
+      },
+      "heart_rate": {
+        "avg_bpm": 92,
+        "max_bpm": 137
+      },
+      "respiration": {
+        "avg_brpm": 20,
+        "min_brpm": 11,
+        "max_brpm": 33
+      },
+      "calories": {
+        "rest_kcal": 136,
+        "active_kcal": 312,
+        "total_kcal": 448
+      },
+      "hydration": {
+        "estimated_fluid_loss_ml": 638
+      }
+    }
+  ]
+}

@@ -1,0 +1,253 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-08",
+  "day_type": "doble_sesion_hibrido_upper_run",
+  "sessions": [
+    {
+      "session_type": "running",
+      "title": "Z2 urban recovery run",
+      "start_time": "2026-05-08T08:01:00",
+      "duration": {
+        "total": "00:30:19",
+        "moving": "00:30:14",
+        "running": "00:26:55",
+        "walking": "00:03:18"
+      },
+      "distance_km": 4.76,
+      "pace": {
+        "avg_pace": "6:23/km",
+        "moving_pace": "6:21/km",
+        "grade_adjusted_pace": "6:16/km",
+        "best_pace": "4:57/km"
+      },
+      "speed": {
+        "avg_kmh": 9.4,
+        "max_kmh": 12.1
+      },
+      "heart_rate": {
+        "avg_bpm": 125,
+        "max_bpm": 175,
+        "zones": {
+          "z1_91_109": "02:32",
+          "z2_110_127": "15:42",
+          "z3_128_145": "05:16",
+          "z4_146_163": "02:16",
+          "z5_163_plus": "02:45"
+        }
+      },
+      "training_effect": {
+        "primary_benefit": "Tempo (Aeróbica alta)",
+        "aerobic": 2.6,
+        "anaerobic": 0.7,
+        "training_load": 64
+      },
+      "stamina": {
+        "initial": "100%",
+        "final": "87%",
+        "minimum": "85%"
+      },
+      "power": {
+        "avg_w": 294,
+        "max_w": 421,
+        "zones": {
+          "z1_262_325": "15:26",
+          "z2_326_363": "05:48",
+          "z3_364_404": "03:30",
+          "z4_405_466": "00:37",
+          "z5_466_plus": "00:00"
+        }
+      },
+      "running_dynamics": {
+        "cadence_avg_spm": 157,
+        "cadence_max_spm": 179,
+        "stride_length_m": 1.0,
+        "vertical_ratio_pct": 8.5,
+        "vertical_oscillation_cm": 8.5,
+        "ground_contact_time_ms": 278
+      },
+      "elevation": {
+        "ascent_m": 34,
+        "descent_m": 33,
+        "min_altitude_m": 633,
+        "max_altitude_m": 647
+      },
+      "respiration": {
+        "avg_brpm": 31,
+        "min_brpm": 18,
+        "max_brpm": 43
+      },
+      "environment": {
+        "temp_avg_c": 15,
+        "temp_min_c": 12,
+        "temp_max_c": 26
+      },
+      "nutrition_hydration": {
+        "calories_total": 358,
+        "estimated_fluid_loss_ml": 418
+      },
+      "laps": [
+        {
+          "lap": 1,
+          "distance_km": 1.0,
+          "time": "06:04.7",
+          "pace": "6:05/km"
+        },
+        {
+          "lap": 2,
+          "distance_km": 1.0,
+          "time": "06:01.9",
+          "pace": "6:02/km"
+        },
+        {
+          "lap": 3,
+          "distance_km": 1.0,
+          "time": "06:17.7",
+          "pace": "6:18/km"
+        },
+        {
+          "lap": 4,
+          "distance_km": 1.0,
+          "time": "05:54.9",
+          "pace": "5:55/km"
+        },
+        {
+          "lap": 5,
+          "distance_km": 0.76,
+          "time": "06:00.1",
+          "pace": "7:56/km"
+        }
+      ],
+      "notes": [
+        "Urban recovery-oriented aerobic run",
+        "Good stamina preservation throughout session",
+        "Included short walking interruptions"
+      ]
+    },
+    {
+      "session_type": "strength_hybrid_upper",
+      "title": "Upper body rings + military press + core",
+      "start_time": "2026-05-08T16:16:00",
+      "duration": {
+        "total": "01:34:09",
+        "work": "01:28:10",
+        "rest": "00:05:59"
+      },
+      "heart_rate": {
+        "avg_bpm": 92,
+        "max_bpm": 130,
+        "note": "HR strap malfunction during session. HR metrics partially unreliable."
+      },
+      "training_effect": {
+        "aerobic": 0.6,
+        "anaerobic": 0.6,
+        "training_load": 15
+      },
+      "nutrition_hydration": {
+        "calories_resting": 54,
+        "calories_active": 64,
+        "calories_total": 118,
+        "estimated_fluid_loss_ml": 764
+      },
+      "session_quality": {
+        "rpe_global": 8.5,
+        "rir_general": "1-2",
+        "rir_military_press": "1",
+        "focus": [
+          "rings skill",
+          "false grip adaptation",
+          "upper strength",
+          "core stability",
+          "shoulder control"
+        ]
+      },
+      "blocks": [
+        {
+          "block_name": "rings_skill",
+          "exercises": [
+            {
+              "name": "False grip ring pull-ups",
+              "sets": 5,
+              "reps": "4-5",
+              "notes": "Slow strict execution"
+            },
+            {
+              "name": "False grip isometrics",
+              "notes": "Bottom, midpoint and top holds"
+            },
+            {
+              "name": "Muscle-up transitions",
+              "assist": "yellow band"
+            },
+            {
+              "name": "Handstand wall hold",
+              "sets": 4,
+              "duration_seconds": 30
+            }
+          ]
+        },
+        {
+          "block_name": "upper_strength",
+          "exercises": [
+            {
+              "name": "Military press",
+              "sets": 4,
+              "reps": 6,
+              "weight_kg": 38
+            },
+            {
+              "name": "Landmine row bilateral",
+              "sets": [
+                {
+                  "reps": 8,
+                  "weight_kg": 35
+                },
+                {
+                  "reps": 8,
+                  "weight_kg": 40
+                },
+                {
+                  "reps": 8,
+                  "weight_kg": 40
+                },
+                {
+                  "reps": 8,
+                  "weight_kg": 40
+                }
+              ]
+            },
+            {
+              "name": "Ring dips",
+              "sets": 3,
+              "reps": 6
+            }
+          ]
+        },
+        {
+          "block_name": "core_stability",
+          "exercises": [
+            {
+              "name": "Ab wheel",
+              "notes": "Mixed standing partials and kneeling reps"
+            },
+            {
+              "name": "Farmer carry unilateral",
+              "weight_kg": 24,
+              "rounds": 3
+            },
+            {
+              "name": "Pallof press",
+              "equipment": "light blue band",
+              "format": "superset"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        "Excellent false grip adaptation progress",
+        "Shoulders tolerated rings work very well",
+        "Peroneal area perceived as weak/fatigued but not painful",
+        "Need to continue ankle/peroneal stability work for trail transfer"
+      ]
+    }
+  ]
+}

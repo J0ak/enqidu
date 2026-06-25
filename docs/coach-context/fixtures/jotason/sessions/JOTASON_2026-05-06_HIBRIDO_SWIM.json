@@ -1,0 +1,66 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-06",
+  "day_type": "doble_sesion_hibrido_swim",
+  "sessions": [
+    {
+      "session_type": "hybrid_hiit",
+      "start_time": "07:16",
+      "summary": {
+        "time_total": "00:43:37",
+        "time_work": "00:32:07",
+        "time_rest": "00:11:30",
+        "heart_rate_avg": 128,
+        "heart_rate_max": 163,
+        "training_effect": {
+          "primary": "Sprint (Anaeróbico)",
+          "aerobic": 3.0,
+          "anaerobic": 2.1,
+          "load": 105
+        },
+        "calories": {
+          "rest": 64,
+          "active": 381,
+          "total": 445
+        },
+        "hydration_loss_ml": 462,
+        "respiration": {
+          "avg_rpm": 29,
+          "min_rpm": 17,
+          "max_rpm": 42
+        }
+      }
+    },
+    {
+      "session_type": "swimming_pool",
+      "start_time": "17:42",
+      "summary": {
+        "distance_m": 1200,
+        "time_total": "00:32:19",
+        "time_moving": "00:28:50",
+        "time_elapsed": "00:32:37",
+        "pace_avg_100m": "02:24",
+        "pace_best_100m": "01:38",
+        "heart_rate_avg": 114,
+        "heart_rate_max": 149,
+        "training_effect": {
+          "primary": "Base (Aeróbica baja)",
+          "aerobic": 2.5,
+          "anaerobic": 0.3,
+          "load": 52
+        },
+        "calories": {
+          "rest": 47,
+          "active": 256,
+          "total": 303
+        }
+      }
+    }
+  ],
+  "daily_totals": {
+    "training_time_total": "01:15:56",
+    "calories_total": 748,
+    "calories_active": 637,
+    "training_load_total": 157
+  }
+}

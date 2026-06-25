@@ -1,0 +1,86 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_MULTISPORT",
+  "date": "2026-05-07",
+  "day_type": "recovery_yoga_session",
+  "sessions": [
+    {
+      "session_type": "yoga",
+      "source": "Garmin",
+      "title": "Yoga Recovery Session",
+      "start_time_local": "2026-05-07T17:57:00",
+      "metrics": {
+        "duration_total": "00:59:28",
+        "duration_work": "00:59:28",
+        "duration_rest": "00:00:00",
+        "heart_rate": {
+          "avg_bpm": 85,
+          "max_bpm": 124
+        },
+        "training_effect": {
+          "primary_benefit": "Recuperación (Aeróbica baja)",
+          "aerobic": 0.6,
+          "anaerobic": 0.0,
+          "training_load": 8
+        },
+        "calories": {
+          "rest_kcal": 87,
+          "active_kcal": 177,
+          "total_kcal": 264
+        },
+        "hydration": {
+          "estimated_fluid_loss_ml": 528
+        },
+        "heart_rate_zones": {
+          "zone_5": {
+            "range_bpm": ">162",
+            "time": "00:00:00",
+            "percent": 0
+          },
+          "zone_4": {
+            "range_bpm": "145-162",
+            "time": "00:00:00",
+            "percent": 0
+          },
+          "zone_3": {
+            "range_bpm": "127-144",
+            "time": "00:00:00",
+            "percent": 0
+          },
+          "zone_2": {
+            "range_bpm": "109-126",
+            "time": "00:06:37",
+            "percent": 11
+          },
+          "zone_1": {
+            "range_bpm": "91-108",
+            "time": "00:17:13",
+            "percent": 28
+          }
+        }
+      },
+      "exercise_blocks": [
+        {
+          "block_id": 1,
+          "exercise_name": "Yoga Flow / Mobility Session",
+          "duration": "00:59:28",
+          "repetitions": null
+        }
+      ],
+      "recovery_analysis": {
+        "session_character": "very_low_intensity_recovery",
+        "cardiovascular_stress": "minimal",
+        "mobility_focus": true,
+        "core_stability_focus": true,
+        "recommended_post_session": [
+          "hydration",
+          "light_dinner",
+          "sleep_recovery"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "Sesión orientada a recuperación activa y movilidad.",
+    "Carga fisiológica muy baja compatible con descarga tras sesiones híbridas/trail."
+  ]
+}

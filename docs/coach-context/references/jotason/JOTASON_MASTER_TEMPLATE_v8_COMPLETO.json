@@ -1,0 +1,657 @@
+{
+  "jotason_template_version": "8.0_universal_master_template",
+  "purpose": "Plantilla maestra universal para generar sesiones JOTASON homogéneas en el proyecto.",
+  "usage_notes": {
+    "intended_user": "entrenador_personal",
+    "workflow": [
+      "Crear una sesión usando esta plantilla.",
+      "Rellenar siempre el bloque core común.",
+      "Rellenar solo el subbloque específico del deporte correspondiente dentro de activity_specific.",
+      "Mantener todos los campos aunque no haya dato: usar null, [], o {} según corresponda.",
+      "Separar siempre lo que viene de Garmin/FIT de lo que introduce el entrenador.",
+      "En fuerza e híbrido/HIIT, reconciliar la estructura del entrenador con los pasos/bloques registrados por Garmin.",
+      "En running, trail y swimming, incluir summary, zones, laps/intervals y time_series si existen.",
+      "Marcar data_quality y corrected_fields si hubo ajustes manuales."
+    ],
+    "normalization_rules": {
+      "time_unit": "seconds",
+      "distance_unit": "meters",
+      "pace_unit_running": "sec_per_km",
+      "pace_unit_swimming": "sec_per_100m",
+      "speed_unit": "km_per_h",
+      "weight_unit": "kg",
+      "heart_rate_unit": "bpm",
+      "respiration_unit": "brpm",
+      "power_unit": "watts",
+      "temperature_unit": "celsius",
+      "elevation_unit": "meters"
+    }
+  },
+  "session": {
+    "metadata": {
+      "session_id": null,
+      "date": null,
+      "day_of_week": null,
+      "source": [
+        "fit",
+        "garmin_ui",
+        "manual_coach",
+        "manual_athlete",
+        "inferred"
+      ],
+      "sport_type": null,
+      "sub_type": null,
+      "environment": null,
+      "location": {
+        "venue_name": null,
+        "city": null,
+        "country": null,
+        "lat": null,
+        "lon": null
+      },
+      "device": {
+        "brand": null,
+        "model": null
+      },
+      "tags": [],
+      "data_entry_mode": null
+    },
+    "summary": {
+      "duration_total_s": null,
+      "duration_work_s": null,
+      "duration_rest_s": null,
+      "duration_moving_s": null,
+      "duration_elapsed_s": null,
+      "distance_m": null,
+      "distance_km": null,
+      "pace": {
+        "avg_sec_per_km": null,
+        "moving_sec_per_km": null,
+        "gap_sec_per_km": null,
+        "best_sec_per_km": null,
+        "avg_sec_per_100m": null,
+        "best_sec_per_100m": null
+      },
+      "speed": {
+        "avg_kmh": null,
+        "moving_kmh": null,
+        "max_kmh": null
+      },
+      "elevation": {
+        "gain_m": null,
+        "loss_m": null,
+        "min_m": null,
+        "max_m": null
+      },
+      "heart_rate": {
+        "avg_bpm": null,
+        "max_bpm": null,
+        "recovery_1min_bpm": null
+      },
+      "respiration": {
+        "avg_brpm": null,
+        "min_brpm": null,
+        "max_brpm": null
+      },
+      "calories": {
+        "rest_kcal": null,
+        "active_kcal": null,
+        "total_kcal": null
+      },
+      "hydration": {
+        "estimated_fluid_loss_ml": null
+      },
+      "training_effect": {
+        "primary_benefit": null,
+        "aerobic": null,
+        "anaerobic": null
+      },
+      "training_load": {
+        "exercise_load": null
+      },
+      "intensity_minutes": {
+        "moderate_min": null,
+        "high_min": null,
+        "total_min": null
+      },
+      "session_training_details": {
+        "total_reps_garmin": null,
+        "total_sets_garmin": null,
+        "avg_time_per_set_s": null,
+        "avg_reps_per_set": null,
+        "total_volume_kg_garmin": null
+      },
+      "body_battery": {
+        "net_impact": null
+      }
+    },
+    "zones": {
+      "heart_rate_zones": [
+        {
+          "zone": null,
+          "range_bpm": [
+            null,
+            null
+          ],
+          "label": null,
+          "time_s": null,
+          "percent": null
+        }
+      ],
+      "power_zones": [
+        {
+          "zone": null,
+          "range_w": [
+            null,
+            null
+          ],
+          "label": null,
+          "time_s": null,
+          "percent": null
+        }
+      ]
+    },
+    "environment": {
+      "temperature_c": {
+        "min": null,
+        "max": null,
+        "time_series": []
+      },
+      "weather": null,
+      "wind_data_enabled": null
+    },
+    "time_series": {
+      "heart_rate_bpm": [],
+      "respiration_brpm": [],
+      "pace_sec_per_km": [],
+      "pace_sec_per_100m": [],
+      "speed_kmh": [],
+      "power_w": [],
+      "elevation_m": [],
+      "cadence_spm": [],
+      "stride_length_m": [],
+      "vertical_ratio_pct": [],
+      "vertical_oscillation_cm": [],
+      "ground_contact_time_ms": [],
+      "stamina_pct": [],
+      "performance_condition": [],
+      "strokes_per_length": [],
+      "stroke_rate_spm": [],
+      "swolf": [],
+      "temperature_c": [],
+      "body_battery_impact": []
+    },
+    "laps": [
+      {
+        "lap_index": null,
+        "distance_m": null,
+        "duration_s": null,
+        "pace_sec_per_km": null,
+        "pace_sec_per_100m": null,
+        "heart_rate_avg_bpm": null,
+        "heart_rate_max_bpm": null,
+        "power_avg_w": null,
+        "cadence_avg_spm": null,
+        "notes": null
+      }
+    ],
+    "intervals": [
+      {
+        "interval_index": null,
+        "type": null,
+        "distance_m": null,
+        "duration_s": null,
+        "pace_sec_per_km": null,
+        "pace_sec_per_100m": null,
+        "rest_after_s": null,
+        "heart_rate_avg_bpm": null,
+        "heart_rate_max_bpm": null,
+        "power_avg_w": null,
+        "power_max_w": null,
+        "stroke_style": null,
+        "strokes_count": null,
+        "strokes_per_length_avg": null,
+        "stroke_rate_spm_avg": null,
+        "swolf_avg": null,
+        "notes": null
+      }
+    ],
+    "garmin_steps_raw": [
+      {
+        "step_index": null,
+        "name_raw": null,
+        "duration_s": null,
+        "distance_m": null,
+        "reps": null,
+        "weight_kg": null,
+        "rest_s": null
+      }
+    ],
+    "structure": {
+      "session_format": {
+        "type": null,
+        "description": null
+      },
+      "global_structure": {
+        "blocks_total": null,
+        "rounds_total": null,
+        "exercises_total": null,
+        "sets_total_real": null,
+        "reps_total_real": null,
+        "volume_total_real_kg": null
+      },
+      "blocks": [
+        {
+          "block_index": null,
+          "block_id": null,
+          "block_name": null,
+          "block_type": null,
+          "objective": null,
+          "format": null,
+          "planned_by_coach": {
+            "sets_target": null,
+            "reps_target": null,
+            "load_target_kg": null,
+            "rpe_target": null,
+            "rir_target": null,
+            "work_target_s": null,
+            "rest_target_s": null,
+            "rounds_target": null,
+            "tempo_target": null,
+            "notes": null
+          },
+          "recorded_by_garmin": {
+            "step_name_raw": null,
+            "duration_s": null,
+            "distance_m": null,
+            "reps": null,
+            "weight_kg": null,
+            "rest_after_s": null
+          },
+          "coach_interpretation": {
+            "duration_real_s": null,
+            "rest_real_s": null,
+            "rounds_real": null,
+            "notes": null
+          },
+          "physiology": {
+            "heart_rate_avg_bpm": null,
+            "heart_rate_max_bpm": null,
+            "respiration_avg_brpm": null
+          },
+          "exercises": [
+            {
+              "exercise_index": null,
+              "exercise_name": null,
+              "exercise_aliases": [],
+              "exercise_type": null,
+              "movement_pattern": null,
+              "equipment": null,
+              "primary_muscles": [],
+              "secondary_muscles": [],
+              "loading": {
+                "load_kg": null,
+                "load_description": null,
+                "weight_each_side_kg": null,
+                "kg_per_hand": null,
+                "kg_per_leg": null,
+                "load_total_kg": null,
+                "bodyweight_only": null
+              },
+              "execution": {
+                "sets": null,
+                "reps_per_set": [],
+                "set_details": [
+                  {
+                    "set_number": null,
+                    "reps": null,
+                    "load_kg": null,
+                    "rir": null,
+                    "rpe": null,
+                    "tempo": null,
+                    "rest_after_s": null,
+                    "side": null,
+                    "time_under_tension_s": null,
+                    "distance_m": null,
+                    "notes": null
+                  }
+                ],
+                "reps_total": null,
+                "time_under_tension_s": null,
+                "distance_m": null,
+                "tempo_global": null,
+                "unilateral": null,
+                "side_pattern": null
+              },
+              "volume": {
+                "set_volumes_kg": [],
+                "volume_total_kg": null
+              },
+              "intensity": {
+                "top_set_kg": null,
+                "backoff_sets": null,
+                "estimated_relative_intensity": null
+              },
+              "garmin_mapping": {
+                "mapped_from_step_name": null,
+                "mapping_confidence": null,
+                "is_unknown_reconstructed": null
+              },
+              "quality": {
+                "technical_quality": null,
+                "effort": null,
+                "range_of_motion": null,
+                "notes": null
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "activity_specific": {
+      "running": {
+        "run_type": null,
+        "terrain": null,
+        "power": {
+          "avg_w": null,
+          "max_w": null
+        },
+        "cadence": {
+          "avg_spm": null,
+          "max_spm": null
+        },
+        "stride": {
+          "avg_length_m": null
+        },
+        "vertical": {
+          "ratio_pct_avg": null,
+          "oscillation_cm_avg": null
+        },
+        "ground_contact": {
+          "time_ms_avg": null
+        },
+        "stamina": {
+          "start_pct": null,
+          "end_pct": null,
+          "min_pct": null
+        },
+        "performance_condition": {
+          "avg": null,
+          "max": null,
+          "min": null
+        },
+        "run_walk_detection": {
+          "running_time_s": null,
+          "walking_time_s": null,
+          "idle_time_s": null,
+          "events": [
+            {
+              "type": null,
+              "start_s": null,
+              "end_s": null,
+              "duration_s": null
+            }
+          ]
+        }
+      },
+      "trail": {
+        "terrain": null,
+        "technicality": null,
+        "surface": null,
+        "elevation_gain_m": null,
+        "elevation_loss_m": null,
+        "power": {
+          "avg_w": null,
+          "max_w": null
+        },
+        "cadence": {
+          "avg_spm": null,
+          "max_spm": null
+        },
+        "stride": {
+          "avg_length_m": null
+        },
+        "vertical": {
+          "ratio_pct_avg": null,
+          "oscillation_cm_avg": null
+        },
+        "ground_contact": {
+          "time_ms_avg": null
+        },
+        "stamina": {
+          "start_pct": null,
+          "end_pct": null,
+          "min_pct": null
+        },
+        "performance_condition": {
+          "avg": null,
+          "max": null,
+          "min": null
+        },
+        "run_walk_detection": {
+          "running_time_s": null,
+          "walking_time_s": null,
+          "idle_time_s": null,
+          "events": [
+            {
+              "type": null,
+              "start_s": null,
+              "end_s": null,
+              "duration_s": null
+            }
+          ]
+        }
+      },
+      "swimming": {
+        "pool": {
+          "length_m": null,
+          "environment": null
+        },
+        "strokes": {
+          "total_count": null,
+          "stroke_rate_spm_avg": null,
+          "stroke_rate_spm_max": null,
+          "strokes_per_length_avg": null
+        },
+        "swolf": {
+          "avg": null,
+          "best": null
+        },
+        "stroke_style": {
+          "primary_style": null,
+          "style_by_interval": [
+            {
+              "interval_index": null,
+              "style": null
+            }
+          ]
+        }
+      },
+      "hybrid_hiit": {
+        "dominant_system": null,
+        "dominant_mechanical_stress": null,
+        "coordination_complexity": null,
+        "work_rest_ratio": null,
+        "work_percent": null,
+        "rest_percent": null
+      },
+      "strength": {
+        "dominant_region": null,
+        "dominant_pattern": null,
+        "unilateral_share_pct": null,
+        "posterior_chain_share_pct": null,
+        "top_sets": [
+          {
+            "exercise_name": null,
+            "top_set_kg": null,
+            "reps": null
+          }
+        ],
+        "volume_by_exercise": [
+          {
+            "exercise_name": null,
+            "volume_total_kg": null
+          }
+        ]
+      },
+      "yoga_recovery": {
+        "focus_areas": [],
+        "methods": [],
+        "mobility_gain": null,
+        "relaxation": null,
+        "pain_reduction": null
+      }
+    },
+    "reconciliation": {
+      "matching_strategy": {
+        "method": "manual_coach_mapping",
+        "notes": null
+      },
+      "block_matches": [
+        {
+          "coach_block_id": null,
+          "garmin_step_indices": [],
+          "match_confidence": null,
+          "comments": null
+        }
+      ],
+      "unmatched_garmin_steps": [],
+      "unmatched_coach_blocks": [],
+      "consistency_checks": {
+        "duration_match": null,
+        "reps_match": null,
+        "load_match": null,
+        "overall_integrity": null
+      }
+    },
+    "derived_metrics": {
+      "density": {
+        "work_rest_ratio": null,
+        "work_percent": null,
+        "rest_percent": null
+      },
+      "efficiency": {
+        "hr_pace_ratio": null,
+        "power_efficiency": null,
+        "distance_per_stroke_m": null,
+        "stroke_efficiency_index": null,
+        "pace_stability_score": null,
+        "swolf_stability_score": null
+      },
+      "session_profile": {
+        "dominant_intensity": null,
+        "technical_quality": null,
+        "fatigue_pattern": null,
+        "session_quality": null
+      },
+      "block_analysis": [
+        {
+          "block_id": null,
+          "estimated_internal_load_share_pct": null,
+          "estimated_mechanical_load_share_pct": null,
+          "notes": null
+        }
+      ]
+    },
+    "coach_layer": {
+      "narrative_summary": null,
+      "technical_observations": [],
+      "errors_or_adjustments": [],
+      "recommendations_next_time": []
+    },
+    "data_quality": {
+      "confidence": null,
+      "source_priority": [
+        "fit",
+        "garmin_ui",
+        "manual_coach",
+        "manual_athlete",
+        "inferred"
+      ],
+      "missing_fields": [],
+      "corrected_fields": [],
+      "requires_manual_review": null
+    }
+  },
+  "sport_specific_templates_reference": {
+    "running": {
+      "required_focus": [
+        "pace",
+        "distance",
+        "heart_rate",
+        "zones",
+        "cadence",
+        "power_if_available",
+        "run_walk_detection_if_available",
+        "stamina_if_available",
+        "performance_condition_if_available"
+      ]
+    },
+    "trail": {
+      "required_focus": [
+        "pace",
+        "distance",
+        "heart_rate",
+        "zones",
+        "elevation",
+        "terrain",
+        "power_if_available",
+        "stamina_if_available",
+        "run_walk_detection_if_available"
+      ]
+    },
+    "swimming": {
+      "required_focus": [
+        "pool_length",
+        "distance",
+        "pace_per_100m",
+        "strokes_total",
+        "stroke_rate",
+        "strokes_per_length",
+        "swolf",
+        "intervals",
+        "heart_rate_if_available",
+        "zones_if_available"
+      ]
+    },
+    "hybrid_hiit": {
+      "required_focus": [
+        "blocks",
+        "coach_reconciliation",
+        "work_rest",
+        "heart_rate",
+        "respiration",
+        "training_effect",
+        "load",
+        "temperature_if_available",
+        "body_battery_if_available"
+      ]
+    },
+    "strength": {
+      "required_focus": [
+        "blocks",
+        "exercises",
+        "set_details",
+        "loads",
+        "reps",
+        "volume_real",
+        "heart_rate",
+        "respiration",
+        "training_effect",
+        "load",
+        "zones"
+      ]
+    },
+    "yoga_recovery": {
+      "required_focus": [
+        "duration",
+        "heart_rate_if_available",
+        "respiration_if_available",
+        "focus_areas",
+        "methods",
+        "mobility_gain",
+        "recovery_effect"
+      ]
+    }
+  }
+}

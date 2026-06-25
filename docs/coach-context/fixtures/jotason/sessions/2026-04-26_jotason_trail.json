@@ -1,0 +1,45 @@
+{
+  "jotason_version": "MASTER_TEMPLATE_v8_RUNNING",
+  "activity_type": "trail_running",
+  "date": "2026-04-26",
+  "session": {
+    "title": "Bustarviejo Trail running",
+    "location": "Bustarviejo",
+    "start_time": "09:33"
+  },
+  "summary": {
+    "distance_km": 18.84,
+    "duration": {
+      "total": "03:02:54",
+      "moving": "02:55:27",
+      "elapsed": "03:02:54"
+    },
+    "pace": {
+      "avg": "09:42",
+      "moving_avg": "09:19",
+      "grade_adjusted": "07:32"
+    },
+    "speed": {
+      "avg_kmh": 6.2,
+      "max_kmh": 21.7
+    }
+  },
+  "training_effect": {
+    "primary_benefit": "Tempo",
+    "aerobic": 4.4,
+    "anaerobic": 0.4,
+    "load": 211
+  },
+  "heart_rate": {
+    "avg_bpm": 139,
+    "max_bpm": 168
+  },
+  "energy": {
+    "calories": {
+      "rest": 267,
+      "active": 1795,
+      "total": 2062
+    },
+    "hydration_loss_ml": 2181
+  }
+}
