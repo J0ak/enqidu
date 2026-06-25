@@ -180,7 +180,9 @@ const activityTypes = {
 
 const GARMIN_PRIMARY_ACTIVITY_FILTERS = [
   ["hiit", "HIIT"],
+  ["hybrid", "Híbrido"],
   ["strength", "Fuerza"],
+  ["recovery", "Recovery"],
   ["yoga", "Yoga"],
   ["pilates", "Pilates"],
   ["running", "Carrera"],

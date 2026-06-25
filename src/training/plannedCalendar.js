@@ -101,10 +101,13 @@ export function normalizeExecutedCalendarItem(row = {}) {
   const trainingEffect = summary.training_effect || {};
   const summaryMetrics = row.summary_metrics || {};
   const durationSeconds = numberOrNull(row.duration_seconds ?? row.durationSeconds ?? summary.duration_total_seconds ?? summary.duration_elapsed_seconds);
+  const garminActivityTypeKey = normalizeGarminTypeKeyForCalendar(row, summary);
   const normalized = {
     ...row,
     kind: "executed",
     id: normalizedId(row.id),
+    garminActivityTypeKey,
+    garminActivityTypeLabel: row.garminActivityTypeLabel || row.garmin_activity_type_label || TYPE_LABELS[garminActivityTypeKey] || titleCase(garminActivityTypeKey),
     duration_seconds: durationSeconds ?? Number(row.duration_seconds || row.durationSeconds || 0),
     avg_hr: numberOrNull(row.avg_hr ?? row.avg_heart_rate ?? row.average_heart_rate ?? row.average_heart_rate_bpm ?? summaryMetrics.avg_heart_rate ?? summaryMetrics.average_heart_rate ?? heartRate.avg_bpm),
     max_hr: numberOrNull(row.max_hr ?? row.max_heart_rate ?? row.maximum_heart_rate ?? row.maximum_heart_rate_bpm ?? summaryMetrics.max_heart_rate ?? summaryMetrics.maximum_heart_rate ?? heartRate.max_bpm),
@@ -366,6 +369,32 @@ function plannedTypeToActivityType(typeKey) {
   if (["mobility", "recovery", "rest"].includes(typeKey)) return "pilates";
   if (["hiit", "hybrid", "strength", "yoga", "pilates", "trail", "cycling"].includes(typeKey)) return typeKey;
   return "hybrid";
+}
+
+function normalizeGarminTypeKeyForCalendar(row = {}, summary = {}) {
+  const fitIdentity = summary.fit_identity || {};
+  const candidates = [
+    row.garminActivityTypeKey,
+    row.garmin_activity_type,
+    row.garminActivityType,
+    summary.activity_type,
+    fitIdentity.activity_type,
+    summary.sub_sport,
+    fitIdentity.sub_sport,
+    summary.sport,
+    fitIdentity.sport,
+    row.activity_type,
+    row.sport,
+    row.sub_sport,
+    row.title,
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const key = normalizePlannedTypeKey(candidate);
+    if (["yoga", "pilates", "hiit", "hybrid", "strength", "trail", "cycling", "swim", "run", "other"].includes(key)) {
+      return key === "swim" ? "swimming" : key === "run" ? "running" : key;
+    }
+  }
+  return "other";
 }
 
 function normalizeTextList(value) {

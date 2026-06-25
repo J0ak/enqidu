@@ -261,6 +261,77 @@ test("linked HIIT execution and Hibrido fuera de casa planned render one planned
   assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
 });
 
+[
+  {
+    name: "Yoga planned and Pilates execution linked by id render one planned completed card",
+    plannedId: "daf6e9c4-4e47-49ff-9e8a-09dc42747611",
+    plannedTitle: "Yoga",
+    plannedType: "yoga",
+    executedId: "23633125-00fa-4cb4-8a2f-49c0d3deb3eb",
+    executedTitle: "Pilates",
+    expectedGarminType: "pilates",
+    date: "2026-06-25",
+  },
+  {
+    name: "Hibrido fuera de casa planned and HIIT execution linked by id render one planned completed card",
+    plannedId: "0137033d-74af-4d37-bf1f-c417f7432082",
+    plannedTitle: "H\u00edbrido fuera de casa",
+    plannedType: "hybrid",
+    executedId: "1373ba73-ad5e-4cb0-b90f-21fcd2efd4b6",
+    executedTitle: "HIIT",
+    expectedGarminType: "hiit",
+    date: "2026-06-24",
+  },
+  {
+    name: "Recuperacion activa planned and Fuerza execution linked by id render one planned completed card",
+    plannedId: "06beb578-8b11-4525-b9de-c387e2bc9511",
+    plannedTitle: "Recuperaci\u00f3n activa",
+    plannedType: "recovery",
+    executedId: "0138b1aa-fc30-4f30-b7ba-2b69f3259a8b",
+    executedTitle: "Fuerza",
+    expectedGarminType: "strength",
+    date: "2026-06-23",
+  },
+].forEach((fixture) => {
+  test(fixture.name, () => {
+    const items = mergeExecutedAndPlannedForCalendar(
+      [
+        {
+          id: fixture.executedId,
+          title: fixture.executedTitle,
+          local_date: fixture.date,
+          started_at: `${fixture.date}T07:30:00`,
+          duration_seconds: 2071,
+          source_id: "garmin-fit",
+        },
+      ],
+      [
+        {
+          id: fixture.plannedId,
+          title: fixture.plannedTitle,
+          planned_date: fixture.date,
+          session_type: fixture.plannedType,
+          linked_completed_session_id: ` ${fixture.executedId} `,
+        },
+      ],
+    );
+
+    assert.equal(items.length, 1);
+    assert.equal(items.filter((item) => item.kind === "planned_completed").length, 1);
+    assert.equal(items.filter((item) => item.kind === "executed").length, 0);
+    assert.equal(items.filter((item) => item.kind === "planned").length, 0);
+    assert.equal(items[0].kind, "planned_completed");
+    assert.equal(items[0].title, fixture.plannedTitle);
+    assert.equal(items[0].displayTitle, fixture.plannedTitle);
+    assert.equal(items[0].garminTitle, fixture.executedTitle);
+    assert.equal(items[0].executed_id, fixture.executedId);
+    assert.equal(items[0].planned_id, fixture.plannedId);
+    assert.equal(items[0].typeKey, fixture.plannedType);
+    assert.equal(items[0].garminActivityTypeKey, fixture.expectedGarminType);
+    assert.equal(resolveCalendarItemRoute(items[0]), "activityDetail");
+  });
+});
+
 test("executed normalization works without summary_metrics", () => {
   const items = mergeExecutedAndPlannedForCalendar(
     [
