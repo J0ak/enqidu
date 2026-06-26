@@ -1,0 +1,45 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "2026-04-27_jotason.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "date",
+      "jotason_version",
+      "day_type",
+      "daily_summary"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "title",
+      "sport"
+    ],
+    "warnings": [
+      "no_explicit_session_collection",
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-04-27",
+    "title": null,
+    "sport": null,
+    "session_type": "doble_sesion_hibrido_running",
+    "schema_type": "MASTER_TEMPLATE_v8",
+    "summary": {
+      "sessions_count": 2,
+      "total_training_time_hms": "01:32:52",
+      "total_calories_kcal": 787,
+      "total_calories_active_kcal": 651,
+      "total_calories_rest_kcal": 136,
+      "hydration_loss_total_ml": 1060,
+      "training_load_total": 113
+    },
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

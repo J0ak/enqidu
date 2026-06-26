@@ -1,0 +1,481 @@
+{
+  "schema_version": "enqidu_normalized_athlete_context_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "generated_from": "docs/coach-context",
+    "source_files": [
+      "docs/coach-context/references/jotason/inventory_home_v4.json",
+      "docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+      "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+      "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+      "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+      "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+      "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+      "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [],
+    "warnings": [
+      "fixture_user_context_not_live_user_profile"
+    ]
+  },
+  "athleteFixture": {
+    "id": "jotason",
+    "label": "Jotason",
+    "role": "pilot_fixture"
+  },
+  "availability": {
+    "source": "historical_references_only",
+    "editable_live_state": false
+  },
+  "references": {
+    "equipmentInventory": {
+      "schema_version": "enqidu_equipment_inventory_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source": {
+        "file": "inventory_home_v4.json",
+        "fixture": "jotason",
+        "role": "pilot_user_equipment_inventory"
+      },
+      "source_traceability": {
+        "file": "inventory_home_v4.json",
+        "source_path": "docs/coach-context/references/jotason/inventory_home_v4.json",
+        "fixture_user": "jotason",
+        "role": "pilot_user_equipment_inventory"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": []
+      },
+      "location": {
+        "id": "home",
+        "type": "home",
+        "label": "Home"
+      },
+      "equipment": [
+        {
+          "id": "rack",
+          "category": "strength",
+          "name": "Rack",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "barbell",
+          "category": "strength",
+          "name": "Barbell",
+          "quantity": null,
+          "unit": null,
+          "value": "Ohio Bar"
+        },
+        {
+          "id": "platesKg-20kg",
+          "category": "strength",
+          "name": "Plates Kg 20kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-10kg",
+          "category": "strength",
+          "name": "Plates Kg 10kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-5kg",
+          "category": "strength",
+          "name": "Plates Kg 5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-25kg",
+          "category": "strength",
+          "name": "Plates Kg 2_5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-15kg",
+          "category": "strength",
+          "name": "Plates Kg 1_5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "dumbbellsPairsKg-17_5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 17.5
+        },
+        {
+          "id": "dumbbellsPairsKg-10",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 10
+        },
+        {
+          "id": "dumbbellsPairsKg-5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 5
+        },
+        {
+          "id": "dumbbellsPairsKg-2_5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 2.5
+        },
+        {
+          "id": "dumbbellsPairsKg-2",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "kettlebellsKg-24",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 24
+        },
+        {
+          "id": "kettlebellsKg-18",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 18
+        },
+        {
+          "id": "kettlebellsKg-16",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 16
+        },
+        {
+          "id": "landmine",
+          "category": "strength",
+          "name": "Landmine",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "weightedVestKg-5kg",
+          "category": "strength",
+          "name": "Weighted Vest Kg 5kg",
+          "quantity": null,
+          "unit": "kg",
+          "value": true
+        },
+        {
+          "id": "weightedVestKg-10kg",
+          "category": "strength",
+          "name": "Weighted Vest Kg 10kg",
+          "quantity": null,
+          "unit": "kg",
+          "value": true
+        },
+        {
+          "id": "rings",
+          "category": "functional",
+          "name": "Rings",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "singlePulley",
+          "category": "functional",
+          "name": "Single Pulley",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "doublePulley",
+          "category": "functional",
+          "name": "Double Pulley",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "stepBox",
+          "category": "functional",
+          "name": "Step Box",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "bands",
+          "category": "functional",
+          "name": "Bands",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "sliders",
+          "category": "functional",
+          "name": "Sliders",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "balanceBoard",
+          "category": "functional",
+          "name": "Balance Board",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "wallBallLb",
+          "category": "conditioning",
+          "name": "Wall Ball Lb",
+          "quantity": 18,
+          "unit": "lb",
+          "value": 18
+        },
+        {
+          "id": "slamBallLb",
+          "category": "conditioning",
+          "name": "Slam Ball Lb",
+          "quantity": 30,
+          "unit": "lb",
+          "value": 30
+        },
+        {
+          "id": "jumpRope",
+          "category": "conditioning",
+          "name": "Jump Rope",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "abmat",
+          "category": "recovery",
+          "name": "Abmat",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "abWheel",
+          "category": "recovery",
+          "name": "Ab Wheel",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "foamRoller",
+          "category": "recovery",
+          "name": "Foam Roller",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "theragun",
+          "category": "recovery",
+          "name": "Theragun",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        }
+      ],
+      "constraints": {
+        "cardioAtHome": false,
+        "noRackWhenRain": false
+      }
+    },
+    "trainingReference": {
+      "schema_version": "enqidu_training_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source": {
+        "file": "jotason_promaestro_v5.json",
+        "fixture": "jotason",
+        "role": "historical_master_plan_reference"
+      },
+      "source_traceability": {
+        "file": "jotason_promaestro_v5.json",
+        "source_path": "docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+        "fixture_user": "jotason",
+        "role": "historical_master_plan_reference"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_reference_not_current_availability"
+        ]
+      },
+      "planName": "hybrid_strength_skills_trail_system",
+      "lastUpdate": "2026-04-12",
+      "priorities": {
+        "primary": "functional_lean_mass_full_body",
+        "secondary": "skills_mastery",
+        "tertiary": "endurance_events_trail_triathlon"
+      },
+      "weeklyStructure": {
+        "monday": [
+          "hybrid",
+          "swimming_or_z2",
+          "skills_hspu"
+        ],
+        "tuesday": [
+          "full_body_strength",
+          "running_zone5",
+          "skills_pistol"
+        ],
+        "wednesday": [
+          "hybrid",
+          "swimming",
+          "mobility"
+        ],
+        "thursday": [
+          "upper_body_strength",
+          "skills_muscle_up",
+          "mobility_or_light_bike"
+        ],
+        "friday": [
+          "long_cycling_z2",
+          "core_glute_activation_optional"
+        ],
+        "saturday": [
+          "heavy_leg_strength"
+        ],
+        "sunday": [
+          "trail_run_long"
+        ]
+      },
+      "rules": [
+        "priority_mass_over_cardio",
+        "skills_every_week",
+        "only_one_high_intensity_running_day",
+        "friday_no_leg_fatigue",
+        "saturday_primary_strength_day",
+        "sunday_specific_endurance_not_competition"
+      ]
+    },
+    "sessionContractReference": {
+      "schema_version": "enqidu_master_template_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "fixture_user": "jotason",
+        "role": "historical_session_contract_reference"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_reference_contract_not_runtime_model"
+        ]
+      },
+      "schemaType": null,
+      "topLevelKeys": [
+        "jotason_template_version",
+        "purpose",
+        "usage_notes",
+        "session",
+        "sport_specific_templates_reference"
+      ],
+      "concepts": {
+        "hasMetadata": false,
+        "hasSummary": false,
+        "hasZones": false,
+        "hasLaps": false,
+        "hasBlocks": false,
+        "hasCoachLayer": false,
+        "hasDataQuality": false
+      }
+    },
+    "monthlyHistoryReference": {
+      "schema_version": "enqidu_monthly_history_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "fixture_user": "jotason",
+        "role": "monthly_history_aggregation_fixture"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_aggregation_fixture_not_live_user_state"
+        ]
+      },
+      "topLevelKeys": [
+        "jotason_version",
+        "schema_type",
+        "athlete",
+        "period",
+        "inventory_context",
+        "monthly_aggregate",
+        "normalized_session_index",
+        "progression",
+        "coach_conclusions",
+        "audit",
+        "raw_daily_objects_by_date"
+      ],
+      "counts": {
+        "sessions": 0,
+        "topLevelKeys": 11
+      },
+      "summary": {
+        "overall": "Mes híbrido de alta densidad con base aeróbica estable, fuerza lower consolidada y mejor transferencia a trail.",
+        "strength": "La mejora principal viene por volumen útil, repetición de exposiciones efectivas y mejor tolerancia a la fatiga. Front squat se consolida en 75 kg; RDL progresa hasta 85-90 kg; hip thrust queda fuerte en 90 kg; unilateral y sóleo/gemelo refuerzan transferencia a trail.",
+        "endurance": "Running/trail gana variedad y especificidad; la natación mantiene técnica estable y base aeróbica; el híbrido sigue siendo un sello del mes con buena tolerancia a zonas altas.",
+        "recovery": "Yoga, pilates, movilidad y core de descarga ayudan a sostener el bloque. El riesgo principal no es falta de trabajo, sino exceso de densidad si no se regula."
+      }
+    }
+  },
+  "counts": {
+    "references": 4,
+    "session_fixtures": 16
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "date",
+      "day_type",
+      "sessions"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "sport"
+    ],
+    "warnings": []
+  },
+  "session": {
+    "date": "2026-05-08",
+    "title": "Z2 urban recovery run",
+    "sport": null,
+    "session_type": "doble_sesion_hibrido_upper_run",
+    "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+    "summary": {},
+    "blocks": [
+      {
+        "block_name": "rings_skill",
+        "exercises": [
+          {
+            "name": "False grip ring pull-ups",
+            "sets": 5,
+            "reps": "4-5",
+            "notes": "Slow strict execution"
+          },
+          {
+            "name": "False grip isometrics",
+            "notes": "Bottom, midpoint and top holds"
+          },
+          {
+            "name": "Muscle-up transitions",
+            "assist": "yellow band"
+          },
+          {
+            "name": "Handstand wall hold",
+            "sets": 4,
+            "duration_seconds": 30
+          }
+        ]
+      },
+      {
+        "block_name": "upper_strength",
+        "exercises": [
+          {
+            "name": "Military press",
+            "sets": 4,
+            "reps": 6,
+            "weight_kg": 38
+          },
+          {
+            "name": "Landmine row bilateral",
+            "sets": [
+              {
+                "reps": 8,
+                "weight_kg": 35
+              },
+              {
+                "reps": 8,
+                "weight_kg": 40
+              },
+              {
+                "reps": 8,
+                "weight_kg": 40
+              },
+              {
+                "reps": 8,
+                "weight_kg": 40
+              }
+            ]
+          },
+          {
+            "name": "Ring dips",
+            "sets": 3,
+            "reps": 6
+          }
+        ]
+      },
+      {
+        "block_name": "core_stability",
+        "exercises": [
+          {
+            "name": "Ab wheel",
+            "notes": "Mixed standing partials and kneeling reps"
+          },
+          {
+            "name": "Farmer carry unilateral",
+            "weight_kg": 24,
+            "rounds": 3
+          },
+          {
+            "name": "Pallof press",
+            "equipment": "light blue band",
+            "format": "superset"
+          }
+        ]
+      }
+    ],
+    "blocks_count": 3
+  }
+}

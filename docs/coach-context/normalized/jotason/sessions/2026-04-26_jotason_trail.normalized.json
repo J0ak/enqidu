@@ -1,0 +1,55 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "2026-04-26_jotason_trail.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "activity_type",
+      "date",
+      "session",
+      "summary",
+      "training_effect",
+      "heart_rate",
+      "energy"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "sessionType"
+    ],
+    "warnings": [
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-04-26",
+    "title": "Bustarviejo Trail running",
+    "sport": "trail_running",
+    "session_type": null,
+    "schema_type": "MASTER_TEMPLATE_v8_RUNNING",
+    "summary": {
+      "distance_km": 18.84,
+      "duration": {
+        "total": "03:02:54",
+        "moving": "02:55:27",
+        "elapsed": "03:02:54"
+      },
+      "pace": {
+        "avg": "09:42",
+        "moving_avg": "09:19",
+        "grade_adjusted": "07:32"
+      },
+      "speed": {
+        "avg_kmh": 6.2,
+        "max_kmh": 21.7
+      }
+    },
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

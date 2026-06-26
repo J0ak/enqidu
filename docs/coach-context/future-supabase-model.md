@@ -26,6 +26,9 @@ Markdown guardara reglas de producto.
 
 JSON references guardara fixtures y contratos historicos.
 
+JSON normalized guardara materializaciones ENQIDU genericas derivadas de raw
+fixtures. No sustituye a Supabase porque no es dato vivo editable.
+
 ## Regla de este PR
 
 No crear ninguna tabla. No tocar migraciones. No cambiar RPCs.

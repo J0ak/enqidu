@@ -1,0 +1,262 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "template_source",
+      "day_date",
+      "day_of_week",
+      "day_type",
+      "timezone",
+      "athlete",
+      "coach_mode",
+      "objective_of_day",
+      "vector_db_ready",
+      "export_timestamp",
+      "data_quality",
+      "sessions",
+      "daily_summary",
+      "export"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [],
+    "warnings": []
+  },
+  "session": {
+    "date": "2026-04-20",
+    "title": "trabajo híbrido combinado de HIIT matinal + natación aeróbica regenerativa por la tarde",
+    "sport": "hiit",
+    "session_type": "doble_sesion_hibrida",
+    "schema_type": "4.0_ultra_detailed_competitive",
+    "summary": {
+      "sessions_count": 2,
+      "combined_training_time_sec": 5272,
+      "combined_training_time_hms": "01:27:52",
+      "combined_calories_total_kcal": 773,
+      "combined_calories_active_kcal": 645,
+      "combined_calories_rest_kcal": 128,
+      "combined_training_load": 130,
+      "focus_distribution": [
+        "HIIT metabólico con sesgo de tren superior y core",
+        "natación aeróbica regenerativa"
+      ],
+      "coach_day_assessment": {
+        "overall_day_type": "doble_sesion_hibrida_bien_compensada",
+        "overall_fatigue_expected": "moderada",
+        "neuromuscular_cost": "moderado",
+        "cardiovascular_cost": "moderado",
+        "impact_cost": "bajo_moderado",
+        "best_use_of_day": "sumar estímulo metabólico por la mañana y recuperación aeróbica por la tarde"
+      },
+      "recommendations_next_24h": [
+        "Priorizar hidratación y electrolitos por doble sesión.",
+        "Asegurar proteína suficiente y algo de hidrato post-sesión para reponer.",
+        "Dormir bien para consolidar la carga del día.",
+        "Si mañana hay fuerza o carrera, llegar con movilidad de hombro, dorsal y cadera revisada."
+      ]
+    },
+    "blocks": [
+      {
+        "block_id": "A",
+        "block_type": "warmup_mobility",
+        "title": "Movilidad, estiramiento y movilidad activa",
+        "rounds": 1,
+        "format": "continuo",
+        "estimated_duration_min": 8,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_name": "Movilidad general",
+            "equipment": null,
+            "sets": 1,
+            "reps": null,
+            "duration_sec": null,
+            "rest_sec": null,
+            "load_kg": null,
+            "sides": null,
+            "notes": "Bloque inicial descrito como movilidad, estiramiento y movilidad activa."
+          }
+        ]
+      },
+      {
+        "block_id": "B",
+        "block_type": "kettlebell_complex",
+        "title": "Complejo kettlebell unilateral",
+        "rounds": 3,
+        "format": "por rondas",
+        "estimated_duration_min": 10,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_name": "Kettlebell high pull / remo vertical subiendo codo unilateral",
+            "equipment": "kettlebell",
+            "sets": 3,
+            "reps": 6,
+            "reps_per_side": 6,
+            "duration_sec": null,
+            "rest_sec": null,
+            "load_kg": 16,
+            "sides": "bilateral_unilateral",
+            "notes": "Descrito como 'con kettle de 16, a cada lado, subiendo codo'."
+          },
+          {
+            "order": 2,
+            "exercise_name": "Kettlebell one-arm swing",
+            "equipment": "kettlebell",
+            "sets": 3,
+            "reps": 6,
+            "reps_per_side": 6,
+            "duration_sec": null,
+            "rest_sec": null,
+            "load_kg": 16,
+            "sides": "bilateral_unilateral",
+            "notes": "6 swing a cada lado con un brazo."
+          },
+          {
+            "order": 3,
+            "exercise_name": "Kettlebell push press unilateral",
+            "equipment": "kettlebell",
+            "sets": 3,
+            "reps": 6,
+            "reps_per_side": 6,
+            "duration_sec": null,
+            "rest_sec": null,
+            "load_kg": 16,
+            "sides": "bilateral_unilateral",
+            "notes": "6 a cada lado."
+          },
+          {
+            "order": 4,
+            "exercise_name": "Escaladores cruzados",
+            "equipment": "bodyweight",
+            "sets": 3,
+            "reps": 6,
+            "reps_per_side": 6,
+            "duration_sec": null,
+            "rest_sec": null,
+            "load_kg": null,
+            "sides": "bilateral_unilateral",
+            "notes": "6 a cada lado."
+          }
+        ]
+      },
+      {
+        "block_id": "C",
+        "block_type": "metabolic_circuit",
+        "title": "Circuito principal metabólico",
+        "rounds": 3,
+        "format": "40 segundos trabajo / 10 segundos descanso por estación",
+        "work_sec_per_station": 40,
+        "rest_sec_per_station": 10,
+        "stations_count": 7,
+        "estimated_duration_min": 15,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_name": "Remo con kettlebell subiendo codo",
+            "equipment": "kettlebell",
+            "sets": 3,
+            "reps": null,
+            "reps_estimated_per_side": 8,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": 20,
+            "sides": "bilateral_unilateral",
+            "notes": "Entraron unas 8 a cada lado en 40 s."
+          },
+          {
+            "order": 2,
+            "exercise_name": "Step-up / pistol asistido en banco con kettlebell",
+            "equipment": "kettlebell + bench",
+            "sets": 3,
+            "reps": null,
+            "reps_estimated_per_side": 9,
+            "reps_estimated_range_per_side": "9-10",
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": 12,
+            "sides": "bilateral_unilateral",
+            "notes": "Con la pierna del mismo lado de la kettlebell sobre el banco."
+          },
+          {
+            "order": 3,
+            "exercise_name": "Face pull unilateral en posición de caballero",
+            "equipment": "cable",
+            "sets": 3,
+            "reps": null,
+            "reps_estimated_per_side": 10,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": 15,
+            "sides": "bilateral_unilateral",
+            "notes": "10 a cada lado."
+          },
+          {
+            "order": 4,
+            "exercise_name": "Assault bike",
+            "equipment": "assault_bike",
+            "sets": 3,
+            "reps": null,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": null,
+            "sides": null,
+            "rpm_estimated": 74,
+            "rpm_estimated_range": "74-75",
+            "notes": "Cadencia habitual indicada por el usuario."
+          },
+          {
+            "order": 5,
+            "exercise_name": "Wall ball parcial",
+            "equipment": "wall_ball",
+            "sets": 3,
+            "reps": null,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": 9,
+            "sides": null,
+            "notes": "Lanzamiento a media altura por techo bajo."
+          },
+          {
+            "order": 6,
+            "exercise_name": "Remo ergómetro",
+            "equipment": "rowing_machine",
+            "sets": 3,
+            "reps": null,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": null,
+            "sides": null,
+            "pace_reference_500m": "1:40",
+            "notes": "Ritmo medio aproximado indicado por el usuario."
+          },
+          {
+            "order": 7,
+            "exercise_name": "Walking lunge con kettlebell",
+            "equipment": "kettlebell",
+            "sets": 3,
+            "reps": 16,
+            "reps_per_side": 8,
+            "duration_sec": 40,
+            "rest_sec": 10,
+            "load_kg": 16,
+            "sides": "bilateral_unilateral",
+            "notes": "8+8 aprox. dentro de cada estación de 40 s."
+          }
+        ],
+        "notes": [
+          "El usuario corrigió la estructura: 40 segundos activos y 10 segundos de descanso, no 20/10.",
+          "Aunque el listado verbal incluye 7 estaciones, Garmin reporta 5 series totales; se conserva la estructura verbal como referencia principal de entrenador y se marca la discrepancia."
+        ]
+      }
+    ],
+    "blocks_count": 3
+  }
+}

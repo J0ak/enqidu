@@ -40,12 +40,21 @@ Fuente de intencion:
 
 Fuente historica y contractual para disenar modelos ENQIDU genericos.
 
-## 5. Supabase
+## 5. Normalized Coach Context
+
+Fuente derivada reproducible:
+
+- lee raw references/fixtures
+- genera JSON ENQIDU normalizados
+- mantiene `fixture_user = jotason`
+- no alimenta runtime productivo por si solo
+
+## 6. Supabase
 
 Fuente actual parcial de datos vivos. En fases futuras guardara datos vivos,
 editables y por usuario.
 
-## 6. ChatGPT pilot
+## 7. ChatGPT pilot
 
 Fuente temporal de inteligencia y orquestacion del piloto.
 

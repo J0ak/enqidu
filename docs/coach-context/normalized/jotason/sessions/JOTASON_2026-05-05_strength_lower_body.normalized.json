@@ -1,0 +1,36 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-05-05_strength_lower_body.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "date",
+      "day_type",
+      "sessions"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "title",
+      "sport"
+    ],
+    "warnings": [
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-05-05",
+    "title": null,
+    "sport": null,
+    "session_type": "strength_lower_body",
+    "schema_type": "MASTER_TEMPLATE_v8_STRENGTH",
+    "summary": {},
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

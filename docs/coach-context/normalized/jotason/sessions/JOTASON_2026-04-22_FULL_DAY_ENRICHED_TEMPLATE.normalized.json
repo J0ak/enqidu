@@ -1,0 +1,148 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "schema_version",
+      "date",
+      "weekday",
+      "objective_primary",
+      "export_timestamp",
+      "sessions",
+      "daily_totals",
+      "interpretation"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "sessionType"
+    ],
+    "warnings": []
+  },
+  "session": {
+    "date": "2026-04-22",
+    "title": "doble_sesion_hibrido_y_natacion_recuperacion_aerobica_baja",
+    "sport": "hybrid_hiit",
+    "session_type": null,
+    "schema_type": "jotason_daily_master_template_v1",
+    "summary": {
+      "time_total": "01:38:05",
+      "calories_total": 827,
+      "calories_active": 684,
+      "distance_total_m": 900,
+      "sweat_loss_known_ml": 558,
+      "training_load_total": 108
+    },
+    "blocks": [
+      {
+        "block_id": "A",
+        "type": "warmup",
+        "content": "movilidad dinámica + activación general"
+      },
+      {
+        "block_id": "B",
+        "type": "mobility_agility",
+        "rounds": 3,
+        "exercises": [
+          "vallas frontales",
+          "vallas laterales"
+        ]
+      },
+      {
+        "block_id": "C",
+        "type": "kettlebell_complex",
+        "rounds": 3,
+        "load_kg": 12,
+        "exercises": [
+          {
+            "name": "goblet press",
+            "reps": 8
+          },
+          {
+            "name": "swing",
+            "reps": 8
+          },
+          {
+            "name": "remo",
+            "reps_per_side": 4
+          },
+          {
+            "name": "escaladores",
+            "reps_per_leg": 10
+          }
+        ]
+      },
+      {
+        "block_id": "D",
+        "type": "functional_circuit",
+        "rounds": 3,
+        "exercises": [
+          {
+            "name": "wall ball clean squat hold",
+            "load_kg": 7,
+            "reps": 6
+          },
+          {
+            "name": "arrastre saco",
+            "load_kg": 10,
+            "reps_per_side": 4
+          },
+          {
+            "name": "remo erg",
+            "distance_m": 100,
+            "pace": "1:40"
+          }
+        ]
+      },
+      {
+        "block_id": "E",
+        "type": "strength_stability",
+        "rounds": 3,
+        "exercises": [
+          {
+            "name": "press inclinado",
+            "load_kg": 17.5,
+            "reps": 6
+          },
+          {
+            "name": "step box unilateral",
+            "reps_per_side": 5
+          },
+          {
+            "name": "pallof press",
+            "reps_per_side": 5
+          }
+        ]
+      },
+      {
+        "block_id": "F",
+        "type": "core_conditioning",
+        "rounds": 2,
+        "exercises": [
+          {
+            "name": "remo en caballero",
+            "load_kg": 20,
+            "reps_per_side": 5
+          },
+          {
+            "name": "side plank con mancuerna",
+            "load_kg": 5,
+            "reps_per_side": 5
+          },
+          {
+            "name": "assault bike",
+            "structure": "intervalos internos 10s suave / 10s fuerte",
+            "rpm_strong": "70-80",
+            "duration": "40s y 60s en última ronda"
+          }
+        ]
+      }
+    ],
+    "blocks_count": 6
+  }
+}

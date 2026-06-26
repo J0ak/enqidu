@@ -1,0 +1,37 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "Jotason_2026-05-13_COMPLETO.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "date",
+      "day_type",
+      "status"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "title",
+      "sport"
+    ],
+    "warnings": [
+      "no_explicit_session_collection",
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-05-13",
+    "title": null,
+    "sport": null,
+    "session_type": "doble_sesion_hibrido_hiit_swim_recovery",
+    "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+    "summary": {},
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

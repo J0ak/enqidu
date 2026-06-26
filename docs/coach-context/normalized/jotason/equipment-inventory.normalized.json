@@ -1,0 +1,287 @@
+{
+  "schema_version": "enqidu_equipment_inventory_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source": {
+    "file": "inventory_home_v4.json",
+    "fixture": "jotason",
+    "role": "pilot_user_equipment_inventory"
+  },
+  "source_traceability": {
+    "file": "inventory_home_v4.json",
+    "source_path": "docs/coach-context/references/jotason/inventory_home_v4.json",
+    "fixture_user": "jotason",
+    "role": "pilot_user_equipment_inventory"
+  },
+  "data_quality": {
+    "missing_fields": [],
+    "warnings": []
+  },
+  "location": {
+    "id": "home",
+    "type": "home",
+    "label": "Home"
+  },
+  "equipment": [
+    {
+      "id": "rack",
+      "category": "strength",
+      "name": "Rack",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "barbell",
+      "category": "strength",
+      "name": "Barbell",
+      "quantity": null,
+      "unit": null,
+      "value": "Ohio Bar"
+    },
+    {
+      "id": "platesKg-20kg",
+      "category": "strength",
+      "name": "Plates Kg 20kg",
+      "quantity": 2,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "platesKg-10kg",
+      "category": "strength",
+      "name": "Plates Kg 10kg",
+      "quantity": 2,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "platesKg-5kg",
+      "category": "strength",
+      "name": "Plates Kg 5kg",
+      "quantity": 2,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "platesKg-25kg",
+      "category": "strength",
+      "name": "Plates Kg 2_5kg",
+      "quantity": 2,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "platesKg-15kg",
+      "category": "strength",
+      "name": "Plates Kg 1_5kg",
+      "quantity": 2,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "dumbbellsPairsKg-17_5",
+      "category": "strength",
+      "name": "Dumbbells Pairs Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 17.5
+    },
+    {
+      "id": "dumbbellsPairsKg-10",
+      "category": "strength",
+      "name": "Dumbbells Pairs Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 10
+    },
+    {
+      "id": "dumbbellsPairsKg-5",
+      "category": "strength",
+      "name": "Dumbbells Pairs Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 5
+    },
+    {
+      "id": "dumbbellsPairsKg-2_5",
+      "category": "strength",
+      "name": "Dumbbells Pairs Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 2.5
+    },
+    {
+      "id": "dumbbellsPairsKg-2",
+      "category": "strength",
+      "name": "Dumbbells Pairs Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 2
+    },
+    {
+      "id": "kettlebellsKg-24",
+      "category": "strength",
+      "name": "Kettlebells Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 24
+    },
+    {
+      "id": "kettlebellsKg-18",
+      "category": "strength",
+      "name": "Kettlebells Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 18
+    },
+    {
+      "id": "kettlebellsKg-16",
+      "category": "strength",
+      "name": "Kettlebells Kg",
+      "quantity": 1,
+      "unit": "kg",
+      "value": 16
+    },
+    {
+      "id": "landmine",
+      "category": "strength",
+      "name": "Landmine",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "weightedVestKg-5kg",
+      "category": "strength",
+      "name": "Weighted Vest Kg 5kg",
+      "quantity": null,
+      "unit": "kg",
+      "value": true
+    },
+    {
+      "id": "weightedVestKg-10kg",
+      "category": "strength",
+      "name": "Weighted Vest Kg 10kg",
+      "quantity": null,
+      "unit": "kg",
+      "value": true
+    },
+    {
+      "id": "rings",
+      "category": "functional",
+      "name": "Rings",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "singlePulley",
+      "category": "functional",
+      "name": "Single Pulley",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "doublePulley",
+      "category": "functional",
+      "name": "Double Pulley",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "stepBox",
+      "category": "functional",
+      "name": "Step Box",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "bands",
+      "category": "functional",
+      "name": "Bands",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "sliders",
+      "category": "functional",
+      "name": "Sliders",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "balanceBoard",
+      "category": "functional",
+      "name": "Balance Board",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "wallBallLb",
+      "category": "conditioning",
+      "name": "Wall Ball Lb",
+      "quantity": 18,
+      "unit": "lb",
+      "value": 18
+    },
+    {
+      "id": "slamBallLb",
+      "category": "conditioning",
+      "name": "Slam Ball Lb",
+      "quantity": 30,
+      "unit": "lb",
+      "value": 30
+    },
+    {
+      "id": "jumpRope",
+      "category": "conditioning",
+      "name": "Jump Rope",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "abmat",
+      "category": "recovery",
+      "name": "Abmat",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "abWheel",
+      "category": "recovery",
+      "name": "Ab Wheel",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "foamRoller",
+      "category": "recovery",
+      "name": "Foam Roller",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    },
+    {
+      "id": "theragun",
+      "category": "recovery",
+      "name": "Theragun",
+      "quantity": null,
+      "unit": null,
+      "value": true
+    }
+  ],
+  "constraints": {
+    "cardioAtHome": false,
+    "noRackWhenRain": false
+  }
+}
