@@ -19,16 +19,21 @@ Usar fixtures Jotason para probar normalizacion, reconciliacion y render models.
 Generar JSON normalizados ENQIDU desde raw references/fixtures con adapters
 JavaScript reproducibles.
 
-## Fase 4: Zod opcional para TypeScript/Edge
+## Fase 4: Supabase seed dry-run
+
+Generar un plan local reproducible desde normalized fixtures hacia entidades
+Supabase candidatas. No crear migraciones ni escribir en base de datos.
+
+## Fase 5: Zod opcional para TypeScript/Edge
 
 Evaluar Zod cuando existan adaptadores JS reales y superficies TypeScript que
 validar.
 
-## Fase 5: Supabase para datos vivos
+## Fase 6: Supabase para datos vivos
 
 Persistir solo datos vivos, editables y por usuario.
 
-## Fase 6: Pydantic solo si hay backend Python IA
+## Fase 7: Pydantic solo si hay backend Python IA
 
 Pydantic solo tiene sentido si ENQIDU incorpora un backend Python de IA.
 

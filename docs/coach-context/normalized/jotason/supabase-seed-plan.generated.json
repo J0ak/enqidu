@@ -1,0 +1,2029 @@
+{
+  "schema_version": "enqidu_supabase_seed_plan_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "mode": "dry_run",
+  "generated_from": "docs/coach-context/normalized/jotason",
+  "would_create": {
+    "athlete_profiles": [
+      {
+        "natural_key": "jotason:athlete_profile",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "display_name": "Jotason",
+        "role": "pilot_fixture",
+        "auth_user_id": null,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/athlete-context.normalized.json"
+      }
+    ],
+    "athlete_training_goals": [
+      {
+        "natural_key": "jotason:training_goals:hybrid_strength_skills_trail_system",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "plan_name": "hybrid_strength_skills_trail_system",
+        "priorities": {
+          "primary": "functional_lean_mass_full_body",
+          "secondary": "skills_mastery",
+          "tertiary": "endurance_events_trail_triathlon"
+        },
+        "rules": [
+          "priority_mass_over_cardio",
+          "skills_every_week",
+          "only_one_high_intensity_running_day",
+          "friday_no_leg_fatigue",
+          "saturday_primary_strength_day",
+          "sunday_specific_endurance_not_competition"
+        ],
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/training-reference.normalized.json"
+      }
+    ],
+    "athlete_constraints": [
+      {
+        "natural_key": "jotason:constraints:home",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "constraints": {
+          "cardioAtHome": false,
+          "noRackWhenRain": false
+        },
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      }
+    ],
+    "athlete_equipment_locations": [
+      {
+        "natural_key": "jotason:equipment_location:home",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "location_type": "home",
+        "label": "Home",
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      }
+    ],
+    "athlete_equipment_items": [
+      {
+        "natural_key": "jotason:equipment_item:home:rack",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "rack",
+        "category": "strength",
+        "name": "Rack",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:barbell",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "barbell",
+        "category": "strength",
+        "name": "Barbell",
+        "quantity": null,
+        "unit": null,
+        "value": "Ohio Bar",
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:platesKg-20kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "platesKg-20kg",
+        "category": "strength",
+        "name": "Plates Kg 20kg",
+        "quantity": 2,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:platesKg-10kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "platesKg-10kg",
+        "category": "strength",
+        "name": "Plates Kg 10kg",
+        "quantity": 2,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:platesKg-5kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "platesKg-5kg",
+        "category": "strength",
+        "name": "Plates Kg 5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:platesKg-25kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "platesKg-25kg",
+        "category": "strength",
+        "name": "Plates Kg 2_5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:platesKg-15kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "platesKg-15kg",
+        "category": "strength",
+        "name": "Plates Kg 1_5kg",
+        "quantity": 2,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:dumbbellsPairsKg-17_5",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "dumbbellsPairsKg-17_5",
+        "category": "strength",
+        "name": "Dumbbells Pairs Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 17.5,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:dumbbellsPairsKg-10",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "dumbbellsPairsKg-10",
+        "category": "strength",
+        "name": "Dumbbells Pairs Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 10,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:dumbbellsPairsKg-5",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "dumbbellsPairsKg-5",
+        "category": "strength",
+        "name": "Dumbbells Pairs Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 5,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:dumbbellsPairsKg-2_5",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "dumbbellsPairsKg-2_5",
+        "category": "strength",
+        "name": "Dumbbells Pairs Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 2.5,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:dumbbellsPairsKg-2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "dumbbellsPairsKg-2",
+        "category": "strength",
+        "name": "Dumbbells Pairs Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 2,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:kettlebellsKg-24",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "kettlebellsKg-24",
+        "category": "strength",
+        "name": "Kettlebells Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 24,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:kettlebellsKg-18",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "kettlebellsKg-18",
+        "category": "strength",
+        "name": "Kettlebells Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 18,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:kettlebellsKg-16",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "kettlebellsKg-16",
+        "category": "strength",
+        "name": "Kettlebells Kg",
+        "quantity": 1,
+        "unit": "kg",
+        "value": 16,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:landmine",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "landmine",
+        "category": "strength",
+        "name": "Landmine",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:weightedVestKg-5kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "weightedVestKg-5kg",
+        "category": "strength",
+        "name": "Weighted Vest Kg 5kg",
+        "quantity": null,
+        "unit": "kg",
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:weightedVestKg-10kg",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "weightedVestKg-10kg",
+        "category": "strength",
+        "name": "Weighted Vest Kg 10kg",
+        "quantity": null,
+        "unit": "kg",
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:rings",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "rings",
+        "category": "functional",
+        "name": "Rings",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:singlePulley",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "singlePulley",
+        "category": "functional",
+        "name": "Single Pulley",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:doublePulley",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "doublePulley",
+        "category": "functional",
+        "name": "Double Pulley",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:stepBox",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "stepBox",
+        "category": "functional",
+        "name": "Step Box",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:bands",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "bands",
+        "category": "functional",
+        "name": "Bands",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:sliders",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "sliders",
+        "category": "functional",
+        "name": "Sliders",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:balanceBoard",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "balanceBoard",
+        "category": "functional",
+        "name": "Balance Board",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:wallBallLb",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "wallBallLb",
+        "category": "conditioning",
+        "name": "Wall Ball Lb",
+        "quantity": 18,
+        "unit": "lb",
+        "value": 18,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:slamBallLb",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "slamBallLb",
+        "category": "conditioning",
+        "name": "Slam Ball Lb",
+        "quantity": 30,
+        "unit": "lb",
+        "value": 30,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:jumpRope",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "jumpRope",
+        "category": "conditioning",
+        "name": "Jump Rope",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:abmat",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "abmat",
+        "category": "recovery",
+        "name": "Abmat",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:abWheel",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "abWheel",
+        "category": "recovery",
+        "name": "Ab Wheel",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:foamRoller",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "foamRoller",
+        "category": "recovery",
+        "name": "Foam Roller",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      },
+      {
+        "natural_key": "jotason:equipment_item:home:theragun",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "location_id": "home",
+        "item_id": "theragun",
+        "category": "recovery",
+        "name": "Theragun",
+        "quantity": null,
+        "unit": null,
+        "value": true,
+        "editable_live_state": false,
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+      }
+    ],
+    "coach_context_sources": [
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/references/jotason/inventory_home_v4.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/references/jotason/inventory_home_v4.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:raw_json:docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "raw_json",
+        "source_path": "docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/athlete-context.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/athlete-context.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/coach-context.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/coach-context.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/equipment-inventory.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/11-05-2026_Jotason.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/11-05-2026_Jotason.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/2026-04-26_jotason_trail.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/2026-04-26_jotason_trail.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/2026-04-27_jotason.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/2026-04-27_jotason.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/2026-04-29_jotason_full_day_v2.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/2026-04-29_jotason_full_day_v2.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/2026-05-04_JOTASON_FULL.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/2026-05-04_JOTASON_FULL.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-13_COMPLETO.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-13_COMPLETO.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/sessions/jotason_trail_running_2026_05_10.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/sessions/jotason_trail_running_2026_05_10.normalized.json",
+        "editable_live_state": false
+      },
+      {
+        "natural_key": "jotason:normalized_json:docs/coach-context/normalized/jotason/training-reference.normalized.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_kind": "normalized_json",
+        "source_path": "docs/coach-context/normalized/jotason/training-reference.normalized.json",
+        "editable_live_state": false
+      }
+    ],
+    "coach_context_snapshots": [
+      {
+        "natural_key": "jotason:coach_context_snapshot:normalized_v0",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "source_path": "docs/coach-context/normalized/jotason/coach-context.normalized.json",
+        "references_count": null,
+        "session_fixtures_count": 16,
+        "editable_live_state": false
+      }
+    ],
+    "coach_session_fixtures": [
+      {
+        "natural_key": "jotason:session:2026-05-11:11-05-2026_Jotason.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-11",
+        "title": null,
+        "sport": null,
+        "session_type": "double_session_hybrid_swim",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/11-05-2026_Jotason.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-26:2026-04-26_jotason_trail.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-26",
+        "title": "Bustarviejo Trail running",
+        "sport": "trail_running",
+        "session_type": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/2026-04-26_jotason_trail.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-27:2026-04-27_jotason.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-27",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_running",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/2026-04-27_jotason.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-29:2026-04-29_jotason_full_day_v2.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-29",
+        "title": null,
+        "sport": null,
+        "session_type": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/2026-04-29_jotason_full_day_v2.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-04:2026-05-04_JOTASON_FULL.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-04",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_swim_recovery",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/2026-05-04_JOTASON_FULL.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-20",
+        "title": "trabajo híbrido combinado de HIIT matinal + natación aeróbica regenerativa por la tarde",
+        "sport": "hiit",
+        "session_type": "doble_sesion_hibrida",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-21:JOTASON_2026-04-21_FULL_DAY.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-21",
+        "title": "running_intervalado_control_aerobico_pre_taper",
+        "sport": "running",
+        "session_type": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-04-22",
+        "title": "doble_sesion_hibrido_y_natacion_recuperacion_aerobica_baja",
+        "sport": "hybrid_hiit",
+        "session_type": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-05:JOTASON_2026-05-05_strength_lower_body.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-05",
+        "title": null,
+        "sport": null,
+        "session_type": "strength_lower_body",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-06:JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-06",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_swim",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-07:JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-07",
+        "title": "Yoga Recovery Session",
+        "sport": null,
+        "session_type": "recovery_yoga_session",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-08",
+        "title": "Z2 urban recovery run",
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_upper_run",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-09:JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-09",
+        "title": "Hybrid lower strength + trail stability",
+        "sport": null,
+        "session_type": "strength_lower_hybrid",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-12:Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-12",
+        "title": null,
+        "sport": null,
+        "session_type": "upper_hybrid_skill_strength",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-13:Jotason_2026-05-13_COMPLETO.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-13",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_hiit_swim_recovery",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-13_COMPLETO.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      },
+      {
+        "natural_key": "jotason:session:2026-05-10:jotason_trail_running_2026_05_10.json",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "date": "2026-05-10",
+        "title": null,
+        "sport": null,
+        "session_type": "trail_running_aerobic_base",
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/jotason_trail_running_2026_05_10.normalized.json",
+        "raw_source_path": "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+        "editable_live_state": false,
+        "historical_fixture": true
+      }
+    ],
+    "coach_session_blocks": [
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:A",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_order": 1,
+        "block_id": "A",
+        "block_type": "warmup_mobility",
+        "title": "Movilidad, estiramiento y movilidad activa",
+        "rounds": 1,
+        "estimated_duration_min": 8,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_order": 2,
+        "block_id": "B",
+        "block_type": "kettlebell_complex",
+        "title": "Complejo kettlebell unilateral",
+        "rounds": 3,
+        "estimated_duration_min": 10,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_order": 3,
+        "block_id": "C",
+        "block_type": "metabolic_circuit",
+        "title": "Circuito principal metabólico",
+        "rounds": 3,
+        "estimated_duration_min": 15,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:A",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 1,
+        "block_id": "A",
+        "block_type": null,
+        "title": null,
+        "rounds": null,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:B",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 2,
+        "block_id": "B",
+        "block_type": null,
+        "title": null,
+        "rounds": 3,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 3,
+        "block_id": "C",
+        "block_type": null,
+        "title": null,
+        "rounds": 3,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 4,
+        "block_id": "D",
+        "block_type": null,
+        "title": null,
+        "rounds": 3,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 5,
+        "block_id": "E",
+        "block_type": null,
+        "title": null,
+        "rounds": 3,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_order": 6,
+        "block_id": "F",
+        "block_type": null,
+        "title": null,
+        "rounds": 2,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_order": 1,
+        "block_id": null,
+        "block_type": null,
+        "title": null,
+        "rounds": null,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_order": 2,
+        "block_id": null,
+        "block_type": null,
+        "title": null,
+        "rounds": null,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_order": 3,
+        "block_id": null,
+        "block_type": null,
+        "title": null,
+        "rounds": null,
+        "estimated_duration_min": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      }
+    ],
+    "coach_session_exercises": [
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:A:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:A",
+        "exercise_order": 1,
+        "exercise_name": "Movilidad general",
+        "equipment": null,
+        "sets": 1,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B",
+        "exercise_order": 1,
+        "exercise_name": "Kettlebell high pull / remo vertical subiendo codo unilateral",
+        "equipment": "kettlebell",
+        "sets": 3,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 16,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B",
+        "exercise_order": 2,
+        "exercise_name": "Kettlebell one-arm swing",
+        "equipment": "kettlebell",
+        "sets": 3,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 16,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B",
+        "exercise_order": 3,
+        "exercise_name": "Kettlebell push press unilateral",
+        "equipment": "kettlebell",
+        "sets": 3,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 16,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B:exercise:4",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:B",
+        "exercise_order": 4,
+        "exercise_name": "Escaladores cruzados",
+        "equipment": "bodyweight",
+        "sets": 3,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 1,
+        "exercise_name": "Remo con kettlebell subiendo codo",
+        "equipment": "kettlebell",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": 20,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 2,
+        "exercise_name": "Step-up / pistol asistido en banco con kettlebell",
+        "equipment": "kettlebell + bench",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": 12,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 3,
+        "exercise_name": "Face pull unilateral en posición de caballero",
+        "equipment": "cable",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": 15,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:4",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 4,
+        "exercise_name": "Assault bike",
+        "equipment": "assault_bike",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:5",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 5,
+        "exercise_name": "Wall ball parcial",
+        "equipment": "wall_ball",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": 9,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:6",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 6,
+        "exercise_name": "Remo ergómetro",
+        "equipment": "rowing_machine",
+        "sets": 3,
+        "reps": null,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C:exercise:7",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "block_natural_key": "jotason:session:2026-04-20:JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json:block:C",
+        "exercise_order": 7,
+        "exercise_name": "Walking lunge con kettlebell",
+        "equipment": "kettlebell",
+        "sets": 3,
+        "reps": 16,
+        "duration_sec": 40,
+        "rest_sec": 10,
+        "load_kg": 16,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:B:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:B",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:B:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:B",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": 8,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": 8,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C:exercise:4",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:C",
+        "exercise_order": 4,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 7,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 10,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:D",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 17.5,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:E",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 20,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": 5,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "block_natural_key": "jotason:session:2026-04-22:JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json:block:F",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": 5,
+        "reps": "4-5",
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1:exercise:4",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:1",
+        "exercise_order": 4,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": 4,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": 4,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": [
+          {
+            "reps": 8,
+            "weight_kg": 35
+          },
+          {
+            "reps": 8,
+            "weight_kg": 40
+          },
+          {
+            "reps": 8,
+            "weight_kg": 40
+          },
+          {
+            "reps": 8,
+            "weight_kg": 40
+          }
+        ],
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:2",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": 3,
+        "reps": 6,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3:exercise:1",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3",
+        "exercise_order": 1,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3:exercise:2",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3",
+        "exercise_order": 2,
+        "exercise_name": null,
+        "equipment": null,
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      },
+      {
+        "natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3:exercise:3",
+        "operation": "insert_if_absent",
+        "fixture_user": "jotason",
+        "session_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "block_natural_key": "jotason:session:2026-05-08:JOTASON_2026-05-08_FULL_DAY_HYBRID.json:block:3",
+        "exercise_order": 3,
+        "exercise_name": null,
+        "equipment": "light blue band",
+        "sets": null,
+        "reps": null,
+        "duration_sec": null,
+        "rest_sec": null,
+        "load_kg": null,
+        "normalized_path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+      }
+    ],
+    "coach_seed_runs": [
+      {
+        "natural_key": "jotason:seed_run:dry_run:v0",
+        "operation": "dry_run_only",
+        "fixture_user": "jotason",
+        "mode": "dry_run",
+        "generated_from": "docs/coach-context/normalized/jotason",
+        "writes_to_database": false
+      }
+    ]
+  },
+  "counts": {
+    "athlete_profiles": 1,
+    "athlete_training_goals": 1,
+    "athlete_constraints": 1,
+    "athlete_equipment_locations": 1,
+    "athlete_equipment_items": 32,
+    "coach_context_sources": 40,
+    "coach_context_snapshots": 1,
+    "coach_session_fixtures": 16,
+    "coach_session_blocks": 12,
+    "coach_session_exercises": 37,
+    "coach_seed_runs": 1
+  },
+  "warnings": [
+    "dry_run_only_no_database_write",
+    "fixture_user_context_not_live_user_profile",
+    "fixture_user_not_live_auth_user",
+    "historical_reference_not_current_availability",
+    "no_blocks_detected",
+    "no_explicit_session_collection"
+  ],
+  "source_traceability": [
+    {
+      "kind": "normalized_root",
+      "path": "docs/coach-context/normalized/jotason"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/references/jotason/inventory_home_v4.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json"
+    },
+    {
+      "kind": "raw_json",
+      "path": "docs/coach-context/references/jotason/jotason_promaestro_v5.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/athlete-context.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/coach-context.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/equipment-inventory.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/11-05-2026_Jotason.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/2026-04-26_jotason_trail.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/2026-04-27_jotason.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/2026-04-29_jotason_full_day_v2.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/2026-05-04_JOTASON_FULL.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/Jotason_2026-05-13_COMPLETO.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/sessions/jotason_trail_running_2026_05_10.normalized.json"
+    },
+    {
+      "kind": "normalized_json",
+      "path": "docs/coach-context/normalized/jotason/training-reference.normalized.json"
+    }
+  ]
+}

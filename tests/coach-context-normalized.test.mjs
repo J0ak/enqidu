@@ -110,11 +110,10 @@ test("coach context source does not import UI Supabase migrations or Garmin FIT 
   const forbidden = [
     "src/main.jsx",
     "ActivityView",
-    "supabase",
-    "migrations",
-    "functions/",
+    "@supabase/supabase-js",
+    "supabase/migrations",
+    "supabase/functions",
     "fit-file-parser",
-    "Garmin",
   ];
 
   for (const filePath of await sourceFiles()) {

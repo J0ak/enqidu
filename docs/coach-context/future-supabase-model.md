@@ -29,7 +29,11 @@ JSON references guardara fixtures y contratos historicos.
 JSON normalized guardara materializaciones ENQIDU genericas derivadas de raw
 fixtures. No sustituye a Supabase porque no es dato vivo editable.
 
+El seed plan dry-run guardara una propuesta reproducible de filas candidatas
+sin escribir en Supabase.
+
 ## Regla de este PR
 
-No crear ninguna tabla. No tocar migraciones. No cambiar RPCs.
+No crear ninguna tabla. No tocar migraciones. No cambiar RPCs. No escribir en
+Supabase real.
 

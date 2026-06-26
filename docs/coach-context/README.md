@@ -15,6 +15,8 @@ JSON existentes
 -> documentacion y manifiesto
 -> adaptadores JavaScript
 -> validadores
+-> normalized JSON
+-> Supabase seed dry-run
 -> Supabase
 -> IA integrada
 ```
@@ -26,6 +28,8 @@ ChatGPT pilot memory
 -> JSON references/fixtures
 -> docs/coach-context
 -> JS adapters
+-> normalized JSON
+-> dry-run Supabase seed plan
 -> Supabase live user data
 -> integrated Coach AI
 ```
@@ -37,4 +41,5 @@ Reglas de alcance:
 - JavaScript normalizara estos JSON en adaptadores futuros.
 - Supabase guardara datos vivos, editables y por usuario en una fase posterior.
 - Jotason no debe hardcodearse en runtime, componentes, rutas, tablas, render ni logica de coach.
+- El seed Supabase actual es solo dry-run local y no escribe datos reales.
 

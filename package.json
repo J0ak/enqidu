@@ -10,6 +10,8 @@
     "backfill:garmin": "node scripts/backfill-garmin-relational.mjs",
     "coach:normalize": "node scripts/coach-context/generate-normalized-fixtures.mjs",
     "coach:inspect": "node scripts/coach-context/inspect-coach-context-fixtures.mjs",
+    "coach:supabase:inspect": "node scripts/coach-context/inspect-normalized-for-supabase.mjs",
+    "coach:supabase:plan": "node scripts/coach-context/plan-supabase-seed.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4174"
   },
   "dependencies": {

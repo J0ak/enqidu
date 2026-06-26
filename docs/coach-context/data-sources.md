@@ -54,7 +54,12 @@ Fuente derivada reproducible:
 Fuente actual parcial de datos vivos. En fases futuras guardara datos vivos,
 editables y por usuario.
 
-## 7. ChatGPT pilot
+## 7. Supabase seed dry-run
+
+Fuente derivada local para planificar persistencia futura. No es dato vivo, no
+usa credenciales, no hace red y no escribe en base de datos.
+
+## 8. ChatGPT pilot
 
 Fuente temporal de inteligencia y orquestacion del piloto.
 
