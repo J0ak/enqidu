@@ -60,6 +60,10 @@ test("dev apply results folder and result document exist", async () => {
     files.some((name) => name === "2026-06-26-coach-context-jotason-seed-v1-ready-for-sql-editor.md"),
     files.join(", "),
   );
+  assert.ok(
+    files.some((name) => name === "2026-06-26-coach-context-jotason-seed-v1-applied.md"),
+    files.join(", "),
+  );
 });
 
 test("dev apply result contains required outcome fields and no sensitive values", async () => {

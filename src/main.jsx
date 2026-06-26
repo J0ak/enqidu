@@ -6,6 +6,7 @@ import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply } from "@/services/aiCoachContextService";
+import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -3935,7 +3936,19 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [coachContextState, setCoachContextState] = useState({ status: "loading" });
   const endRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchCoachContextStatus({ fixtureDiagnostic: true }).then((context) => {
+      if (!active) return;
+      setCoachContextState(context);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -3976,6 +3989,7 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
 
   return (
     <section className="coachView">
+      <CoachContextStatusCard context={coachContextState} />
       <div className="chatLog">
         {messages.map((message, index) => (
           <CopyableChatMessage
@@ -3995,6 +4009,31 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
         disabled={sending}
       />
     </section>
+  );
+}
+
+function CoachContextStatusCard({ context }) {
+  const loading = context?.status === "loading";
+  const available = context?.status === "available";
+  const fixture = context?.scope?.type === "fixture";
+  const statusText = loading ? "Consultando" : available ? "Disponible" : context?.status === "error" ? "Error" : "Sin datos";
+  const goal = context?.primaryGoal?.description || context?.primaryGoal?.priority || context?.goals?.[0]?.description || "Sin objetivo cargado";
+  const sourcesCount = Number(context?.sourcesCount || 0);
+  const sessionsCount = Number(context?.sessionsCount || 0);
+
+  return (
+    <article className={`coachContextCard ${available ? "available" : ""}`}>
+      <div>
+        <span>Coach Context</span>
+        <strong>{statusText}</strong>
+        <p>{loading ? "Preparando lectura controlada del contexto." : goal}</p>
+      </div>
+      <div className="coachContextStats">
+        <em>{sourcesCount} fuentes</em>
+        <em>{sessionsCount} sesiones</em>
+        {fixture && <em>Fixture</em>}
+      </div>
+    </article>
   );
 }
 
