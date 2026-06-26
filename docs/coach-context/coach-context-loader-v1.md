@@ -22,6 +22,7 @@ Context data from `coach_*` tables.
 
 ## UI Status
 
-No UI is wired in this PR. The app can wire a minimal Coach Context status panel
-in a later PR after deciding whether fixture reads happen only through backend
-code or through a dedicated Coach Context endpoint.
+A minimal Coach Context status card is wired into the Coach surface. It reads a
+compact DTO from the `coach-context` Edge Function and shows availability,
+source count, session count, primary goal and fixture diagnostic status without
+showing raw JSON.

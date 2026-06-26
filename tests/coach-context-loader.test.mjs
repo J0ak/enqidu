@@ -129,3 +129,57 @@ test("coach context DTO handles row maps without crashing", () => {
   assert.equal(dto.status, COACH_CONTEXT_STATUS.empty);
   assert.equal(dto.scope.user_id, "user-1");
 });
+
+test("coach context loader handles Supabase errors as controlled error DTO", async () => {
+  const db = {
+    from(table) {
+      return {
+        select() {
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        order() {
+          return this;
+        },
+        then(resolve) {
+          return Promise.resolve({ data: null, error: { message: `${table} unavailable` } }).then(resolve);
+        },
+      };
+    },
+  };
+
+  const dto = await loadCoachContext(db, { userId: "user-1" });
+
+  assert.equal(dto.status, COACH_CONTEXT_STATUS.error);
+  assert.match(dto.error, /coach_athlete_profiles unavailable/);
+  assert.match(dto.data_quality.warnings.join(","), /coach_context_load_failed/);
+});
+
+test("coach context loader skips seed runs for real user scope", async () => {
+  const db = makeClient({
+    coach_athlete_profiles: [
+      {
+        id: "profile-1",
+        user_id: "user-1",
+        fixture_user: null,
+        display_name: "User",
+        source_key: "user:athlete_profile",
+      },
+    ],
+    coach_seed_runs: [
+      {
+        id: "seed-1",
+        fixture_user: "jotason",
+        seed_key: "coach_context_jotason_fixture_v1",
+      },
+    ],
+  });
+
+  const dto = await loadCoachContext(db, { userId: "user-1" });
+
+  assert.equal(dto.status, COACH_CONTEXT_STATUS.available);
+  assert.equal(dto.seed_runs.length, 0);
+  assert.ok(!db.calls.some((call) => call.table === "coach_seed_runs" && call.action === "select"));
+});

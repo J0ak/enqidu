@@ -3468,8 +3468,62 @@ button:disabled {
 
 .coachView {
   min-height: calc(100vh - 180px);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+.coachContextCard {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #101821;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.coachContextCard.available {
+  border-color: rgba(35, 230, 193, 0.34);
+}
+
+.coachContextCard span,
+.coachContextStats em {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.coachContextCard span {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 850;
+}
+
+.coachContextCard strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.coachContextCard p {
+  margin: 5px 0 0;
+  color: color-mix(in srgb, var(--text) 76%, var(--muted));
+}
+
+.coachContextStats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+}
+
+.coachContextStats em {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 9px;
+  white-space: nowrap;
 }
 
 .coachHero,

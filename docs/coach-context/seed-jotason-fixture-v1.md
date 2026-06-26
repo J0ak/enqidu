@@ -31,5 +31,6 @@ No external memory or invented sessions are used.
 ## Status
 
 Schema v0 has been applied manually through Supabase SQL Editor and verified by
-read-only checks. The fixture seed is ready for SQL Editor execution, but this
-PR does not execute it remotely.
+read-only checks. The fixture seed was executed manually through SQL Editor and
+verified remotely with the counts recorded in
+`docs/coach-context/dev-apply-results/2026-06-26-coach-context-jotason-seed-v1-applied.md`.

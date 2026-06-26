@@ -60,6 +60,7 @@ const TABLE_CONFIG = {
     key: "seed_runs",
     select: "id,seed_key,mode,fixture_user,status,input_plan,result_summary,warnings,created_at,updated_at",
     order: ["created_at"],
+    fixtureOnly: true,
   },
 };
 
@@ -115,6 +116,7 @@ function applyScope(query, scope) {
 
 async function selectRows(db, table, scope) {
   const config = TABLE_CONFIG[table];
+  if (config.fixtureOnly && scope.type !== COACH_CONTEXT_SCOPE.fixture) return [];
   let query = applyScope(db.from(table).select(config.select), scope);
   for (const column of config.order) query = query.order(column, { ascending: true, nullsFirst: false });
   const { data, error } = await query;
