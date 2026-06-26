@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const resultsDir = path.join(root, "docs", "coach-context", "dev-apply-results");
+const readinessPath = path.join(root, "docs", "coach-context", "supabase-cli-readiness.md");
 
 async function fileExists(filePath) {
   try {
@@ -61,6 +62,29 @@ test("dev apply result contains required outcome fields and no sensitive values"
   for (const pattern of sensitivePatterns) {
     assert.doesNotMatch(resultText, pattern, pattern.toString());
   }
+});
+
+test("supabase cli readiness guide exists and enforces safe dev setup", async () => {
+  assert.equal(await fileExists(readinessPath), true);
+  const readiness = await readFile(readinessPath, "utf8");
+
+  assert.match(readiness, /Supabase CLI debe instalarse o configurarse fuera del repo/);
+  assert.match(readiness, /No se deben commitear tokens/);
+  assert.match(readiness, /No se debe crear `\.env` en el repo/);
+  assert.match(readiness, /proyecto dev/i);
+  assert.match(readiness, /Produccion debe quedar descartado/i);
+  assert.match(readiness, /backup\/snapshot/i);
+  assert.match(readiness, /Seed queda prohibido en esta fase/);
+  assert.match(readiness, /npm run coach:supabase:dev-preflight/);
+  assert.match(readiness, /20260626123654_coach_context_schema_v0\.sql/);
+  assert.match(readiness, /generated\/dev-apply-verification\.sql/);
+  assert.match(readiness, /dev-apply-results/);
+
+  assert.doesNotMatch(readiness, /SUPABASE_URL\s*=/i);
+  assert.doesNotMatch(readiness, /SUPABASE_SERVICE/i);
+  assert.doesNotMatch(readiness, /service[_-]?role\s*=/i);
+  assert.doesNotMatch(readiness, /anon[_-]?key\s*=/i);
+  assert.doesNotMatch(readiness, /-----BEGIN [A-Z ]*PRIVATE KEY-----/i);
 });
 
 test("package scripts do not contain destructive Supabase apply or seed commands", async () => {
