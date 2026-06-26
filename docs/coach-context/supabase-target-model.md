@@ -16,6 +16,7 @@ Todas las tablas futuras deberian:
 - habilitar RLS antes de exponerse a clientes;
 - evitar que Jotason aparezca en nombres de tablas o logica runtime.
 - mantener fixtures `user_id is null` sin politica publica de lectura.
+- usar `public.coach_context_set_updated_at()` solo para triggers nuevos.
 
 ## Migracion preparada
 
@@ -36,6 +37,10 @@ evitar colisiones:
 
 La migracion es aditiva y no debe tocar Garmin/FIT, planned/executed, Edge
 Functions ni auth runtime.
+
+Los fixtures sin `user_id` no tienen policy de lectura para usuarios finales.
+El seed Jotason queda para dev/admin tras revision manual, no para runtime
+productivo.
 
 ## `athlete_profiles`
 

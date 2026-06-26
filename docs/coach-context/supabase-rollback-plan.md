@@ -27,6 +27,17 @@ Tablas nuevas candidatas a eliminar:
 
 Eliminar en orden inverso a dependencias.
 
+## Pre-rollback checklist
+
+- Confirmar entorno dev.
+- Confirmar backup reciente.
+- Confirmar que el rollback afecta solo tablas `coach_*`.
+- Confirmar que no hay datos reales con `user_id` en tablas `coach_*`.
+- Confirmar `fixture_user = 'jotason'` para seed de fixture.
+- No tocar Garmin/FIT.
+- No tocar planned/executed.
+- Documentar conteos antes y despues.
+
 ## 2. Proteger datos reales
 
 Antes de borrar nada:
@@ -91,4 +102,3 @@ sketch no automatico para revision.
 - Confirmar que `training_sessions` mantiene el mismo conteo.
 - Confirmar que planned/executed mantiene el mismo conteo.
 - Confirmar que Edge Functions no cambiaron.
-

@@ -14,6 +14,19 @@ una fase posterior. Este PR no aplica nada por si mismo.
 6. Usar solo entorno dev.
 7. No usar produccion para la primera aplicacion.
 
+## Pre-apply checklist
+
+- Revisar migracion.
+- Revisar RLS.
+- Confirmar entorno dev.
+- Confirmar backup.
+- Aplicar migracion manualmente.
+- Verificar tablas.
+- Verificar policies.
+- No ejecutar seed todavia.
+- Preparar rollback.
+- Documentar resultado.
+
 ## Aplicacion manual
 
 1. Aplicar la migracion solo cuando este aprobada.
@@ -41,6 +54,20 @@ El seed generado esta envuelto en `rollback;` para dejar claro que es un
 artefacto de revision. Para una fase real habra que editarlo, aprobarlo y
 ejecutarlo conscientemente en dev.
 
+## Updated at
+
+La migracion crea `public.coach_context_set_updated_at()` y solo la usa en
+triggers de tablas nuevas `coach_*`. No modifica ni reutiliza funciones/triggers
+existentes para evitar efectos laterales sobre tablas actuales.
+
+## Fixtures y RLS
+
+Las filas fixture usan `user_id is null` y `fixture_user = 'jotason'`.
+
+No hay politica publica para leer fixtures. Las policies de usuarios reales
+usan `auth.uid() = user_id`, de modo que los fixtures no quedan visibles para
+usuarios finales por defecto.
+
 ## Verificaciones posteriores
 
 - Las tablas `coach_*` existen.
@@ -50,4 +77,3 @@ ejecutarlo conscientemente en dev.
 - No hay cambios en `supabase/functions/`.
 - RLS no contiene policies publicas.
 - Los fixtures `jotason` conservan `fixture_user` y trazabilidad.
-

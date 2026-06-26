@@ -23,6 +23,17 @@ const expectedTables = [
   "coach_session_exercises",
   "coach_seed_runs",
 ];
+const tablesWithCoachContextOwnership = expectedTables.filter((table) => table !== "coach_seed_runs");
+const tablesWithAthleteProfile = [
+  "coach_athlete_training_goals",
+  "coach_athlete_constraints",
+  "coach_equipment_locations",
+  "coach_equipment_items",
+  "coach_context_snapshots",
+  "coach_session_fixtures",
+  "coach_session_blocks",
+  "coach_session_exercises",
+];
 
 async function readText(relativePath) {
   return readFile(path.join(root, relativePath), "utf8");
@@ -55,6 +66,18 @@ function withoutComments(sql) {
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("--"))
     .join("\n");
+}
+
+function createTableBlock(sql, table) {
+  const match = sql.match(new RegExp(`create table if not exists public\\.${table} \\([\\s\\S]*?\\n\\);`, "i"));
+  assert.ok(match, `missing create table block for ${table}`);
+  return match[0];
+}
+
+function selectPolicyBlocks(sql) {
+  return [...sql.matchAll(/create policy "[^"]+"\s+on public\.\w+\s+for select[\s\S]*?;/gi)].map(
+    (match) => match[0],
+  );
 }
 
 test("coach context schema migration exists", async () => {
@@ -91,6 +114,26 @@ test("migration has owner policies for user-owned coach rows", async () => {
   assert.match(sql, /using \(false\);/);
 });
 
+test("migration keeps fixtures invisible to final users by default", async () => {
+  const { sql } = await schemaMigration();
+  const selectPolicies = selectPolicyBlocks(sql);
+
+  assert.ok(selectPolicies.length > 0);
+  for (const policy of selectPolicies) {
+    assert.doesNotMatch(policy, /fixture_user\s+is\s+not\s+null/i);
+    assert.doesNotMatch(policy, /fixture_user\s*=/i);
+  }
+});
+
+test("migration uses a Coach Context scoped updated_at function", async () => {
+  const { sql } = await schemaMigration();
+
+  assert.match(sql, /create or replace function public\.coach_context_set_updated_at\(\)/);
+  assert.match(sql, /execute function public\.coach_context_set_updated_at\(\);/);
+  assert.doesNotMatch(sql, /create or replace function public\.set_updated_at\(\)/);
+  assert.doesNotMatch(sql, /execute function public\.set_updated_at\(\);/);
+});
+
 test("migration contains no credentials or dangerous data operations", async () => {
   const { sql } = await schemaMigration();
   const executableSql = withoutComments(sql);
@@ -116,13 +159,15 @@ test("migration does not touch Garmin/FIT or existing runtime tables", async () 
   assert.doesNotMatch(executableSql, /planned_training_sessions/i);
   assert.doesNotMatch(executableSql, /fit_message_payloads/i);
   assert.doesNotMatch(executableSql, /session_garmin/i);
+  assert.doesNotMatch(executableSql, /\bgarmin\b/i);
+  assert.doesNotMatch(executableSql, /\bactivities\b/i);
   assert.doesNotMatch(executableSql, /supabase\/functions/i);
 });
 
 test("migration includes indexes and traceability fields", async () => {
   const { sql } = await schemaMigration();
 
-  for (const table of expectedTables.filter((table) => table !== "coach_seed_runs")) {
+  for (const table of tablesWithCoachContextOwnership) {
     assert.match(sql, new RegExp(`create index if not exists ${table}_.*user.*idx`, "i"), table);
     assert.match(sql, new RegExp(`create index if not exists ${table}_.*fixture.*idx`, "i"), table);
   }
@@ -133,14 +178,34 @@ test("migration includes indexes and traceability fields", async () => {
   assert.match(sql, /normalized_source_file text null/);
 });
 
+test("main coach tables include critical ownership and traceability columns", async () => {
+  const { sql } = await schemaMigration();
+
+  for (const table of tablesWithCoachContextOwnership) {
+    const block = createTableBlock(sql, table);
+    assert.match(block, /user_id uuid null/, `${table}:user_id`);
+    assert.match(block, /fixture_user text null/, `${table}:fixture_user`);
+    assert.match(block, /source_key text not null/, `${table}:source_key`);
+    assert.match(block, /source_traceability jsonb not null default '\{\}'::jsonb/, `${table}:source_traceability`);
+    assert.match(block, /data_quality jsonb not null default '\{\}'::jsonb/, `${table}:data_quality`);
+  }
+
+  for (const table of tablesWithAthleteProfile) {
+    const block = createTableBlock(sql, table);
+    assert.match(block, /athlete_profile_id uuid not null/, `${table}:athlete_profile_id`);
+  }
+});
+
 test("seed draft files are marked as drafts and contain no credentials", async () => {
   const draft = await readText("supabase/seed/coach_context_jotason_seed_draft.sql");
   const rollback = await readText("supabase/seed/coach_context_jotason_rollback_draft.sql");
 
   assert.match(draft, /DRAFT ONLY/);
   assert.match(draft, /This file is not executed automatically/);
+  assert.match(draft, /\bbegin;/i);
   assert.match(draft, /rollback;/i);
   assert.match(rollback, /DRAFT ONLY/);
+  assert.match(rollback, /\bbegin;/i);
   assert.match(rollback, /rollback;/i);
 
   for (const sql of [draft, rollback]) {
@@ -148,6 +213,9 @@ test("seed draft files are marked as drafts and contain no credentials", async (
     assert.doesNotMatch(sql, /SUPABASE_SERVICE/i);
     assert.doesNotMatch(sql, /\bservice[_-]?role\b/i);
     assert.doesNotMatch(sql, /\banon[_-]?key\b/i);
+    assert.doesNotMatch(withoutComments(sql), /training_sessions/i);
+    assert.doesNotMatch(withoutComments(sql), /fit_message_payloads/i);
+    assert.doesNotMatch(withoutComments(sql), /session_garmin/i);
   }
 });
 
@@ -161,6 +229,7 @@ test("generated seed SQL is draft-only and generator is idempotent", async () =>
   assert.equal(second.changed, false);
   assert.equal(generated, built);
   assert.match(generated, /GENERATED DRAFT ONLY/);
+  assert.match(generated, /\bbegin;/i);
   assert.match(generated, /rollback;/i);
   assert.match(generated, /fixture_user = 'jotason'|fixture_user, source_key/);
   assert.doesNotMatch(generated, /SUPABASE_URL/i);
@@ -168,6 +237,23 @@ test("generated seed SQL is draft-only and generator is idempotent", async () =>
   assert.doesNotMatch(generated, /\bservice[_-]?role\b/i);
   assert.doesNotMatch(generated, /\banon[_-]?key\b/i);
   assert.equal(typeof first.changed, "boolean");
+});
+
+test("seed SQL only targets coach tables", async () => {
+  const seedFiles = [
+    "supabase/seed/coach_context_jotason_seed_draft.sql",
+    "supabase/seed/coach_context_jotason_seed.generated.sql",
+    "supabase/seed/coach_context_jotason_rollback_draft.sql",
+  ];
+
+  for (const file of seedFiles) {
+    const sql = withoutComments(await readText(file));
+    const tableReferences = [...sql.matchAll(/\b(?:into|from|update)\s+public\.(\w+)/gi)].map((match) => match[1]);
+    assert.ok(tableReferences.length > 0, file);
+    for (const table of tableReferences) {
+      assert.ok(table.startsWith("coach_"), `${file}:${table}`);
+    }
+  }
 });
 
 test("seed generator does not import Supabase client or network APIs", async () => {

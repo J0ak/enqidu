@@ -382,7 +382,7 @@ on public.coach_seed_runs(fixture_user);
 create unique index if not exists coach_seed_runs_seed_key_uidx
 on public.coach_seed_runs(seed_key);
 
-create or replace function public.set_updated_at()
+create or replace function public.coach_context_set_updated_at()
 returns trigger
 language plpgsql
 set search_path = public, pg_temp
@@ -396,57 +396,57 @@ $$;
 drop trigger if exists coach_athlete_profiles_updated_at on public.coach_athlete_profiles;
 create trigger coach_athlete_profiles_updated_at
 before update on public.coach_athlete_profiles
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_athlete_training_goals_updated_at on public.coach_athlete_training_goals;
 create trigger coach_athlete_training_goals_updated_at
 before update on public.coach_athlete_training_goals
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_athlete_constraints_updated_at on public.coach_athlete_constraints;
 create trigger coach_athlete_constraints_updated_at
 before update on public.coach_athlete_constraints
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_equipment_locations_updated_at on public.coach_equipment_locations;
 create trigger coach_equipment_locations_updated_at
 before update on public.coach_equipment_locations
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_equipment_items_updated_at on public.coach_equipment_items;
 create trigger coach_equipment_items_updated_at
 before update on public.coach_equipment_items
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_context_sources_updated_at on public.coach_context_sources;
 create trigger coach_context_sources_updated_at
 before update on public.coach_context_sources
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_context_snapshots_updated_at on public.coach_context_snapshots;
 create trigger coach_context_snapshots_updated_at
 before update on public.coach_context_snapshots
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_session_fixtures_updated_at on public.coach_session_fixtures;
 create trigger coach_session_fixtures_updated_at
 before update on public.coach_session_fixtures
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_session_blocks_updated_at on public.coach_session_blocks;
 create trigger coach_session_blocks_updated_at
 before update on public.coach_session_blocks
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_session_exercises_updated_at on public.coach_session_exercises;
 create trigger coach_session_exercises_updated_at
 before update on public.coach_session_exercises
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 drop trigger if exists coach_seed_runs_updated_at on public.coach_seed_runs;
 create trigger coach_seed_runs_updated_at
 before update on public.coach_seed_runs
-for each row execute function public.set_updated_at();
+for each row execute function public.coach_context_set_updated_at();
 
 alter table public.coach_athlete_profiles enable row level security;
 alter table public.coach_athlete_training_goals enable row level security;

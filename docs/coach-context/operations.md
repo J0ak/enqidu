@@ -26,6 +26,9 @@ si cambia.
 archivo generado es draft, no se ejecuta automaticamente y queda envuelto en
 `rollback;`.
 
+La migracion `coach_context_schema_v0` tambien es un artefacto revisable: se
+commitea como SQL preparado, pero ningun comando npm la aplica.
+
 ## Solo inspeccion
 
 `npm run coach:inspect` imprime resumen de raw y normalized fixtures.
