@@ -8,5 +8,25 @@ export { normalizeJotasonSession } from "./normalizeJotasonSession.js";
 export { normalizeMasterTemplateReference } from "./normalizeMasterTemplateReference.js";
 export { normalizeMonthlyHistoryReference } from "./normalizeMonthlyHistoryReference.js";
 export { normalizePromaestroReference } from "./normalizePromaestroReference.js";
+export {
+  COACH_CONTEXT_ROOT,
+  NORMALIZED_FIXTURE_ROOT,
+  NORMALIZED_FIXTURE_USER,
+  NORMALIZED_ROOT,
+  NORMALIZED_SESSIONS_ROOT,
+  SOURCE_MANIFEST_RELATIVE_PATH,
+  assertCoachContextRelativePath,
+  normalizedSessionFileName,
+  resolveFromRoot,
+  toPosixPath,
+} from "./paths.js";
 export { loadSourceManifest } from "./sourceManifest.js";
+export {
+  validateCoachContextTraceability,
+  validateNormalizedCoachContext,
+} from "./validateNormalizedCoachContext.js";
+export {
+  expectedSupabaseSeedPlanTables,
+  validateSupabaseSeedPlan,
+} from "./validateSupabaseSeedPlan.js";
 export { writeNormalizedCoachContext } from "./writeNormalizedCoachContext.js";
