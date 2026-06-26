@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export async function loadJsonFile(filePath) {
@@ -20,7 +20,9 @@ export async function writeJsonFile(filePath, value) {
     if (error.code !== "ENOENT") throw error;
   }
 
-  await writeFile(filePath, next, "utf8");
+  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+  await writeFile(temporaryPath, next, "utf8");
+  await rename(temporaryPath, filePath);
   return { path: filePath, changed: true };
 }
 

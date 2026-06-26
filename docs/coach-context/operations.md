@@ -7,6 +7,7 @@ npm run coach:normalize
 npm run coach:inspect
 npm run coach:supabase:inspect
 npm run coach:supabase:plan
+npm run coach:supabase:seed-sql
 npm test
 npm run build
 ```
@@ -19,6 +20,14 @@ npm run build
 `npm run coach:supabase:plan` escribe
 `docs/coach-context/normalized/jotason/supabase-seed-plan.generated.json` solo
 si cambia.
+
+`npm run coach:supabase:seed-sql` escribe
+`supabase/seed/coach_context_jotason_seed.generated.sql` solo si cambia. El
+archivo generado es draft, no se ejecuta automaticamente y queda envuelto en
+`rollback;`.
+
+La migracion `coach_context_schema_v0` tambien es un artefacto revisable: se
+commitea como SQL preparado, pero ningun comando npm la aplica.
 
 ## Solo inspeccion
 
@@ -50,6 +59,8 @@ Estos comandos no deben:
 
 - crear migraciones;
 - escribir en Supabase;
+- aplicar migraciones;
+- ejecutar seed real;
 - tocar UI;
 - tocar `src/main.jsx`;
 - tocar Edge Functions;
