@@ -52,6 +52,10 @@ test("dev apply results folder and result document exist", async () => {
     files.some((name) => name === "2026-06-26-coach-context-schema-v0-blocked-cli-missing.md"),
     files.join(", "),
   );
+  assert.ok(
+    files.some((name) => name === "2026-06-26-coach-context-schema-v0-blocked-supabase-connector-main-only.md"),
+    files.join(", "),
+  );
 });
 
 test("dev apply result contains required outcome fields and no sensitive values", async () => {
@@ -68,6 +72,8 @@ test("dev apply result contains required outcome fields and no sensitive values"
   assert.match(resultText, /Verification SQL executed against Supabase: (yes|no)/);
   assert.match(resultText, /Garmin\/FIT untouched: yes/);
   assert.match(resultText, /Supabase CLI is not available in PATH/);
+  assert.match(resultText, /Supabase connector available: yes/);
+  assert.match(resultText, /Existing dev branch detected: no/);
   assert.match(resultText, /fixtures hidden from final users/);
 
   for (const pattern of sensitivePatterns) {
