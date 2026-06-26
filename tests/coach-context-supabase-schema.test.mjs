@@ -274,6 +274,10 @@ test("package scripts do not apply migrations or run real seed", async () => {
     packageJson.scripts["coach:supabase:seed-sql"],
     "node scripts/coach-context/generate-supabase-seed-sql.mjs",
   );
+  assert.equal(
+    packageJson.scripts["coach:supabase:seed-v1"],
+    "node scripts/coach-context/generate-coach-context-seed-sql.mjs",
+  );
   assert.doesNotMatch(scripts, /supabase\s+db\s+push/i);
   assert.doesNotMatch(scripts, /supabase\s+migration\s+up/i);
   assert.doesNotMatch(scripts, /supabase\s+db\s+reset/i);
