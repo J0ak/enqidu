@@ -24,7 +24,9 @@ una fase posterior. Este PR no aplica nada por si mismo.
 - Generar `npm run coach:supabase:dev-verify-sql`.
 - Aplicar migracion manualmente.
 - Verificar tablas.
+- Verificar RLS enabled.
 - Verificar policies.
+- Verificar funcion y triggers `coach_context_set_updated_at`.
 - No ejecutar seed todavia.
 - Preparar rollback.
 - Documentar resultado.
@@ -86,6 +88,8 @@ usuarios finales por defecto.
 ## Verificaciones posteriores
 
 - Las tablas `coach_*` existen.
+- La funcion `coach_context_set_updated_at` existe.
+- Los triggers `updated_at` solo existen sobre tablas `coach_*`.
 - No hay cambios en `training_sessions`.
 - No hay cambios en tablas Garmin/FIT.
 - No hay cambios en `planned_training_sessions`.

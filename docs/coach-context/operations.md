@@ -34,7 +34,8 @@ commitea como SQL preparado, pero ningun comando npm la aplica.
 `npm run coach:supabase:dev-verify-sql` escribe
 `docs/coach-context/generated/dev-apply-verification.sql`. El archivo contiene
 solo consultas `SELECT` para verificar un entorno Supabase dev despues de
-aplicar manualmente la migracion.
+aplicar manualmente la migracion. Tambien comprueba funcion y triggers
+`updated_at` scoped a `coach_*`, sin modificar datos.
 
 ## Solo inspeccion
 
@@ -45,6 +46,8 @@ derivables. No modifica archivos, no importa cliente Supabase y no hace red.
 
 `npm run coach:supabase:dev-preflight` inspecciona archivos locales y scripts
 npm relevantes. No conecta a Supabase, no aplica migraciones y no ejecuta seed.
+Tambien comprueba que existen runbook, checklist, SQL generado y tests de
+seguridad de esta fase.
 
 `npm test` ejecuta tests locales.
 

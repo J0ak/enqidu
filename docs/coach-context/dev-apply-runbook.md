@@ -53,3 +53,16 @@ Usar el SQL de verificacion generado para revisar:
 Registrar conteos y observaciones en el PR o en el documento operativo interno
 antes de cualquier seed.
 
+## Abort conditions
+
+Parar la aplicacion y no continuar si aparece cualquiera de estas condiciones:
+
+- No esta claro que el proyecto Supabase destino sea dev.
+- No hay backup o snapshot confirmado.
+- La migracion local difiere del PR aprobado.
+- Aparece cualquier tabla no `coach_*` en el plan de aplicacion.
+- Las policies exponen fixtures a usuarios finales.
+- Las queries de verificacion fallan.
+- Se detecta cualquier impacto en Garmin/FIT.
+- Se detecta cualquier cambio en UI, Edge Functions, auth runtime o tablas
+  existentes.

@@ -53,6 +53,24 @@ where schemaname = 'public'
   and cmd = 'SELECT'
   and coalesce(qual, '') ilike '%fixture_user%';
 
+select count(*) as fixture_rows_before_seed
+from public.coach_session_fixtures
+where fixture_user is not null
+   or user_id is null;
+
+select n.nspname as schema_name, p.proname as function_name
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'coach_context_set_updated_at';
+
+select event_object_table, trigger_name, action_timing, event_manipulation
+from information_schema.triggers
+where event_object_schema = 'public'
+  and event_object_table like 'coach_%'
+  and action_statement ilike '%coach_context_set_updated_at%'
+order by event_object_table, trigger_name;
+
 select table_name
 from information_schema.tables
 where table_schema = 'public'

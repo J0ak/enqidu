@@ -10,7 +10,8 @@ Esta guia describe la fase siguiente. No se ejecuta en esta PR.
 4. Ejecutar `npm run coach:supabase:dev-preflight`.
 5. Generar SQL de verificacion con `npm run coach:supabase:dev-verify-sql`.
 6. Aplicar migracion solo en entorno dev.
-7. Verificar tablas, RLS, policies y conteos vacios antes de seed.
+7. Verificar tablas, RLS, policies, funcion/triggers `updated_at` y conteos
+   vacios antes de seed.
 8. Crear RLS antes de exponer tablas.
 9. Crear seed controlado.
 10. Crear rollback.

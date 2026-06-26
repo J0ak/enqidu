@@ -3,16 +3,19 @@
 - [ ] Estoy en entorno dev.
 - [ ] No estoy en produccion.
 - [ ] Tengo backup/snapshot.
-- [ ] He revisado la migracion.
+- [ ] He confirmado el proyecto Supabase.
+- [ ] He revisado la migracion exacta.
 - [ ] He revisado RLS.
+- [ ] He confirmado que solo crea tablas `coach_*`.
 - [ ] He confirmado que no toca Garmin/FIT.
 - [ ] He ejecutado `npm run coach:supabase:dev-preflight`.
 - [ ] He generado `docs/coach-context/generated/dev-apply-verification.sql`.
 - [ ] He aplicado solo la migracion.
+- [ ] No he ejecutado seed.
+- [ ] He ejecutado verification SQL.
 - [ ] He verificado tablas `coach_*`.
+- [ ] He verificado RLS enabled.
 - [ ] He verificado policies.
 - [ ] He verificado que fixtures no son publicos.
 - [ ] He confirmado que tablas `coach_*` estan vacias antes de seed.
-- [ ] No he ejecutado seed.
 - [ ] He documentado resultados.
-
