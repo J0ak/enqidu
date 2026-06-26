@@ -48,6 +48,8 @@ test("normalizeEquipmentInventory preserves home location", async () => {
   assert.equal(inventory.location.type, "home");
   assert.equal(inventory.location.label, "Home");
   assert.ok(inventory.equipment.length > 0);
+  assert.equal(inventory.product, "ENQIDU");
+  assert.equal(inventory.fixture_user, "jotason");
 });
 
 test("normalizeEquipmentInventory preserves cardioAtHome false", async () => {
@@ -65,6 +67,8 @@ test("normalizePromaestroReference preserves priorities", async () => {
   assert.equal(reference.priorities.secondary, "skills_mastery");
   assert.equal(reference.priorities.tertiary, "endurance_events_trail_triathlon");
   assert.ok(reference.rules.includes("priority_mass_over_cardio"));
+  assert.equal(reference.product, "ENQIDU");
+  assert.equal(reference.fixture_user, "jotason");
 });
 
 test("normalizeJotasonSession tolerates every session fixture", async () => {
@@ -74,9 +78,12 @@ test("normalizeJotasonSession tolerates every session fixture", async () => {
   for (const fixture of loaded.sessionFixtures) {
     assert.equal(fixture.source.fixture, "jotason");
     assert.equal(fixture.source.role, "session_fixture");
+    assert.equal(fixture.product, "ENQIDU");
+    assert.equal(fixture.fixture_user, "jotason");
     assert.ok(fixture.raw && typeof fixture.raw === "object", fixture.source.file);
     assert.ok(Array.isArray(fixture.blocks), fixture.source.file);
     assert.ok(fixture.summary && typeof fixture.summary === "object", fixture.source.file);
+    assert.ok(Array.isArray(fixture.data_quality.missing_fields), fixture.source.file);
   }
 });
 
@@ -95,8 +102,11 @@ test("buildCoachContextFixture returns product ENQIDU", async () => {
 
   assert.equal(fixture.product, "ENQIDU");
   assert.equal(fixture.fixture, "jotason");
+  assert.equal(fixture.fixture_user, "jotason");
   assert.equal(fixture.generatedFrom, "docs/coach-context");
   assert.equal(fixture.warnings.length, 0);
+  assert.equal(fixture.references.sessionContractReference.product, "ENQIDU");
+  assert.equal(fixture.references.monthlyHistoryReference.product, "ENQIDU");
 });
 
 test("fixture manifest paths stay under docs/coach-context", async () => {
@@ -106,4 +116,3 @@ test("fixture manifest paths stay under docs/coach-context", async () => {
     assert.match(source.target_path, /^docs\/coach-context\//, source.file);
   }
 });
-

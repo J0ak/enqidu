@@ -1,0 +1,41 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-04-21_FULL_DAY.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "schema_version",
+      "date",
+      "weekday",
+      "objective_primary",
+      "sessions",
+      "daily_totals"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "sessionType"
+    ],
+    "warnings": [
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-04-21",
+    "title": "running_intervalado_control_aerobico_pre_taper",
+    "sport": "running",
+    "session_type": null,
+    "schema_type": "jotason_daily_master_template_v1",
+    "summary": {
+      "time_total": "00:36:11",
+      "distance_total_km": 5.92,
+      "training_load_total": 54
+    },
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

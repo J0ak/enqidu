@@ -1,0 +1,1503 @@
+{
+  "schema_version": "enqidu_normalized_coach_context_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "generated_from": "docs/coach-context",
+  "source_traceability": {
+    "generated_from": "docs/coach-context",
+    "source_files": [
+      "docs/coach-context/references/jotason/inventory_home_v4.json",
+      "docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+      "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+      "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+      "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+      "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+      "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+      "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+      "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+      "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [],
+    "warnings": []
+  },
+  "references": {
+    "equipmentInventory": {
+      "schema_version": "enqidu_equipment_inventory_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source": {
+        "file": "inventory_home_v4.json",
+        "fixture": "jotason",
+        "role": "pilot_user_equipment_inventory"
+      },
+      "source_traceability": {
+        "file": "inventory_home_v4.json",
+        "source_path": "docs/coach-context/references/jotason/inventory_home_v4.json",
+        "fixture_user": "jotason",
+        "role": "pilot_user_equipment_inventory"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": []
+      },
+      "location": {
+        "id": "home",
+        "type": "home",
+        "label": "Home"
+      },
+      "equipment": [
+        {
+          "id": "rack",
+          "category": "strength",
+          "name": "Rack",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "barbell",
+          "category": "strength",
+          "name": "Barbell",
+          "quantity": null,
+          "unit": null,
+          "value": "Ohio Bar"
+        },
+        {
+          "id": "platesKg-20kg",
+          "category": "strength",
+          "name": "Plates Kg 20kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-10kg",
+          "category": "strength",
+          "name": "Plates Kg 10kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-5kg",
+          "category": "strength",
+          "name": "Plates Kg 5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-25kg",
+          "category": "strength",
+          "name": "Plates Kg 2_5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "platesKg-15kg",
+          "category": "strength",
+          "name": "Plates Kg 1_5kg",
+          "quantity": 2,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "dumbbellsPairsKg-17_5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 17.5
+        },
+        {
+          "id": "dumbbellsPairsKg-10",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 10
+        },
+        {
+          "id": "dumbbellsPairsKg-5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 5
+        },
+        {
+          "id": "dumbbellsPairsKg-2_5",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 2.5
+        },
+        {
+          "id": "dumbbellsPairsKg-2",
+          "category": "strength",
+          "name": "Dumbbells Pairs Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 2
+        },
+        {
+          "id": "kettlebellsKg-24",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 24
+        },
+        {
+          "id": "kettlebellsKg-18",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 18
+        },
+        {
+          "id": "kettlebellsKg-16",
+          "category": "strength",
+          "name": "Kettlebells Kg",
+          "quantity": 1,
+          "unit": "kg",
+          "value": 16
+        },
+        {
+          "id": "landmine",
+          "category": "strength",
+          "name": "Landmine",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "weightedVestKg-5kg",
+          "category": "strength",
+          "name": "Weighted Vest Kg 5kg",
+          "quantity": null,
+          "unit": "kg",
+          "value": true
+        },
+        {
+          "id": "weightedVestKg-10kg",
+          "category": "strength",
+          "name": "Weighted Vest Kg 10kg",
+          "quantity": null,
+          "unit": "kg",
+          "value": true
+        },
+        {
+          "id": "rings",
+          "category": "functional",
+          "name": "Rings",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "singlePulley",
+          "category": "functional",
+          "name": "Single Pulley",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "doublePulley",
+          "category": "functional",
+          "name": "Double Pulley",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "stepBox",
+          "category": "functional",
+          "name": "Step Box",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "bands",
+          "category": "functional",
+          "name": "Bands",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "sliders",
+          "category": "functional",
+          "name": "Sliders",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "balanceBoard",
+          "category": "functional",
+          "name": "Balance Board",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "wallBallLb",
+          "category": "conditioning",
+          "name": "Wall Ball Lb",
+          "quantity": 18,
+          "unit": "lb",
+          "value": 18
+        },
+        {
+          "id": "slamBallLb",
+          "category": "conditioning",
+          "name": "Slam Ball Lb",
+          "quantity": 30,
+          "unit": "lb",
+          "value": 30
+        },
+        {
+          "id": "jumpRope",
+          "category": "conditioning",
+          "name": "Jump Rope",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "abmat",
+          "category": "recovery",
+          "name": "Abmat",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "abWheel",
+          "category": "recovery",
+          "name": "Ab Wheel",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "foamRoller",
+          "category": "recovery",
+          "name": "Foam Roller",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        },
+        {
+          "id": "theragun",
+          "category": "recovery",
+          "name": "Theragun",
+          "quantity": null,
+          "unit": null,
+          "value": true
+        }
+      ],
+      "constraints": {
+        "cardioAtHome": false,
+        "noRackWhenRain": false
+      }
+    },
+    "trainingReference": {
+      "schema_version": "enqidu_training_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source": {
+        "file": "jotason_promaestro_v5.json",
+        "fixture": "jotason",
+        "role": "historical_master_plan_reference"
+      },
+      "source_traceability": {
+        "file": "jotason_promaestro_v5.json",
+        "source_path": "docs/coach-context/references/jotason/jotason_promaestro_v5.json",
+        "fixture_user": "jotason",
+        "role": "historical_master_plan_reference"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_reference_not_current_availability"
+        ]
+      },
+      "planName": "hybrid_strength_skills_trail_system",
+      "lastUpdate": "2026-04-12",
+      "priorities": {
+        "primary": "functional_lean_mass_full_body",
+        "secondary": "skills_mastery",
+        "tertiary": "endurance_events_trail_triathlon"
+      },
+      "weeklyStructure": {
+        "monday": [
+          "hybrid",
+          "swimming_or_z2",
+          "skills_hspu"
+        ],
+        "tuesday": [
+          "full_body_strength",
+          "running_zone5",
+          "skills_pistol"
+        ],
+        "wednesday": [
+          "hybrid",
+          "swimming",
+          "mobility"
+        ],
+        "thursday": [
+          "upper_body_strength",
+          "skills_muscle_up",
+          "mobility_or_light_bike"
+        ],
+        "friday": [
+          "long_cycling_z2",
+          "core_glute_activation_optional"
+        ],
+        "saturday": [
+          "heavy_leg_strength"
+        ],
+        "sunday": [
+          "trail_run_long"
+        ]
+      },
+      "rules": [
+        "priority_mass_over_cardio",
+        "skills_every_week",
+        "only_one_high_intensity_running_day",
+        "friday_no_leg_fatigue",
+        "saturday_primary_strength_day",
+        "sunday_specific_endurance_not_competition"
+      ]
+    },
+    "sessionContractReference": {
+      "schema_version": "enqidu_master_template_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_TEMPLATE_v8_COMPLETO.json",
+        "fixture_user": "jotason",
+        "role": "historical_session_contract_reference"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_reference_contract_not_runtime_model"
+        ]
+      },
+      "schemaType": null,
+      "topLevelKeys": [
+        "jotason_template_version",
+        "purpose",
+        "usage_notes",
+        "session",
+        "sport_specific_templates_reference"
+      ],
+      "concepts": {
+        "hasMetadata": false,
+        "hasSummary": false,
+        "hasZones": false,
+        "hasLaps": false,
+        "hasBlocks": false,
+        "hasCoachLayer": false,
+        "hasDataQuality": false
+      }
+    },
+    "monthlyHistoryReference": {
+      "schema_version": "enqidu_monthly_history_reference_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "source_path": "docs/coach-context/references/jotason/JOTASON_MASTER_ULTIMO_MES_2026-04-18_ULTRA_DETALLADO.json",
+        "fixture_user": "jotason",
+        "role": "monthly_history_aggregation_fixture"
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": [
+          "historical_aggregation_fixture_not_live_user_state"
+        ]
+      },
+      "topLevelKeys": [
+        "jotason_version",
+        "schema_type",
+        "athlete",
+        "period",
+        "inventory_context",
+        "monthly_aggregate",
+        "normalized_session_index",
+        "progression",
+        "coach_conclusions",
+        "audit",
+        "raw_daily_objects_by_date"
+      ],
+      "counts": {
+        "sessions": 0,
+        "topLevelKeys": 11
+      },
+      "summary": {
+        "overall": "Mes híbrido de alta densidad con base aeróbica estable, fuerza lower consolidada y mejor transferencia a trail.",
+        "strength": "La mejora principal viene por volumen útil, repetición de exposiciones efectivas y mejor tolerancia a la fatiga. Front squat se consolida en 75 kg; RDL progresa hasta 85-90 kg; hip thrust queda fuerte en 90 kg; unilateral y sóleo/gemelo refuerzan transferencia a trail.",
+        "endurance": "Running/trail gana variedad y especificidad; la natación mantiene técnica estable y base aeróbica; el híbrido sigue siendo un sello del mes con buena tolerancia a zonas altas.",
+        "recovery": "Yoga, pilates, movilidad y core de descarga ayudan a sostener el bloque. El riesgo principal no es falta de trabajo, sino exceso de densidad si no se regula."
+      }
+    }
+  },
+  "session_fixtures": [
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-20_FULL_DAY_MASTER_TEMPLATE_v8.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "template_source",
+          "day_date",
+          "day_of_week",
+          "day_type",
+          "timezone",
+          "athlete",
+          "coach_mode",
+          "objective_of_day",
+          "vector_db_ready",
+          "export_timestamp",
+          "data_quality",
+          "sessions",
+          "daily_summary",
+          "export"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [],
+        "warnings": []
+      },
+      "session": {
+        "date": "2026-04-20",
+        "title": "trabajo híbrido combinado de HIIT matinal + natación aeróbica regenerativa por la tarde",
+        "sport": "hiit",
+        "session_type": "doble_sesion_hibrida",
+        "schema_type": "4.0_ultra_detailed_competitive",
+        "summary": {
+          "sessions_count": 2,
+          "combined_training_time_sec": 5272,
+          "combined_training_time_hms": "01:27:52",
+          "combined_calories_total_kcal": 773,
+          "combined_calories_active_kcal": 645,
+          "combined_calories_rest_kcal": 128,
+          "combined_training_load": 130,
+          "focus_distribution": [
+            "HIIT metabólico con sesgo de tren superior y core",
+            "natación aeróbica regenerativa"
+          ],
+          "coach_day_assessment": {
+            "overall_day_type": "doble_sesion_hibrida_bien_compensada",
+            "overall_fatigue_expected": "moderada",
+            "neuromuscular_cost": "moderado",
+            "cardiovascular_cost": "moderado",
+            "impact_cost": "bajo_moderado",
+            "best_use_of_day": "sumar estímulo metabólico por la mañana y recuperación aeróbica por la tarde"
+          },
+          "recommendations_next_24h": [
+            "Priorizar hidratación y electrolitos por doble sesión.",
+            "Asegurar proteína suficiente y algo de hidrato post-sesión para reponer.",
+            "Dormir bien para consolidar la carga del día.",
+            "Si mañana hay fuerza o carrera, llegar con movilidad de hombro, dorsal y cadera revisada."
+          ]
+        },
+        "blocks": [
+          {
+            "block_id": "A",
+            "block_type": "warmup_mobility",
+            "title": "Movilidad, estiramiento y movilidad activa",
+            "rounds": 1,
+            "format": "continuo",
+            "estimated_duration_min": 8,
+            "exercises": [
+              {
+                "order": 1,
+                "exercise_name": "Movilidad general",
+                "equipment": null,
+                "sets": 1,
+                "reps": null,
+                "duration_sec": null,
+                "rest_sec": null,
+                "load_kg": null,
+                "sides": null,
+                "notes": "Bloque inicial descrito como movilidad, estiramiento y movilidad activa."
+              }
+            ]
+          },
+          {
+            "block_id": "B",
+            "block_type": "kettlebell_complex",
+            "title": "Complejo kettlebell unilateral",
+            "rounds": 3,
+            "format": "por rondas",
+            "estimated_duration_min": 10,
+            "exercises": [
+              {
+                "order": 1,
+                "exercise_name": "Kettlebell high pull / remo vertical subiendo codo unilateral",
+                "equipment": "kettlebell",
+                "sets": 3,
+                "reps": 6,
+                "reps_per_side": 6,
+                "duration_sec": null,
+                "rest_sec": null,
+                "load_kg": 16,
+                "sides": "bilateral_unilateral",
+                "notes": "Descrito como 'con kettle de 16, a cada lado, subiendo codo'."
+              },
+              {
+                "order": 2,
+                "exercise_name": "Kettlebell one-arm swing",
+                "equipment": "kettlebell",
+                "sets": 3,
+                "reps": 6,
+                "reps_per_side": 6,
+                "duration_sec": null,
+                "rest_sec": null,
+                "load_kg": 16,
+                "sides": "bilateral_unilateral",
+                "notes": "6 swing a cada lado con un brazo."
+              },
+              {
+                "order": 3,
+                "exercise_name": "Kettlebell push press unilateral",
+                "equipment": "kettlebell",
+                "sets": 3,
+                "reps": 6,
+                "reps_per_side": 6,
+                "duration_sec": null,
+                "rest_sec": null,
+                "load_kg": 16,
+                "sides": "bilateral_unilateral",
+                "notes": "6 a cada lado."
+              },
+              {
+                "order": 4,
+                "exercise_name": "Escaladores cruzados",
+                "equipment": "bodyweight",
+                "sets": 3,
+                "reps": 6,
+                "reps_per_side": 6,
+                "duration_sec": null,
+                "rest_sec": null,
+                "load_kg": null,
+                "sides": "bilateral_unilateral",
+                "notes": "6 a cada lado."
+              }
+            ]
+          },
+          {
+            "block_id": "C",
+            "block_type": "metabolic_circuit",
+            "title": "Circuito principal metabólico",
+            "rounds": 3,
+            "format": "40 segundos trabajo / 10 segundos descanso por estación",
+            "work_sec_per_station": 40,
+            "rest_sec_per_station": 10,
+            "stations_count": 7,
+            "estimated_duration_min": 15,
+            "exercises": [
+              {
+                "order": 1,
+                "exercise_name": "Remo con kettlebell subiendo codo",
+                "equipment": "kettlebell",
+                "sets": 3,
+                "reps": null,
+                "reps_estimated_per_side": 8,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": 20,
+                "sides": "bilateral_unilateral",
+                "notes": "Entraron unas 8 a cada lado en 40 s."
+              },
+              {
+                "order": 2,
+                "exercise_name": "Step-up / pistol asistido en banco con kettlebell",
+                "equipment": "kettlebell + bench",
+                "sets": 3,
+                "reps": null,
+                "reps_estimated_per_side": 9,
+                "reps_estimated_range_per_side": "9-10",
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": 12,
+                "sides": "bilateral_unilateral",
+                "notes": "Con la pierna del mismo lado de la kettlebell sobre el banco."
+              },
+              {
+                "order": 3,
+                "exercise_name": "Face pull unilateral en posición de caballero",
+                "equipment": "cable",
+                "sets": 3,
+                "reps": null,
+                "reps_estimated_per_side": 10,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": 15,
+                "sides": "bilateral_unilateral",
+                "notes": "10 a cada lado."
+              },
+              {
+                "order": 4,
+                "exercise_name": "Assault bike",
+                "equipment": "assault_bike",
+                "sets": 3,
+                "reps": null,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": null,
+                "sides": null,
+                "rpm_estimated": 74,
+                "rpm_estimated_range": "74-75",
+                "notes": "Cadencia habitual indicada por el usuario."
+              },
+              {
+                "order": 5,
+                "exercise_name": "Wall ball parcial",
+                "equipment": "wall_ball",
+                "sets": 3,
+                "reps": null,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": 9,
+                "sides": null,
+                "notes": "Lanzamiento a media altura por techo bajo."
+              },
+              {
+                "order": 6,
+                "exercise_name": "Remo ergómetro",
+                "equipment": "rowing_machine",
+                "sets": 3,
+                "reps": null,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": null,
+                "sides": null,
+                "pace_reference_500m": "1:40",
+                "notes": "Ritmo medio aproximado indicado por el usuario."
+              },
+              {
+                "order": 7,
+                "exercise_name": "Walking lunge con kettlebell",
+                "equipment": "kettlebell",
+                "sets": 3,
+                "reps": 16,
+                "reps_per_side": 8,
+                "duration_sec": 40,
+                "rest_sec": 10,
+                "load_kg": 16,
+                "sides": "bilateral_unilateral",
+                "notes": "8+8 aprox. dentro de cada estación de 40 s."
+              }
+            ],
+            "notes": [
+              "El usuario corrigió la estructura: 40 segundos activos y 10 segundos de descanso, no 20/10.",
+              "Aunque el listado verbal incluye 7 estaciones, Garmin reporta 5 series totales; se conserva la estructura verbal como referencia principal de entrenador y se marca la discrepancia."
+            ]
+          }
+        ],
+        "blocks_count": 3
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-04-21_FULL_DAY.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-21_FULL_DAY.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "schema_version",
+          "date",
+          "weekday",
+          "objective_primary",
+          "sessions",
+          "daily_totals"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sessionType"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-04-21",
+        "title": "running_intervalado_control_aerobico_pre_taper",
+        "sport": "running",
+        "session_type": null,
+        "schema_type": "jotason_daily_master_template_v1",
+        "summary": {
+          "time_total": "00:36:11",
+          "distance_total_km": 5.92,
+          "training_load_total": 54
+        },
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-04-22_FULL_DAY_ENRICHED_TEMPLATE.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "schema_version",
+          "date",
+          "weekday",
+          "objective_primary",
+          "export_timestamp",
+          "sessions",
+          "daily_totals",
+          "interpretation"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sessionType"
+        ],
+        "warnings": []
+      },
+      "session": {
+        "date": "2026-04-22",
+        "title": "doble_sesion_hibrido_y_natacion_recuperacion_aerobica_baja",
+        "sport": "hybrid_hiit",
+        "session_type": null,
+        "schema_type": "jotason_daily_master_template_v1",
+        "summary": {
+          "time_total": "01:38:05",
+          "calories_total": 827,
+          "calories_active": 684,
+          "distance_total_m": 900,
+          "sweat_loss_known_ml": 558,
+          "training_load_total": 108
+        },
+        "blocks": [
+          {
+            "block_id": "A",
+            "type": "warmup",
+            "content": "movilidad dinámica + activación general"
+          },
+          {
+            "block_id": "B",
+            "type": "mobility_agility",
+            "rounds": 3,
+            "exercises": [
+              "vallas frontales",
+              "vallas laterales"
+            ]
+          },
+          {
+            "block_id": "C",
+            "type": "kettlebell_complex",
+            "rounds": 3,
+            "load_kg": 12,
+            "exercises": [
+              {
+                "name": "goblet press",
+                "reps": 8
+              },
+              {
+                "name": "swing",
+                "reps": 8
+              },
+              {
+                "name": "remo",
+                "reps_per_side": 4
+              },
+              {
+                "name": "escaladores",
+                "reps_per_leg": 10
+              }
+            ]
+          },
+          {
+            "block_id": "D",
+            "type": "functional_circuit",
+            "rounds": 3,
+            "exercises": [
+              {
+                "name": "wall ball clean squat hold",
+                "load_kg": 7,
+                "reps": 6
+              },
+              {
+                "name": "arrastre saco",
+                "load_kg": 10,
+                "reps_per_side": 4
+              },
+              {
+                "name": "remo erg",
+                "distance_m": 100,
+                "pace": "1:40"
+              }
+            ]
+          },
+          {
+            "block_id": "E",
+            "type": "strength_stability",
+            "rounds": 3,
+            "exercises": [
+              {
+                "name": "press inclinado",
+                "load_kg": 17.5,
+                "reps": 6
+              },
+              {
+                "name": "step box unilateral",
+                "reps_per_side": 5
+              },
+              {
+                "name": "pallof press",
+                "reps_per_side": 5
+              }
+            ]
+          },
+          {
+            "block_id": "F",
+            "type": "core_conditioning",
+            "rounds": 2,
+            "exercises": [
+              {
+                "name": "remo en caballero",
+                "load_kg": 20,
+                "reps_per_side": 5
+              },
+              {
+                "name": "side plank con mancuerna",
+                "load_kg": 5,
+                "reps_per_side": 5
+              },
+              {
+                "name": "assault bike",
+                "structure": "intervalos internos 10s suave / 10s fuerte",
+                "rpm_strong": "70-80",
+                "duration": "40s y 60s en última ronda"
+              }
+            ]
+          }
+        ],
+        "blocks_count": 6
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "2026-04-26_jotason_trail.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-26_jotason_trail.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "activity_type",
+          "date",
+          "session",
+          "summary",
+          "training_effect",
+          "heart_rate",
+          "energy"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sessionType"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-04-26",
+        "title": "Bustarviejo Trail running",
+        "sport": "trail_running",
+        "session_type": null,
+        "schema_type": "MASTER_TEMPLATE_v8_RUNNING",
+        "summary": {
+          "distance_km": 18.84,
+          "duration": {
+            "total": "03:02:54",
+            "moving": "02:55:27",
+            "elapsed": "03:02:54"
+          },
+          "pace": {
+            "avg": "09:42",
+            "moving_avg": "09:19",
+            "grade_adjusted": "07:32"
+          },
+          "speed": {
+            "avg_kmh": 6.2,
+            "max_kmh": 21.7
+          }
+        },
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "2026-04-27_jotason.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-27_jotason.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "date",
+          "jotason_version",
+          "day_type",
+          "daily_summary"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_explicit_session_collection",
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-04-27",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_running",
+        "schema_type": "MASTER_TEMPLATE_v8",
+        "summary": {
+          "sessions_count": 2,
+          "total_training_time_hms": "01:32:52",
+          "total_calories_kcal": 787,
+          "total_calories_active_kcal": 651,
+          "total_calories_rest_kcal": 136,
+          "hydration_loss_total_ml": 1060,
+          "training_load_total": 113
+        },
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "2026-04-29_jotason_full_day_v2.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-04-29_jotason_full_day_v2.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "date",
+          "jotason_version",
+          "note"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport",
+          "sessionType"
+        ],
+        "warnings": [
+          "no_explicit_session_collection",
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-04-29",
+        "title": null,
+        "sport": null,
+        "session_type": null,
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "2026-05-04_JOTASON_FULL.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/2026-05-04_JOTASON_FULL.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions_included",
+          "status"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_explicit_session_collection",
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-04",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_swim_recovery",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-05-05_strength_lower_body.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-05_strength_lower_body.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-05",
+        "title": null,
+        "sport": null,
+        "session_type": "strength_lower_body",
+        "schema_type": "MASTER_TEMPLATE_v8_STRENGTH",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions",
+          "daily_totals"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-06",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_swim",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {
+          "training_time_total": "01:15:56",
+          "calories_total": 748,
+          "calories_active": 637,
+          "training_load_total": 157
+        },
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-07_YOGA_RECOVERY.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions",
+          "notes"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-07",
+        "title": "Yoga Recovery Session",
+        "sport": null,
+        "session_type": "recovery_yoga_session",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-08_FULL_DAY_HYBRID.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sport"
+        ],
+        "warnings": []
+      },
+      "session": {
+        "date": "2026-05-08",
+        "title": "Z2 urban recovery run",
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_upper_run",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [
+          {
+            "block_name": "rings_skill",
+            "exercises": [
+              {
+                "name": "False grip ring pull-ups",
+                "sets": 5,
+                "reps": "4-5",
+                "notes": "Slow strict execution"
+              },
+              {
+                "name": "False grip isometrics",
+                "notes": "Bottom, midpoint and top holds"
+              },
+              {
+                "name": "Muscle-up transitions",
+                "assist": "yellow band"
+              },
+              {
+                "name": "Handstand wall hold",
+                "sets": 4,
+                "duration_seconds": 30
+              }
+            ]
+          },
+          {
+            "block_name": "upper_strength",
+            "exercises": [
+              {
+                "name": "Military press",
+                "sets": 4,
+                "reps": 6,
+                "weight_kg": 38
+              },
+              {
+                "name": "Landmine row bilateral",
+                "sets": [
+                  {
+                    "reps": 8,
+                    "weight_kg": 35
+                  },
+                  {
+                    "reps": 8,
+                    "weight_kg": 40
+                  },
+                  {
+                    "reps": 8,
+                    "weight_kg": 40
+                  },
+                  {
+                    "reps": 8,
+                    "weight_kg": 40
+                  }
+                ]
+              },
+              {
+                "name": "Ring dips",
+                "sets": 3,
+                "reps": 6
+              }
+            ]
+          },
+          {
+            "block_name": "core_stability",
+            "exercises": [
+              {
+                "name": "Ab wheel",
+                "notes": "Mixed standing partials and kneeling reps"
+              },
+              {
+                "name": "Farmer carry unilateral",
+                "weight_kg": 24,
+                "rounds": 3
+              },
+              {
+                "name": "Pallof press",
+                "equipment": "light blue band",
+                "format": "superset"
+              }
+            ]
+          }
+        ],
+        "blocks_count": 3
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-09_LOWER_STRENGTH_HYBRID.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-09",
+        "title": "Hybrid lower strength + trail stability",
+        "sport": null,
+        "session_type": "strength_lower_hybrid",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "jotason_trail_running_2026_05_10.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/jotason_trail_running_2026_05_10.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-10",
+        "title": null,
+        "sport": null,
+        "session_type": "trail_running_aerobic_base",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "11-05-2026_Jotason.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/11-05-2026_Jotason.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-11",
+        "title": null,
+        "sport": null,
+        "session_type": "double_session_hybrid_swim",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-12_upper_hybrid_skill_strength.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "sessions"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-12",
+        "title": null,
+        "sport": null,
+        "session_type": "upper_hybrid_skill_strength",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    },
+    {
+      "schema_version": "enqidu_normalized_session_fixture_v0",
+      "product": "ENQIDU",
+      "fixture_user": "jotason",
+      "source_traceability": {
+        "file": "Jotason_2026-05-13_COMPLETO.json",
+        "source_path": "docs/coach-context/fixtures/jotason/sessions/Jotason_2026-05-13_COMPLETO.json",
+        "fixture_user": "jotason",
+        "role": "session_fixture",
+        "raw_top_level_keys": [
+          "jotason_version",
+          "date",
+          "day_type",
+          "status"
+        ]
+      },
+      "data_quality": {
+        "missing_fields": [
+          "title",
+          "sport"
+        ],
+        "warnings": [
+          "no_explicit_session_collection",
+          "no_blocks_detected"
+        ]
+      },
+      "session": {
+        "date": "2026-05-13",
+        "title": null,
+        "sport": null,
+        "session_type": "doble_sesion_hibrido_hiit_swim_recovery",
+        "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+        "summary": {},
+        "blocks": [],
+        "blocks_count": 0
+      }
+    }
+  ]
+}

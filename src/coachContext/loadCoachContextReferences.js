@@ -1,22 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { loadJsonFile } from "./loadJsonFile.js";
 import { normalizeEquipmentInventory } from "./normalizeEquipmentInventory.js";
 import { normalizeJotasonSession } from "./normalizeJotasonSession.js";
+import { normalizeMasterTemplateReference } from "./normalizeMasterTemplateReference.js";
+import { normalizeMonthlyHistoryReference } from "./normalizeMonthlyHistoryReference.js";
 import { normalizePromaestroReference } from "./normalizePromaestroReference.js";
-
-const DEFAULT_CONTEXT_ROOT = path.join("docs", "coach-context");
-const MANIFEST_PATH = path.join(DEFAULT_CONTEXT_ROOT, "source-json-manifest.json");
-
-async function readJson(filePath) {
-  return JSON.parse(await readFile(filePath, "utf8"));
-}
-
-function assertCoachContextPath(targetPath) {
-  const normalized = targetPath.replaceAll("\\", "/");
-  if (!normalized.startsWith("docs/coach-context/")) {
-    throw new Error(`Fixture path must stay under docs/coach-context: ${targetPath}`);
-  }
-}
+import { loadSourceManifest, resolveSourcePath } from "./sourceManifest.js";
 
 function createInitialReferences() {
   return {
@@ -29,41 +17,51 @@ function createInitialReferences() {
 
 function assignReference(references, source, raw) {
   if (source.role === "pilot_user_equipment_inventory") {
-    references.equipmentInventory = normalizeEquipmentInventory(raw, { file: source.file });
+    references.equipmentInventory = normalizeEquipmentInventory(raw, {
+      file: source.file,
+      sourcePath: source.target_path,
+    });
     return;
   }
   if (source.role === "historical_master_plan_reference") {
-    references.trainingReference = normalizePromaestroReference(raw, { file: source.file });
+    references.trainingReference = normalizePromaestroReference(raw, {
+      file: source.file,
+      sourcePath: source.target_path,
+    });
     return;
   }
   if (source.role === "historical_session_contract_reference") {
-    references.sessionContractReference = raw;
+    references.sessionContractReference = normalizeMasterTemplateReference(raw, {
+      file: source.file,
+      sourcePath: source.target_path,
+    });
     return;
   }
   if (source.role === "monthly_history_aggregation_fixture") {
-    references.monthlyHistoryReference = raw;
+    references.monthlyHistoryReference = normalizeMonthlyHistoryReference(raw, {
+      file: source.file,
+      sourcePath: source.target_path,
+    });
   }
 }
 
 export async function loadCoachContextReferences({ rootDir = process.cwd() } = {}) {
-  const manifest = await readJson(path.join(rootDir, MANIFEST_PATH));
+  const manifest = await loadSourceManifest({ rootDir });
   const references = createInitialReferences();
   const sessionFixtures = [];
   const missing = [];
   const copied = [];
 
   for (const source of manifest.sources ?? []) {
-    assertCoachContextPath(source.target_path);
-
     if (source.status !== "copied") {
       missing.push(source);
       continue;
     }
 
-    const targetPath = path.join(rootDir, source.target_path);
+    const targetPath = resolveSourcePath(rootDir, source);
     let raw;
     try {
-      raw = await readJson(targetPath);
+      raw = await loadJsonFile(targetPath);
     } catch (error) {
       missing.push({ ...source, error: error.message });
       continue;
@@ -72,7 +70,7 @@ export async function loadCoachContextReferences({ rootDir = process.cwd() } = {
     copied.push(source);
 
     if (source.category === "session_fixture") {
-      sessionFixtures.push(normalizeJotasonSession(raw, { file: source.file }));
+      sessionFixtures.push(normalizeJotasonSession(raw, { file: source.file, sourcePath: source.target_path }));
     } else if (source.category === "reference") {
       assignReference(references, source, raw);
     }
@@ -86,4 +84,3 @@ export async function loadCoachContextReferences({ rootDir = process.cwd() } = {
     copied,
   };
 }
-

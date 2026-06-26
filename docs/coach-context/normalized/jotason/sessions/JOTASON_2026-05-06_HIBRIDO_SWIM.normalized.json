@@ -1,0 +1,42 @@
+{
+  "schema_version": "enqidu_normalized_session_fixture_v0",
+  "product": "ENQIDU",
+  "fixture_user": "jotason",
+  "source_traceability": {
+    "file": "JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+    "source_path": "docs/coach-context/fixtures/jotason/sessions/JOTASON_2026-05-06_HIBRIDO_SWIM.json",
+    "fixture_user": "jotason",
+    "role": "session_fixture",
+    "raw_top_level_keys": [
+      "jotason_version",
+      "date",
+      "day_type",
+      "sessions",
+      "daily_totals"
+    ]
+  },
+  "data_quality": {
+    "missing_fields": [
+      "title",
+      "sport"
+    ],
+    "warnings": [
+      "no_blocks_detected"
+    ]
+  },
+  "session": {
+    "date": "2026-05-06",
+    "title": null,
+    "sport": null,
+    "session_type": "doble_sesion_hibrido_swim",
+    "schema_type": "MASTER_TEMPLATE_v8_MULTISPORT",
+    "summary": {
+      "training_time_total": "01:15:56",
+      "calories_total": 748,
+      "calories_active": 637,
+      "training_load_total": 157
+    },
+    "blocks": [],
+    "blocks_count": 0
+  }
+}

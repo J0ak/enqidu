@@ -86,12 +86,29 @@ function normalizeEquipmentEntries(raw) {
   return equipment;
 }
 
-export function normalizeEquipmentInventory(raw, { file = "inventory_home_v4.json" } = {}) {
+export function normalizeEquipmentInventory(raw, { file = "inventory_home_v4.json", sourcePath = null } = {}) {
+  const missingFields = [];
+  if (!raw?.location) missingFields.push("location");
+  if (!raw?.constraints || !("cardio_at_home" in raw.constraints)) missingFields.push("constraints.cardio_at_home");
+
   return {
+    schema_version: "enqidu_equipment_inventory_v0",
+    product: "ENQIDU",
+    fixture_user: "jotason",
     source: {
       file,
       fixture: "jotason",
       role: "pilot_user_equipment_inventory",
+    },
+    source_traceability: {
+      file,
+      source_path: sourcePath,
+      fixture_user: "jotason",
+      role: "pilot_user_equipment_inventory",
+    },
+    data_quality: {
+      missing_fields: missingFields,
+      warnings: [],
     },
     location: {
       id: raw?.location ?? "home",
@@ -105,4 +122,3 @@ export function normalizeEquipmentInventory(raw, { file = "inventory_home_v4.jso
     },
   };
 }
-
