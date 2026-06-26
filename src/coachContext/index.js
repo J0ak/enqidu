@@ -1,4 +1,16 @@
 export { buildCoachContextFixture } from "./buildCoachContextFixture.js";
+export { loadCoachContext } from "./coachContextLoader.js";
+export {
+  buildCoachContextDto,
+  createCoachContextRepository,
+  resolveCoachContextScope,
+} from "./coachContextRepository.js";
+export {
+  COACH_CONTEXT_SCOPE,
+  COACH_CONTEXT_STATUS,
+  COACH_CONTEXT_TABLES,
+  emptyCoachContextDto,
+} from "./coachContextTypes.js";
 export { buildNormalizedAthleteContext } from "./buildNormalizedAthleteContext.js";
 export { buildNormalizedSessionFixture } from "./buildNormalizedSessionFixture.js";
 export { loadCoachContextReferences } from "./loadCoachContextReferences.js";
