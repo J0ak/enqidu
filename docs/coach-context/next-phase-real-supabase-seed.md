@@ -6,14 +6,15 @@ Esta guia describe la fase siguiente. No se ejecuta en esta PR.
 
 1. Revisar `supabase-target-model.md`.
 2. Aprobar tablas y claves naturales.
-3. Crear migracion en entorno dev.
-4. Crear RLS antes de exponer tablas.
-5. Crear seed controlado.
-6. Crear rollback.
-7. Probar solo en entorno dev.
-8. Revisar datos insertados.
-9. Conectar backend o loader.
-10. Conectar Coach UI solo despues.
+3. Revisar la migracion `coach_context_schema_v0`.
+4. Aplicar migracion solo en entorno dev.
+5. Crear RLS antes de exponer tablas.
+6. Crear seed controlado.
+7. Crear rollback.
+8. Probar solo en entorno dev.
+9. Revisar datos insertados.
+10. Conectar backend o loader.
+11. Conectar Coach UI solo despues.
 
 ## Checklist de seguridad
 

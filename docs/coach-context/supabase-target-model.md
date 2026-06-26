@@ -1,8 +1,10 @@
 # Supabase Target Model v0
 
-Este modelo es una propuesta documental. No crea tablas, migraciones ni RLS.
+Este modelo empezo como propuesta documental. La fase schema v0 lo convierte en
+una migracion revisable bajo `supabase/migrations/`, pero no la aplica contra
+Supabase real.
 
-## Criterios transversales
+## Criterios transversales schema v0
 
 Todas las tablas futuras deberian:
 
@@ -13,6 +15,27 @@ Todas las tablas futuras deberian:
 - definir una `natural_key` unica para idempotencia;
 - habilitar RLS antes de exponerse a clientes;
 - evitar que Jotason aparezca en nombres de tablas o logica runtime.
+- mantener fixtures `user_id is null` sin politica publica de lectura.
+
+## Migracion preparada
+
+La migracion `coach_context_schema_v0` crea tablas con prefijo `coach_` para
+evitar colisiones:
+
+- `coach_athlete_profiles`
+- `coach_athlete_training_goals`
+- `coach_athlete_constraints`
+- `coach_equipment_locations`
+- `coach_equipment_items`
+- `coach_context_sources`
+- `coach_context_snapshots`
+- `coach_session_fixtures`
+- `coach_session_blocks`
+- `coach_session_exercises`
+- `coach_seed_runs`
+
+La migracion es aditiva y no debe tocar Garmin/FIT, planned/executed, Edge
+Functions ni auth runtime.
 
 ## `athlete_profiles`
 
