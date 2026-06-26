@@ -7,14 +7,18 @@ Esta guia describe la fase siguiente. No se ejecuta en esta PR.
 1. Revisar `supabase-target-model.md`.
 2. Aprobar tablas y claves naturales.
 3. Revisar la migracion `coach_context_schema_v0`.
-4. Aplicar migracion solo en entorno dev.
-5. Crear RLS antes de exponer tablas.
-6. Crear seed controlado.
-7. Crear rollback.
-8. Probar solo en entorno dev.
-9. Revisar datos insertados.
-10. Conectar backend o loader.
-11. Conectar Coach UI solo despues.
+4. Ejecutar `npm run coach:supabase:dev-preflight`.
+5. Generar SQL de verificacion con `npm run coach:supabase:dev-verify-sql`.
+6. Aplicar migracion solo en entorno dev.
+7. Verificar tablas, RLS, policies, funcion/triggers `updated_at` y conteos
+   vacios antes de seed.
+8. Crear RLS antes de exponer tablas.
+9. Crear seed controlado.
+10. Crear rollback.
+11. Probar solo en entorno dev.
+12. Revisar datos insertados.
+13. Conectar backend o loader.
+14. Conectar Coach UI solo despues.
 
 ## Checklist de seguridad
 
@@ -41,4 +45,5 @@ La fase real solo deberia empezar cuando:
 - el modelo objetivo este aprobado;
 - exista una decision explicita sobre tablas fixture vs tablas compartidas;
 - exista un entorno dev Supabase disponible.
+- el SQL de verificacion post-migracion haya pasado en dev.
 

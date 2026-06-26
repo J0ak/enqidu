@@ -20,9 +20,13 @@ una fase posterior. Este PR no aplica nada por si mismo.
 - Revisar RLS.
 - Confirmar entorno dev.
 - Confirmar backup.
+- Ejecutar `npm run coach:supabase:dev-preflight`.
+- Generar `npm run coach:supabase:dev-verify-sql`.
 - Aplicar migracion manualmente.
 - Verificar tablas.
+- Verificar RLS enabled.
 - Verificar policies.
+- Verificar funcion y triggers `coach_context_set_updated_at`.
 - No ejecutar seed todavia.
 - Preparar rollback.
 - Documentar resultado.
@@ -40,9 +44,22 @@ una fase posterior. Este PR no aplica nada por si mismo.
 9. Verificar conteos esperados.
 10. Aplicar rollback si algo falla.
 
+## Verificacion local previa
+
+```bash
+npm run coach:supabase:dev-preflight
+npm run coach:supabase:dev-verify-sql
+```
+
+El preflight no conecta a Supabase. El generador de verificacion solo escribe un
+SQL local con consultas `SELECT`. La aplicacion de la migracion sigue siendo
+manual y debe hacerse solo en Supabase dev.
+
 ## Seed
 
 El seed no se ejecuta automaticamente.
+El seed real queda para otra fase, despues de revisar RLS y verificar la
+migracion aplicada en dev.
 
 Archivos relevantes:
 
@@ -71,6 +88,8 @@ usuarios finales por defecto.
 ## Verificaciones posteriores
 
 - Las tablas `coach_*` existen.
+- La funcion `coach_context_set_updated_at` existe.
+- Los triggers `updated_at` solo existen sobre tablas `coach_*`.
 - No hay cambios en `training_sessions`.
 - No hay cambios en tablas Garmin/FIT.
 - No hay cambios en `planned_training_sessions`.

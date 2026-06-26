@@ -13,6 +13,8 @@
     "coach:supabase:inspect": "node scripts/coach-context/inspect-normalized-for-supabase.mjs",
     "coach:supabase:plan": "node scripts/coach-context/plan-supabase-seed.mjs",
     "coach:supabase:seed-sql": "node scripts/coach-context/generate-supabase-seed-sql.mjs",
+    "coach:supabase:dev-preflight": "node scripts/coach-context/preflight-dev-apply.mjs",
+    "coach:supabase:dev-verify-sql": "node scripts/coach-context/generate-dev-apply-verification-sql.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4174"
   },
   "dependencies": {
