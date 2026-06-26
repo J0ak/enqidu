@@ -44,6 +44,10 @@ test("dev apply results folder and result document exist", async () => {
   const files = await resultFiles();
 
   assert.ok(files.some((name) => /coach-context-schema-v0(?:-not-applied)?\.md$/.test(name)), files.join(", "));
+  assert.ok(
+    files.some((name) => name === "2026-06-26-coach-context-schema-v0-blocked-cli-or-env-retry.md"),
+    files.join(", "),
+  );
 });
 
 test("dev apply result contains required outcome fields and no sensitive values", async () => {
@@ -57,7 +61,9 @@ test("dev apply result contains required outcome fields and no sensitive values"
   assert.match(resultText, /Supabase writes: (migration only|none)/);
   assert.match(resultText, /Verification SQL executed: (yes|no)/);
   assert.match(resultText, /Verification SQL file:/);
+  assert.match(resultText, /Verification SQL executed against Supabase: (yes|no)/);
   assert.match(resultText, /Garmin\/FIT untouched: yes/);
+  assert.match(resultText, /Supabase CLI is not available in PATH/);
 
   for (const pattern of sensitivePatterns) {
     assert.doesNotMatch(resultText, pattern, pattern.toString());
