@@ -8,6 +8,8 @@ npm run coach:inspect
 npm run coach:supabase:inspect
 npm run coach:supabase:plan
 npm run coach:supabase:seed-sql
+npm run coach:supabase:dev-preflight
+npm run coach:supabase:dev-verify-sql
 npm test
 npm run build
 ```
@@ -29,12 +31,20 @@ archivo generado es draft, no se ejecuta automaticamente y queda envuelto en
 La migracion `coach_context_schema_v0` tambien es un artefacto revisable: se
 commitea como SQL preparado, pero ningun comando npm la aplica.
 
+`npm run coach:supabase:dev-verify-sql` escribe
+`docs/coach-context/generated/dev-apply-verification.sql`. El archivo contiene
+solo consultas `SELECT` para verificar un entorno Supabase dev despues de
+aplicar manualmente la migracion.
+
 ## Solo inspeccion
 
 `npm run coach:inspect` imprime resumen de raw y normalized fixtures.
 
 `npm run coach:supabase:inspect` imprime resumen de entidades Supabase
 derivables. No modifica archivos, no importa cliente Supabase y no hace red.
+
+`npm run coach:supabase:dev-preflight` inspecciona archivos locales y scripts
+npm relevantes. No conecta a Supabase, no aplica migraciones y no ejecuta seed.
 
 `npm test` ejecuta tests locales.
 
@@ -61,6 +71,7 @@ Estos comandos no deben:
 - escribir en Supabase;
 - aplicar migraciones;
 - ejecutar seed real;
+- automatizar escritura contra produccion;
 - tocar UI;
 - tocar `src/main.jsx`;
 - tocar Edge Functions;
