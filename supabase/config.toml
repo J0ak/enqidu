@@ -1,0 +1,11 @@
+[functions.coach-context]
+verify_jwt = true
+
+[functions.coach-context-memory]
+verify_jwt = true
+
+[functions.coach-reply]
+verify_jwt = true
+
+[functions.session-context]
+verify_jwt = true

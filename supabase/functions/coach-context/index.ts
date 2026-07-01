@@ -18,16 +18,16 @@ type Scope = {
 };
 
 const tableConfig = {
-  coach_athlete_profiles: "id,user_id,fixture_user,display_name,profile_type,source_key,source_traceability,data_quality",
-  coach_athlete_training_goals: "id,user_id,fixture_user,goal_type,priority,description,source_key,source_traceability,data_quality,payload",
-  coach_athlete_constraints: "id,user_id,fixture_user,constraint_type,severity,description,active,source_key,source_traceability,data_quality,payload",
-  coach_equipment_locations: "id,user_id,fixture_user,location_id,location_type,label,source_key,source_traceability,data_quality",
-  coach_equipment_items: "id,user_id,fixture_user,item_id,category,name,quantity,unit,source_key,source_traceability,data_quality",
-  coach_context_sources: "id,user_id,fixture_user,source_key,source_type,role,source_traceability,data_quality",
-  coach_context_snapshots: "id,user_id,fixture_user,snapshot_type,schema_version,source_key,source_traceability,data_quality",
-  coach_session_fixtures: "id,user_id,fixture_user,source_key,session_date,title,sport,session_type,intent_type,location_type,source_traceability,data_quality",
-  coach_session_blocks: "id,user_id,fixture_user,source_key,block_index,block_type,title,source_traceability,data_quality",
-  coach_session_exercises: "id,user_id,fixture_user,source_key,exercise_index,name,category,source_traceability,data_quality",
+  coach_athlete_profiles: "id,user_id,fixture_user,display_name,profile_type,source_key,source_traceability,data_quality,updated_at",
+  coach_athlete_training_goals: "id,user_id,fixture_user,goal_type,priority,description,source_key,source_traceability,data_quality,payload,updated_at",
+  coach_athlete_constraints: "id,user_id,fixture_user,constraint_type,severity,description,active,source_key,source_traceability,data_quality,payload,updated_at",
+  coach_equipment_locations: "id,user_id,fixture_user,location_id,location_type,label,source_key,source_traceability,data_quality,updated_at",
+  coach_equipment_items: "id,user_id,fixture_user,item_id,category,name,quantity,unit,source_key,source_traceability,data_quality,updated_at",
+  coach_context_sources: "id,user_id,fixture_user,source_key,source_type,role,source_traceability,data_quality,updated_at",
+  coach_context_snapshots: "id,user_id,fixture_user,snapshot_type,schema_version,source_key,source_traceability,data_quality,updated_at",
+  coach_session_fixtures: "id,user_id,fixture_user,source_key,session_date,title,sport,session_type,intent_type,location_type,source_traceability,data_quality,updated_at",
+  coach_session_blocks: "id,user_id,fixture_user,source_key,block_index,block_type,title,source_traceability,data_quality,updated_at",
+  coach_session_exercises: "id,user_id,fixture_user,source_key,exercise_index,name,category,source_traceability,data_quality,updated_at",
   coach_seed_runs: "id,seed_key,mode,fixture_user,status,result_summary,warnings,created_at,updated_at",
 } as const;
 
@@ -57,10 +57,23 @@ function emptyContext(scope: Scope) {
   };
 }
 
+function errorContext(scope: Scope) {
+  return {
+    ...emptyContext(scope),
+    status: "error",
+    dataQuality: {
+      warnings: ["coach_context_unavailable"],
+    },
+  };
+}
+
 function scopedQuery(db: any, table: keyof typeof tableConfig, scope: Scope) {
   let query = db.from(table).select(tableConfig[table]);
   if (scope.type === "fixture") {
-    query = query.eq("fixture_user", scope.fixtureUser).is("user_id", null);
+    query = query.eq("fixture_user", scope.fixtureUser);
+    if (table !== "coach_seed_runs") {
+      query = query.is("user_id", null);
+    }
   } else if (table !== "coach_seed_runs") {
     query = query.eq("user_id", scope.userId);
   } else {
@@ -101,6 +114,10 @@ function compactContext(rows: Record<string, any[]>, scope: Scope) {
     .flatMap((items) => items.flatMap((item) => item.data_quality?.warnings || item.warnings || []))
     .filter(Boolean)
     .slice(0, 12);
+  const updatedAt = Object.values(rows)
+    .flatMap((items) => items.map((item) => item.updated_at).filter(Boolean))
+    .sort()
+    .at(-1) || null;
 
   return {
     status: "available",
@@ -139,12 +156,15 @@ function compactContext(rows: Record<string, any[]>, scope: Scope) {
       sourceKeys,
       seedKeys: rows.coach_seed_runs.map((run) => run.seed_key).filter(Boolean),
     },
+    updatedAt,
   };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ error: "method_not_allowed" }, 405);
+
+  let activeScope: Scope = { type: "user", userId: null, fixtureUser: null };
 
   try {
     const auth = req.headers.get("Authorization");
@@ -166,6 +186,7 @@ Deno.serve(async (req: Request) => {
     const scope: Scope = fixtureUser
       ? { type: "fixture", userId: null, fixtureUser }
       : { type: "user", userId, fixtureUser: null };
+    activeScope = scope;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const db = fixtureUser && serviceKey
       ? createClient(Deno.env.get("SUPABASE_URL")!, serviceKey)
@@ -190,6 +211,9 @@ Deno.serve(async (req: Request) => {
     return reply({ ok: true, context: compactContext(rows, scope) });
   } catch (error) {
     console.error(error);
-    return reply({ error: "coach_context_failed", detail: String((error as Error)?.message || error) }, 500);
+    return reply({
+      ok: true,
+      context: errorContext(activeScope),
+    });
   }
 });

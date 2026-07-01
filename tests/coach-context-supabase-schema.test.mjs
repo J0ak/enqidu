@@ -288,5 +288,5 @@ test("schema branch does not create forbidden runtime files", async () => {
   assert.equal(await fileExists("src/main.jsx"), true);
 
   const functionEntries = await readdir(path.join(root, "supabase", "functions"));
-  assert.deepEqual(functionEntries.sort(), ["coach-context", "coach-reply", "session-context"].sort());
+  assert.deepEqual(functionEntries.sort(), ["coach-context", "coach-context-memory", "coach-reply", "session-context"].sort());
 });

@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const DIAGNOSTIC_FIXTURE_USER = "jotason";
 
-export async function fetchCoachContextStatus({ fixtureDiagnostic = true } = {}) {
+export async function fetchCoachContextStatus({ fixtureDiagnostic = false } = {}) {
   if (!supabase) {
     return {
       ok: false,
@@ -20,10 +20,20 @@ export async function fetchCoachContextStatus({ fixtureDiagnostic = true } = {})
   });
 
   if (error) {
+    const message = error.message || "coach_context_failed";
+    if (/auth|jwt|unauthorized/i.test(message)) {
+      return {
+        ok: true,
+        status: "empty",
+        scope: { type: "user" },
+        dataQuality: { warnings: ["coach_context_auth_unavailable"] },
+      };
+    }
+
     return {
       ok: false,
       status: "error",
-      error: error.message || "coach_context_failed",
+      error: message,
     };
   }
 
