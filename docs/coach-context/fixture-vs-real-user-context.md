@@ -62,6 +62,7 @@ Usuario real sin contexto:
 - titulo: `Contexto del entrenador`;
 - estado: `Sin contexto real todavia`;
 - texto: `Puedes crearlo conversando con el Coach.`
+- accion UI: `Escribir nota de contexto`, que prepara el borrador del chat pero no aplica memoria automaticamente.
 
 Fixture diagnostico:
 

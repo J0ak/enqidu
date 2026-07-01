@@ -3989,7 +3989,7 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
 
   const startMemoryDraft = () => {
     setDraft("Recuerda que ");
-    setMicNotice("Escribe el dato que quieres guardar y envialo al Coach.");
+    setMicNotice("Preparando una nota para el Coach; la aplicacion automatica queda pendiente.");
   };
 
   return (
@@ -4092,7 +4092,7 @@ function CoachContextStatusCard({ context, onMemoryPrompt }) {
         ) : null}
         <button type="button" className="coachContextAction" onClick={onMemoryPrompt}>
           <Plus size={14} />
-          <span>{available ? "Actualizar contexto" : "Crear contexto desde conversacion"}</span>
+          <span>{available ? "Preparar nota de contexto" : "Escribir nota de contexto"}</span>
         </button>
       </div>
     </article>

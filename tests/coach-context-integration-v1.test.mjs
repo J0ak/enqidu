@@ -68,6 +68,7 @@ test("coach-context Edge Function reads compact coach tables without Garmin FIT 
   assert.match(edge, /equipmentSummary/);
   assert.match(edge, /sourcesCount/);
   assert.match(edge, /sessionsCount/);
+  assert.match(edge, /fixture_diagnostic_service_role_unavailable/);
   assert.match(edge, /table !== "coach_seed_runs"[\s\S]*query = query\.is\("user_id", null\)/);
   assert.match(edge, /else if \(table !== "coach_seed_runs"\)[\s\S]*query = query\.eq\("user_id", scope\.userId\)/);
   assert.doesNotMatch(edge, /detail: String/);
@@ -101,6 +102,9 @@ test("coach-context-memory provides JWT protected preview and apply without fixt
   assert.match(edge, /coach_athlete_training_goals/);
   assert.match(edge, /coach_athlete_constraints/);
   assert.match(edge, /coach_equipment_items/);
+  assert.match(edge, /getOrCreateUserProfile/);
+  assert.match(edge, /if \(!displayName\) return existing\.data/);
+  assert.doesNotMatch(edge, /display_name: cleanText\(preview\.profile\.display_name, 120\) \|\| null/);
   assert.doesNotMatch(edge, /fixture_user: "jotason"/);
   assert.doesNotMatch(edge, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(edge, /training_sessions/);
@@ -121,7 +125,9 @@ test("Coach UI has minimal context status card and does not touch FIT import str
   assert.match(main, /fetchCoachContextStatus/);
   assert.match(main, /CoachContextStatusCard/);
   assert.match(main, /Contexto del entrenador/);
-  assert.match(main, /Crear contexto desde conversacion/);
+  assert.match(main, /Escribir nota de contexto/);
+  assert.match(main, /Preparar nota de contexto/);
+  assert.match(main, /aplicacion automatica queda pendiente/);
   assert.match(styles, /\.coachContextCard/);
   assert.match(styles, /\.coachContextStats/);
   assert.match(styles, /\.coachContextAction/);

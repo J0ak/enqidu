@@ -82,6 +82,58 @@ async function upsertUserRow(db: any, table: string, row: Record<string, unknown
   return inserted.data;
 }
 
+async function getOrCreateUserProfile(
+  db: any,
+  userId: string,
+  profilePatch: Record<string, unknown>,
+  sourceTraceability: Record<string, unknown>,
+) {
+  const existing = await db
+    .from("coach_athlete_profiles")
+    .select("id,display_name,source_key")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.error && existing.error.code !== "PGRST116") throw existing.error;
+
+  const displayName = cleanText(profilePatch.display_name, 120);
+  if (existing.data?.id) {
+    if (!displayName) return existing.data;
+
+    const updated = await db
+      .from("coach_athlete_profiles")
+      .update({
+        display_name: displayName,
+        profile_type: "user",
+        source_traceability: sourceTraceability,
+        data_quality: { warnings: [] },
+      })
+      .eq("id", existing.data.id)
+      .select("id,display_name,source_key")
+      .single();
+    if (updated.error) throw updated.error;
+    return updated.data;
+  }
+
+  const inserted = await db
+    .from("coach_athlete_profiles")
+    .insert({
+      user_id: userId,
+      fixture_user: null,
+      display_name: displayName || null,
+      profile_type: "user",
+      source_key: cleanKey(profilePatch.source_key, `user:${userId}:profile:conversation`),
+      source_traceability: sourceTraceability,
+      data_quality: { warnings: [] },
+    })
+    .select("id,display_name,source_key")
+    .single();
+  if (inserted.error) throw inserted.error;
+  return inserted.data;
+}
+
 function buildPreview(extracted: Record<string, unknown>) {
   const profile = asRecord(extracted.profile);
   const goals = asItems(extracted.goals);
@@ -196,16 +248,7 @@ Deno.serve(async (req: Request) => {
       data_quality: { warnings: preview.warnings },
     });
 
-    const profileSourceKey = cleanKey(preview.profile.source_key, `user:${userId}:profile:conversation`);
-    const profile = await upsertUserRow(db, "coach_athlete_profiles", {
-      user_id: userId,
-      fixture_user: null,
-      display_name: cleanText(preview.profile.display_name, 120) || null,
-      profile_type: "user",
-      source_key: profileSourceKey,
-      source_traceability: sourceTraceability,
-      data_quality: { warnings: [] },
-    });
+    const profile = await getOrCreateUserProfile(db, userId, preview.profile, sourceTraceability);
 
     for (const [index, goal] of preview.goals.entries()) {
       await upsertUserRow(db, "coach_athlete_training_goals", {

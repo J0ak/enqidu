@@ -31,12 +31,14 @@ Estado de este PR: base funcional para que Coach Context deje de depender de fix
 - `coach-context-memory` guarda trazabilidad en `coach_context_sources`.
 - Objetivos, restricciones y material se guardan en tablas `coach_*` existentes.
 - Preferencias y notas quedan preservadas en snapshot cuando no hay columna estructurada adecuada.
+- La UI solo prepara una nota conversacional para el Coach; no ejecuta `preview`/`apply` automaticamente en este PR.
 
 ## No implementado en este PR
 
 - Extraccion LLM automatica desde texto libre.
 - Integracion completa de `coach-reply` con el nuevo DTO de Coach Context.
 - Correccion conversacional de sesiones ya guardadas.
+- Aplicacion automatica desde la tarjeta UI.
 - Nuevas migraciones de esquema.
 
 ## Contrato minimo de memoria
