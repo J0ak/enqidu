@@ -55,6 +55,9 @@ test("apply only replaces coach/manual blocks and preserves Garmin FIT surfaces"
 
   assert.match(shared, /REPLACEABLE_SOURCES = new Set\(\["chatgpt_manual_pilot", "chatgpt_session_correction"\]\)/);
   assert.match(shared, /protected_non_coach_blocks_preserved/);
+  assert.match(shared, /conversation_training_log/);
+  assert.match(shared, /hasConversationEvidence/);
+  assert.match(shared, /no_existing_coach_blocks_creating_from_conversation_enrichment/);
   assert.match(shared, /error: "no_replaceable_coach_blocks_found"/);
   assert.match(shared, /}, 409\)/);
   assert.match(shared, /garmin_fit: true/);
@@ -76,11 +79,14 @@ test("apply records traceability and is idempotent by correction key", async () 
   assert.match(shared, /onConflict: "session_id,enrichment_type,source"/);
   assert.match(shared, /\.from\("enkidu_conversation_enrichments"\)[\s\S]*\.upsert\(/);
   assert.match(shared, /\.from\("session_metrics"\)[\s\S]*\.delete\(\)[\s\S]*source_path", "chatgpt_session_correction"/);
+  assert.doesNotMatch(shared, /order_index:/);
 });
 
 test("2026-07-01 corrected structure is documented as 6 blocks with integrated polea wall ball carry block", async () => {
   const doc = await readText("docs/session-corrections/2026-07-01-conversational-correction.md");
-  const payload = JSON.parse(doc.match(/```json\n([\s\S]*?)\n```/)?.[1] ?? "{}");
+  const payloadBlock = doc.match(/## Payload\s+```json\s*([\s\S]*?)\s*```/);
+  assert.ok(payloadBlock);
+  const payload = JSON.parse(payloadBlock[1]);
   const blocks = payload.corrected_structure.blocks;
 
   assert.match(doc, /5ce7302b-fdce-478d-aaee-72f36023416e/);

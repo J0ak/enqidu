@@ -180,12 +180,26 @@ async function readSessionState(db: any, sessionId: string, userId: string) {
   const blockedBlocks = blocks.filter((block: any) => !REPLACEABLE_SOURCES.has(cleanText(asRecord(block.prescription).source, 80)));
   const hasFit = ["garmin_fit", "garmin_connect", "wearable_export"].includes(sourceResult.data?.source_type || "");
 
+  const enrichmentResult = await db
+    .from("enkidu_conversation_enrichments")
+    .select("id,enrichment_type,source,status,local_date")
+    .eq("session_id", sessionId)
+    .in("enrichment_type", ["conversation_training_log", "session_correction"])
+    .eq("status", "active");
+  if (enrichmentResult.error) throw enrichmentResult.error;
+  const activeConversationEnrichments = enrichmentResult.data || [];
+  const hasConversationEvidence = activeConversationEnrichments.some((row: any) =>
+    row.enrichment_type === "conversation_training_log" && row.source === "chatgpt_manual_pilot"
+  );
+
   return {
     session: sessionResult.data,
     source: sourceResult.data,
     blocks,
     replaceableBlocks,
     blockedBlocks,
+    activeConversationEnrichments,
+    hasConversationEvidence,
     hasFit,
     error: null,
   };
@@ -251,7 +265,14 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
 
     const warnings = [...normalized.warnings];
     if (state.blockedBlocks.length) warnings.push("protected_non_coach_blocks_preserved");
-    if (!state.replaceableBlocks.length) warnings.push("no_replaceable_coach_blocks_found");
+    const canCreateFromConversation = !state.replaceableBlocks.length
+      && !state.blockedBlocks.length
+      && state.hasConversationEvidence;
+    if (!state.replaceableBlocks.length) {
+      warnings.push(canCreateFromConversation
+        ? "no_existing_coach_blocks_creating_from_conversation_enrichment"
+        : "no_replaceable_coach_blocks_found");
+    }
 
     const diff = buildBeforeAfter(state, normalized);
     const common = {
@@ -274,7 +295,7 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
       });
     }
 
-    if (!state.replaceableBlocks.length) {
+    if (!state.replaceableBlocks.length && !canCreateFromConversation) {
       return reply({
         ok: false,
         dry_run: false,
@@ -366,7 +387,6 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
         .insert({
           session_id: normalized.sessionId,
           block_order: order,
-          order_index: order,
           block_type: cleanText(block.type, 40) || "other",
           name: cleanText(block.name, 160) || `Bloque ${order}`,
           rounds_completed: Number.isFinite(Number(block.rounds_completed)) ? Number(block.rounds_completed) : null,
