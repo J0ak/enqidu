@@ -3941,7 +3941,7 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
 
   useEffect(() => {
     let active = true;
-    fetchCoachContextStatus({ fixtureDiagnostic: true }).then((context) => {
+    fetchCoachContextStatus().then((context) => {
       if (!active) return;
       setCoachContextState(context);
     });
@@ -3987,9 +3987,14 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
     }
   };
 
+  const startMemoryDraft = () => {
+    setDraft("Recuerda que ");
+    setMicNotice("Preparando una nota para el Coach; la aplicacion automatica queda pendiente.");
+  };
+
   return (
     <section className="coachView">
-      <CoachContextStatusCard context={coachContextState} />
+      <CoachContextStatusCard context={coachContextState} onMemoryPrompt={startMemoryDraft} />
       <div className="chatLog">
         {messages.map((message, index) => (
           <CopyableChatMessage
@@ -4012,26 +4017,83 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
   );
 }
 
-function CoachContextStatusCard({ context }) {
+function formatCoachGoal(goal) {
+  const value = goal?.description || goal?.priority || "";
+  const labels = {
+    hybrid_strength_skills_trail_system: "Fuerza, habilidades y trail en sistema hibrido",
+  };
+  return labels[value] || value || "Sin objetivo cargado";
+}
+
+function formatCoachContextDate(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+  } catch {
+    return "";
+  }
+}
+
+function CoachContextStatusCard({ context, onMemoryPrompt }) {
   const loading = context?.status === "loading";
   const available = context?.status === "available";
+  const empty = context?.status === "empty";
+  const error = context?.status === "error";
   const fixture = context?.scope?.type === "fixture";
-  const statusText = loading ? "Consultando" : available ? "Disponible" : context?.status === "error" ? "Error" : "Sin datos";
-  const goal = context?.primaryGoal?.description || context?.primaryGoal?.priority || context?.goals?.[0]?.description || "Sin objetivo cargado";
+  const userScope = context?.scope?.type === "user" || !fixture;
+  const statusText = loading
+    ? "Consultando"
+    : fixture && available
+      ? "Modo piloto"
+      : userScope && available
+        ? "Activo para tu usuario"
+        : empty
+          ? "Sin contexto real todavia"
+          : error
+            ? "No disponible"
+            : "Sin contexto real todavia";
+  const goal = formatCoachGoal(context?.primaryGoal || context?.goals?.[0]);
   const sourcesCount = Number(context?.sourcesCount || 0);
   const sessionsCount = Number(context?.sessionsCount || 0);
+  const updatedAt = formatCoachContextDate(context?.updatedAt);
+  const categories = context?.equipmentSummary?.categories || [];
+  const equipmentText = categories.length
+    ? `Inventario: ${categories.slice(0, 3).join(", ")}`
+    : "";
+  const detailText = loading
+    ? "Preparando lectura controlada del contexto."
+    : error
+      ? "Intentalo de nuevo en unos minutos."
+      : empty
+        ? "Puedes crearlo conversando con el Coach."
+        : fixture
+          ? goal
+          : equipmentText || goal;
 
   return (
-    <article className={`coachContextCard ${available ? "available" : ""}`}>
+    <article className={`coachContextCard ${available ? "available" : ""} ${error ? "error" : ""}`}>
       <div>
-        <span>Coach Context</span>
+        <span>Contexto del entrenador</span>
         <strong>{statusText}</strong>
-        <p>{loading ? "Preparando lectura controlada del contexto." : goal}</p>
+        <p>{detailText}</p>
       </div>
       <div className="coachContextStats">
-        <em>{sourcesCount} fuentes</em>
-        <em>{sessionsCount} sesiones</em>
-        {fixture && <em>Fixture</em>}
+        {fixture ? (
+          <>
+            <em>{sourcesCount} fuentes · {sessionsCount} sesiones de referencia</em>
+            <em>Origen: Fixture Jotason</em>
+          </>
+        ) : available ? (
+          <>
+            {sourcesCount > 0 && <em>{sourcesCount} fuentes</em>}
+            {sessionsCount > 0 && <em>{sessionsCount} sesiones</em>}
+            {updatedAt && <em>Actualizado {updatedAt}</em>}
+          </>
+        ) : null}
+        <button type="button" className="coachContextAction" onClick={onMemoryPrompt}>
+          <Plus size={14} />
+          <span>{available ? "Preparar nota de contexto" : "Escribir nota de contexto"}</span>
+        </button>
       </div>
     </article>
   );

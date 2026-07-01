@@ -3487,7 +3487,11 @@ button:disabled {
   border-color: rgba(35, 230, 193, 0.34);
 }
 
-.coachContextCard span,
+.coachContextCard.error {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
+}
+
+.coachContextCard > div:first-child > span,
 .coachContextStats em {
   display: block;
   color: var(--muted);
@@ -3495,7 +3499,7 @@ button:disabled {
   font-style: normal;
 }
 
-.coachContextCard span {
+.coachContextCard > div:first-child > span {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 850;
@@ -3524,6 +3528,26 @@ button:disabled {
   border-radius: 999px;
   padding: 6px 9px;
   white-space: nowrap;
+}
+
+.coachContextAction {
+  min-height: 30px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: rgba(35, 230, 193, 0.08);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.coachContextAction svg {
+  flex: 0 0 auto;
 }
 
 .coachHero,

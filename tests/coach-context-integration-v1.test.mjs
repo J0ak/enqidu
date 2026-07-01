@@ -64,9 +64,14 @@ test("coach-context Edge Function reads compact coach tables without Garmin FIT 
   assert.match(edge, /fixture_diagnostic/);
   assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(edge, /status: "available"/);
+  assert.match(edge, /errorContext/);
   assert.match(edge, /equipmentSummary/);
   assert.match(edge, /sourcesCount/);
   assert.match(edge, /sessionsCount/);
+  assert.match(edge, /fixture_diagnostic_service_role_unavailable/);
+  assert.match(edge, /table !== "coach_seed_runs"[\s\S]*query = query\.is\("user_id", null\)/);
+  assert.match(edge, /else if \(table !== "coach_seed_runs"\)[\s\S]*query = query\.eq\("user_id", scope\.userId\)/);
+  assert.doesNotMatch(edge, /detail: String/);
   assert.doesNotMatch(edge, /get_ai_coach_context/);
   assert.doesNotMatch(edge, /training_sessions/);
   assert.doesNotMatch(edge, /fit_message_payloads/);
@@ -77,9 +82,40 @@ test("frontend service invokes coach-context without exposing service role", asy
   const service = await readText("src/services/coachContextService.js");
 
   assert.match(service, /functions\.invoke\("coach-context"/);
+  assert.match(service, /fixtureDiagnostic = false/);
   assert.match(service, /fixture_diagnostic/);
   assert.doesNotMatch(service, /SERVICE_ROLE/i);
   assert.doesNotMatch(service, /service[_-]?role/i);
+});
+
+test("coach-context-memory provides JWT protected preview and apply without fixtures", async () => {
+  const edge = await readText("supabase/functions/coach-context-memory/index.ts");
+  const service = await readText("src/services/coachMemoryService.js");
+  const config = await readText("supabase/config.toml");
+
+  assert.match(edge, /coach_memory_conversation/);
+  assert.match(edge, /mode === "apply"/);
+  assert.match(edge, /mode === "preview"/);
+  assert.match(edge, /auth\.getUser\(\)/);
+  assert.match(edge, /user_id: userId/);
+  assert.match(edge, /coach_context_sources/);
+  assert.match(edge, /coach_athlete_training_goals/);
+  assert.match(edge, /coach_athlete_constraints/);
+  assert.match(edge, /coach_equipment_items/);
+  assert.match(edge, /getOrCreateUserProfile/);
+  assert.match(edge, /if \(!displayName\) return existing\.data/);
+  assert.doesNotMatch(edge, /display_name: cleanText\(preview\.profile\.display_name, 120\) \|\| null/);
+  assert.doesNotMatch(edge, /fixture_user: "jotason"/);
+  assert.doesNotMatch(edge, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(edge, /training_sessions/);
+  assert.doesNotMatch(edge, /fit_message_payloads/);
+  assert.doesNotMatch(edge, /session_samples/);
+
+  assert.match(service, /previewCoachMemory/);
+  assert.match(service, /applyCoachMemory/);
+  assert.match(service, /functions\.invoke\("coach-context-memory"/);
+  assert.doesNotMatch(service, /SERVICE_ROLE/i);
+  assert.match(config, /\[functions\.coach-context-memory\][\s\S]*verify_jwt = true/);
 });
 
 test("Coach UI has minimal context status card and does not touch FIT import strings", async () => {
@@ -88,9 +124,13 @@ test("Coach UI has minimal context status card and does not touch FIT import str
 
   assert.match(main, /fetchCoachContextStatus/);
   assert.match(main, /CoachContextStatusCard/);
-  assert.match(main, /Coach Context/);
+  assert.match(main, /Contexto del entrenador/);
+  assert.match(main, /Escribir nota de contexto/);
+  assert.match(main, /Preparar nota de contexto/);
+  assert.match(main, /aplicacion automatica queda pendiente/);
   assert.match(styles, /\.coachContextCard/);
   assert.match(styles, /\.coachContextStats/);
+  assert.match(styles, /\.coachContextAction/);
   assert.match(main, /fit-file-parser/);
   assert.match(main, /getArrayBuffer, readRecord/);
 });
