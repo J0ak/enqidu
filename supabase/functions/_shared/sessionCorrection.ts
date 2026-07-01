@@ -34,6 +34,11 @@ function cleanText(value: unknown, max = 500) {
   return String(value).replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function normalizeConfidence(value: unknown, fallback = "unknown") {
+  const confidence = cleanText(value, 40) || fallback;
+  return ALLOWED_CONFIDENCE.has(confidence) ? confidence : fallback;
+}
+
 function asRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -372,7 +377,7 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
             summary: cleanText(block.summary, 500),
           },
           execution_notes: cleanText(block.summary, 500) || null,
-          data_confidence: cleanText(block.confidence, 40) || "manual",
+          data_confidence: normalizeConfidence(block.confidence, "manual"),
         })
         .select("id")
         .single();
@@ -403,7 +408,7 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
               ? cleanText(exercise.side, 40)
               : null,
             notes: cleanText(exercise.notes, 500) || null,
-            data_confidence: cleanText(exercise.confidence, 40) || "manual",
+            data_confidence: normalizeConfidence(exercise.confidence, "manual"),
           });
         if (exerciseInsert.error) throw exerciseInsert.error;
         insertedExercises += 1;
@@ -414,7 +419,7 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
     for (const metric of normalized.metrics) {
       const metricCode = cleanText(metric.metric_code ?? metric.code, 100);
       if (!metricCode) continue;
-      const confidence = cleanText(metric.confidence, 40) || "unknown";
+      const confidence = normalizeConfidence(metric.confidence);
       const metricInsert = await db
         .from("session_metrics")
         .insert({

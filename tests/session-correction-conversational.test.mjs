@@ -80,9 +80,20 @@ test("apply records traceability and is idempotent by correction key", async () 
 
 test("2026-07-01 corrected structure is documented as 6 blocks with integrated polea wall ball carry block", async () => {
   const doc = await readText("docs/session-corrections/2026-07-01-conversational-correction.md");
+  const payload = JSON.parse(doc.match(/```json\n([\s\S]*?)\n```/)?.[1] ?? "{}");
+  const blocks = payload.corrected_structure.blocks;
 
   assert.match(doc, /5ce7302b-fdce-478d-aaee-72f36023416e/);
   assert.match(doc, /"blocks": \[/);
+  assert.deepEqual(blocks.map((block) => block.name), [
+    "Activacion inicial",
+    "Rotaciones sobre pared / caballero",
+    "Kettlebell 12 kg",
+    "Bloque integrado: polea, wall ball y carry",
+    "Remo / paladas controladas",
+    "Vuelta a la calma",
+  ]);
+  assert.equal(blocks[3].exercises.length, 3);
   assert.match(doc, /"name": "Bloque integrado: polea, wall ball y carry"/);
   assert.match(doc, /"name": "Remo en polea estirando el brazo"/);
   assert.match(doc, /"name": "Wall ball con rotaciones"/);
@@ -96,6 +107,8 @@ test("metric confidence values are constrained to the allowed contract", async (
 
   assert.match(shared, /"reported", "calculated", "estimated", "manual", "unknown"/);
   assert.match(shared, /corrected_structure\.metrics_invalid_confidence/);
+  assert.match(shared, /data_confidence: normalizeConfidence\(block\.confidence, "manual"\)/);
+  assert.match(shared, /data_confidence: normalizeConfidence\(exercise\.confidence, "manual"\)/);
 });
 
 test("session correction docs record deployment and product boundaries", async () => {
