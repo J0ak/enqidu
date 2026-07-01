@@ -9,3 +9,9 @@ verify_jwt = true
 
 [functions.session-context]
 verify_jwt = true
+
+[functions.session-correction-preview]
+verify_jwt = true
+
+[functions.session-correction-apply]
+verify_jwt = true
