@@ -24,6 +24,7 @@ supabase functions deploy session-correction-apply --project-ref rdduqsziboqxlge
 - Receives `local_date`, `correction_type`, `reason`, `source`, and `corrected_structure`.
 - Preview reads the current session state and returns before/after counts.
 - Apply replaces only coach/manual blocks whose `prescription.source` is `chatgpt_manual_pilot` or `chatgpt_session_correction`.
+- If the session has no existing coach/manual blocks but already has an active `conversation_training_log` enrichment from `chatgpt_manual_pilot`, apply can create the corrected coach structure for that existing session.
 - Apply records traceability in `enkidu_conversation_enrichments` with `enrichment_type = session_correction`.
 - Apply inserts corrected `session_blocks`, `session_exercises`, and correction-scoped `session_metrics`.
 - Re-applying the same correction key is idempotent at the session structure level because prior correction/manual blocks are replaced before inserting the corrected structure.
@@ -108,6 +109,8 @@ The replacement set is intentionally narrow:
 - `chatgpt_session_correction`
 
 Any other existing block source is preserved and reported through `protected_non_coach_blocks_preserved`.
+
+If there are no existing blocks and no active conversation enrichment, apply returns `no_replaceable_coach_blocks_found` and does not write a new structure.
 
 The correction payload is kept in `enkidu_conversation_enrichments.payload`, including a compact `before` summary and the corrected structure. This keeps traceability without storing Garmin/FIT raw data.
 
