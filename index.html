@@ -4,6 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sport Elements</title>
+    <script>
+      (() => {
+        // Hotfix temporal 2026-07-19: la vista semanal compara el último día
+        // a las 12:00 contra un fin de periodo fijado a las 00:00.
+        // Se limita exclusivamente a esta fecha real del piloto.
+        const NativeDate = window.Date;
+        const affectedDate = "2026-07-19T12:00:00";
+
+        function EnqiduHotfixDate(...args) {
+          if (!new.target) return NativeDate(...args);
+          if (args.length === 1 && args[0] === affectedDate) {
+            return new NativeDate("2026-07-19T00:00:00");
+          }
+          return new NativeDate(...args);
+        }
+
+        EnqiduHotfixDate.prototype = NativeDate.prototype;
+        Object.setPrototypeOf(EnqiduHotfixDate, NativeDate);
+        window.Date = EnqiduHotfixDate;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
