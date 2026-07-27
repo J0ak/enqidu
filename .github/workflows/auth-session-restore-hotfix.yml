@@ -6,6 +6,9 @@ on:
       - fix/auth-session-restore-activities
     paths:
       - .github/workflows/auth-session-restore-hotfix.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
