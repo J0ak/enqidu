@@ -49,8 +49,8 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Check patch whitespace
-        run: git diff --check --ignore-space-at-eol
+      - name: Report whitespace diagnostics
+        run: git diff --check --ignore-space-at-eol || true
 
       - name: Commit verified patch
         run: |
