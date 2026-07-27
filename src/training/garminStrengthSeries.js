@@ -34,6 +34,9 @@ export function extractRawGarminStrengthSets(input) {
       let readIndex = index + 1;
       const values = {};
       for (const field of definition.fields) {
+        // FIT compressed-timestamp headers carry common timestamp field 253
+        // in the record header, so those four bytes are absent from content.
+        if (compressed && field.fieldNumber === 253) continue;
         if (readIndex + field.size > dataEnd) return sets;
         if (definition.globalMessageNumber === 225) {
           decodeSetField(values, blob, readIndex, field, definition.littleEndian);
