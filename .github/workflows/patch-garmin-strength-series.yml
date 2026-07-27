@@ -1,11 +1,6 @@
 name: Patch Garmin strength series
 
 on:
-  push:
-    branches:
-      - fix/garmin-strength-series
-    paths:
-      - .github/workflows/patch-garmin-strength-series.yml
   pull_request:
     branches:
       - main
@@ -31,14 +26,18 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Apply scoped patch once
+      - name: Rebuild main.jsx patch from clean main
         run: |
-          if grep -q 'garminStrengthSeries' src/main.jsx; then
-            echo "Garmin strength patch already present"
-          else
-            python3 scripts/patch-garmin-strength-series.py
-          fi
-          python3 scripts/normalize-main-format.py
+          git checkout origin/main -- src/main.jsx
+          python3 scripts/patch-garmin-strength-series.py
+          python3 scripts/restore-main-line-endings.py
+
+      - name: Guard scoped diff size
+        run: |
+          git diff --numstat origin/main -- src/main.jsx
+          changed=$(git diff --numstat origin/main -- src/main.jsx | awk '{print $1+$2}')
+          test -n "$changed"
+          test "$changed" -lt 500
 
       - name: Install dependencies
         run: npm ci
