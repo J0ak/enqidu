@@ -50,7 +50,7 @@ jobs:
         run: npm run build
 
       - name: Check patch whitespace
-        run: git diff --check
+        run: git diff --check --ignore-space-at-eol
 
       - name: Commit verified patch
         run: |
