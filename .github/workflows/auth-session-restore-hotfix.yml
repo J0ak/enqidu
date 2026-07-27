@@ -35,6 +35,7 @@ jobs:
             echo "Patch already present"
           else
             python3 scripts/patch-auth-session-restore.py
+            python3 scripts/restore-main-line-endings.py
           fi
 
       - name: Guard scoped diff
