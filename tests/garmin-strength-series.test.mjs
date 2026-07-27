@@ -57,8 +57,46 @@ test("raw FIT fallback decodes global message 225 and pairs active/rest", () => 
   ]);
 });
 
+test("raw FIT fallback keeps alignment across compressed timestamp records", () => {
+  const file = buildSyntheticFitWithCompressedRecord([
+    { durationMs: 100000, repetitions: 4, setType: 1, messageIndex: 0 },
+    { durationMs: 20000, repetitions: 0, setType: 0, messageIndex: 1 },
+  ]);
+  const sets = extractRawGarminStrengthSets(file);
+  assert.equal(sets.length, 2);
+  assert.equal(sets[0].set_type, "active");
+  assert.equal(sets[0].duration_seconds, 100);
+  assert.equal(sets[0].repetitions, 4);
+  assert.equal(sets[1].set_type, "rest");
+  const series = pairGarminStrengthSets(sets);
+  assert.equal(series.length, 1);
+  assert.equal(series[0].active_seconds, 100);
+  assert.equal(series[0].rest_seconds, 20);
+});
+
 function buildSyntheticFit(sets) {
-  const definition = [
+  return buildFitFile([...setDefinition(), ...setMessages(sets)]);
+}
+
+function buildSyntheticFitWithCompressedRecord(sets) {
+  const recordDefinition = [
+    0x41, // definition header, local message 1
+    0x00, // reserved
+    0x00, // little endian
+    0x14, 0x00, // global message 20 (record)
+    0x02, // two fields
+    0xfd, 0x04, 0x86, // common timestamp field 253 uint32
+    0x03, 0x01, 0x02, // heart rate field 3 uint8
+  ];
+  const compressedRecord = [
+    0xa1, // compressed timestamp header: local message 1, offset 1
+    0x78, // HR only; timestamp bytes are omitted from record content
+  ];
+  return buildFitFile([...recordDefinition, ...compressedRecord, ...setDefinition(), ...setMessages(sets)]);
+}
+
+function setDefinition() {
+  return [
     0x40, // definition header, local message 0
     0x00, // reserved
     0x00, // little endian
@@ -69,7 +107,10 @@ function buildSyntheticFit(sets) {
     0x05, 0x01, 0x00, // set_type enum
     0x0a, 0x02, 0x84, // message_index uint16
   ];
-  const data = [...definition];
+}
+
+function setMessages(sets) {
+  const data = [];
   for (const set of sets) {
     data.push(0x00);
     pushUint32LE(data, set.durationMs);
@@ -77,6 +118,10 @@ function buildSyntheticFit(sets) {
     data.push(set.setType);
     pushUint16LE(data, set.messageIndex);
   }
+  return data;
+}
+
+function buildFitFile(data) {
   const header = new Array(14).fill(0);
   header[0] = 14;
   header[1] = 0x20;
