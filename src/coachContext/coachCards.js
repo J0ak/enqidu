@@ -14,7 +14,7 @@ const asNumber = (value) => {
 
 const metric = (key, label, value, unit = "") => {
   const numeric = asNumber(value);
-  if (numeric == null) return null;
+  if (numeric == null || numeric <= 0) return null;
   return { key, label, value: numeric, unit };
 };
 
@@ -32,6 +32,9 @@ function buildTrainingPeriodCard(period = {}) {
     subtitle: period?.period?.from && period?.period?.to
       ? `${period.period.from} · ${period.period.to}`
       : null,
+    date_range: period?.period?.from && period?.period?.to
+      ? { from: period.period.from, to: period.period.to }
+      : null,
     metrics: compact([
       metric("sessions", "Sesiones", summary.sessions_count),
       metric("active_days", "Días activos", summary.active_days),
@@ -46,7 +49,13 @@ function buildTrainingPeriodCard(period = {}) {
 }
 
 function buildLatestSessionCard(session) {
-  if (!session) return null;
+  if (!session || typeof session !== "object") return null;
+  const sessionId = typeof session.session_id === "string" && session.session_id.trim()
+    ? session.session_id.trim()
+    : (typeof session.id === "string" && session.id.trim() ? session.id.trim() : null);
+  const hasSessionData = sessionId || session.title || session.date || session.duration_seconds
+    || session.distance_meters || session.blocks_count;
+  if (!hasSessionData) return null;
   return {
     id: "latest_training_session",
     type: "session_summary",
@@ -60,7 +69,9 @@ function buildLatestSessionCard(session) {
       metric("blocks", "Bloques", session.blocks_count),
     ]),
     quality: session.quality || null,
-    actions: [{ type: "open_latest_session", label: "Abrir sesión" }],
+    actions: sessionId
+      ? [{ type: "open_training_session", label: "Abrir sesión", session_id: sessionId }]
+      : [],
     provenance: "enkidu_context",
   };
 }
@@ -98,10 +109,6 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
 
   if (periodIntent) cards.push(buildTrainingPeriodCard(period));
   if (sessionIntent) cards.push(buildLatestSessionCard(latest));
-
-  if (!cards.filter(Boolean).length && latest) {
-    cards.push(buildLatestSessionCard(latest));
-  }
 
   return compact(cards).slice(0, MAX_CARDS);
 }
