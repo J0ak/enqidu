@@ -56,24 +56,29 @@ test("post-seed result document records exact verified counts", async () => {
   for (const pattern of sensitivePatterns) assert.doesNotMatch(doc, pattern);
 });
 
-test("coach-context Edge Function reads compact coach tables without Garmin FIT writes", async () => {
+test("coach-context uses canonical authenticated context and keeps fixture diagnostics isolated", async () => {
   const edge = await readText("supabase/functions/coach-context/index.ts");
 
+  assert.match(edge, /auth\.getUser\(\)/);
+  assert.match(edge, /get_ai_coach_context/);
+  assert.match(edge, /p_user_id: userId/);
+  assert.match(edge, /compactAiCoachContext/);
+  assert.match(edge, /cardContext/);
+  assert.match(edge, /equipmentSummary/);
+  assert.match(edge, /sessionsCount/);
+
+  // The historical compact coach tables remain available only for explicit
+  // fixture diagnostics; normal user mode returns earlier from the canonical RPC.
+  assert.match(edge, /fixture_diagnostic/);
   assert.match(edge, /coach_athlete_profiles/);
   assert.match(edge, /coach_session_fixtures/);
-  assert.match(edge, /fixture_diagnostic/);
   assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(edge, /status: "available"/);
-  assert.match(edge, /errorContext/);
-  assert.match(edge, /equipmentSummary/);
-  assert.match(edge, /sourcesCount/);
-  assert.match(edge, /sessionsCount/);
   assert.match(edge, /fixture_diagnostic_service_role_unavailable/);
+  assert.match(edge, /if \(!fixtureUser\)[\s\S]*get_ai_coach_context[\s\S]*return reply/);
   assert.match(edge, /table !== "coach_seed_runs"[\s\S]*query = query\.is\("user_id", null\)/);
   assert.match(edge, /else if \(table !== "coach_seed_runs"\)[\s\S]*query = query\.eq\("user_id", scope\.userId\)/);
+
   assert.doesNotMatch(edge, /detail: String/);
-  assert.doesNotMatch(edge, /get_ai_coach_context/);
-  assert.doesNotMatch(edge, /training_sessions/);
   assert.doesNotMatch(edge, /fit_message_payloads/);
   assert.doesNotMatch(edge, /session_samples/);
 });
