@@ -26,6 +26,92 @@ const titleCase = (value = "") => String(value)
   .trim()
   .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
 
+const EQUIPMENT_LOCATION_PATTERNS = [
+  { key: "home", label: "Casa", patterns: ["casa", "home"] },
+  { key: "pool", label: "Piscina", patterns: ["piscina", "pool", "natacion"] },
+  { key: "trail", label: "Trail", patterns: ["trail", "montana", "sendero"] },
+  { key: "outdoor", label: "Aire libre", patterns: ["aire libre", "outdoor", "parque"] },
+  {
+    key: "functional_training_center",
+    label: "Centro funcional",
+    patterns: ["centro funcional", "functional", "box", "gimnasio", "gym"],
+  },
+];
+
+const normalizeLocation = (value = "") => normalizeText(value).replace(/[\s-]+/g, "_");
+const isAvailable = (value) => value === true || normalizeText(value) === "true";
+
+export function detectEquipmentLocation(message = "") {
+  const text = normalizeText(message);
+  return EQUIPMENT_LOCATION_PATTERNS.find((location) =>
+    hasAny(text, location.patterns.map((pattern) => normalizeText(pattern)))
+  ) || null;
+}
+
+export function detectCoachIntents(message = "") {
+  const text = normalizeText(message);
+  return {
+    recovery: hasAny(text, [
+      "recuperacion",
+      "readiness",
+      "sueno",
+      "dormi",
+      "hrv",
+      "body battery",
+      "fatiga",
+      "como estoy hoy",
+      "puedo entrenar hoy",
+    ]),
+    equipment: hasAny(text, [
+      "material",
+      "equipamiento",
+      "material disponible",
+      "equipamiento disponible",
+      "que material tengo",
+      "que equipamiento tengo",
+      "puedo usar para entrenar",
+      "con que entreno",
+      "entrenar en casa",
+      "entreno en casa",
+    ]),
+    period: hasAny(text, [
+      "semana",
+      "carga",
+      "volumen",
+      "balance",
+      "resumen semanal",
+      "resumen de la semana",
+      "resumen entrenamiento",
+      "como voy",
+      "progreso",
+    ]),
+    session: hasAny(text, [
+      "ayer",
+      "ultimo",
+      "ultima",
+      "he hecho",
+      "hice",
+      "que hice",
+      "actividad de hoy",
+      "sesion de hoy",
+      "entreno de hoy",
+      "entrenamiento de hoy",
+      "mi sesion",
+      "mi entreno",
+    ]),
+    yesterday: text.includes("ayer"),
+    equipmentLocation: detectEquipmentLocation(text),
+  };
+}
+
+export function filterAvailableEquipment(equipment = [], requestedLocation = null) {
+  const available = (Array.isArray(equipment) ? equipment : [])
+    .filter((item) => item && typeof item === "object" && isAvailable(item.available));
+
+  if (!requestedLocation) return available;
+  return available.filter((item) => normalizeLocation(item.location) === requestedLocation.key);
+}
+
 function buildTrainingPeriodCard(period = {}) {
   const summary = period?.summary || {};
   const sessionsCount = asNumber(summary.sessions_count);
@@ -110,35 +196,8 @@ function buildRecoveryCard(recovery = {}) {
   };
 }
 
-const EQUIPMENT_LOCATION_PATTERNS = [
-  { key: "home", label: "Casa", patterns: ["casa", "home"] },
-  { key: "pool", label: "Piscina", patterns: ["piscina", "pool", "natacion"] },
-  { key: "trail", label: "Trail", patterns: ["trail", "montana", "sendero"] },
-  { key: "outdoor", label: "Aire libre", patterns: ["aire libre", "outdoor", "parque"] },
-  {
-    key: "functional_training_center",
-    label: "Centro funcional",
-    patterns: ["centro funcional", "functional", "box", "gimnasio", "gym"],
-  },
-];
-
-const normalizeLocation = (value = "") => normalizeText(value).replace(/[\s-]+/g, "_");
-const isAvailable = (value) => value === true || normalizeText(value) === "true";
-
-function detectEquipmentLocation(text) {
-  return EQUIPMENT_LOCATION_PATTERNS.find((location) =>
-    hasAny(text, location.patterns.map((pattern) => normalizeText(pattern)))
-  ) || null;
-}
-
 function buildEquipmentCard(equipment = [], requestedLocation = null) {
-  const available = (Array.isArray(equipment) ? equipment : [])
-    .filter((item) => item && typeof item === "object" && isAvailable(item.available));
-
-  const filtered = requestedLocation
-    ? available.filter((item) => normalizeLocation(item.location) === requestedLocation.key)
-    : available;
-
+  const filtered = filterAvailableEquipment(equipment, requestedLocation);
   if (!filtered.length) return null;
 
   const categories = new Map();
@@ -172,70 +231,24 @@ function buildEquipmentCard(equipment = [], requestedLocation = null) {
 }
 
 export function buildCoachCards({ message = "", context = {} } = {}) {
-  const text = normalizeText(message);
+  const intents = detectCoachIntents(message);
   const period = context?.training_period || {};
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
-  const latest = sessions[0] || null;
+  const requestedDate = context?.request?.date || null;
+  const sessionForIntent = intents.yesterday && requestedDate
+    ? sessions.find((session) => session?.date === requestedDate) || null
+    : sessions[0] || null;
   const cards = [];
 
-  const recoveryIntent = hasAny(text, [
-    "recuperacion",
-    "readiness",
-    "sueno",
-    "dormi",
-    "hrv",
-    "body battery",
-    "fatiga",
-    "como estoy hoy",
-    "puedo entrenar hoy",
-  ]);
-  const equipmentIntent = hasAny(text, [
-    "material",
-    "equipamiento",
-    "material disponible",
-    "equipamiento disponible",
-    "que material tengo",
-    "que equipamiento tengo",
-    "puedo usar para entrenar",
-    "con que entreno",
-    "entrenar en casa",
-    "entreno en casa",
-  ]);
-  const periodIntent = hasAny(text, [
-    "semana",
-    "carga",
-    "volumen",
-    "balance",
-    "resumen semanal",
-    "resumen de la semana",
-    "resumen entrenamiento",
-    "como voy",
-    "progreso",
-  ]);
-  const sessionIntent = hasAny(text, [
-    "ayer",
-    "ultimo",
-    "ultima",
-    "he hecho",
-    "hice",
-    "que hice",
-    "actividad de hoy",
-    "sesion de hoy",
-    "entreno de hoy",
-    "entrenamiento de hoy",
-    "mi sesion",
-    "mi entreno",
-  ]);
-
-  if (recoveryIntent) cards.push(buildRecoveryCard(context?.health_recovery || {}));
-  if (equipmentIntent) {
+  if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
+  if (intents.equipment) {
     cards.push(buildEquipmentCard(
       context?.athlete_context?.equipment || [],
-      detectEquipmentLocation(text),
+      intents.equipmentLocation,
     ));
   }
-  if (periodIntent) cards.push(buildTrainingPeriodCard(period));
-  if (sessionIntent) cards.push(buildLatestSessionCard(latest));
+  if (intents.period) cards.push(buildTrainingPeriodCard(period));
+  if (intents.session) cards.push(buildLatestSessionCard(sessionForIntent));
 
   return compact(cards).slice(0, MAX_CARDS);
 }

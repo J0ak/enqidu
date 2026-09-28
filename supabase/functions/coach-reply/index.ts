@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildCoachCards } from "../../../src/coachContext/coachCards.js";
+import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
+import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,13 @@ Prioriza seguridad, progresión y coherencia con objetivos y restricciones del a
 
 const reply = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers });
+
+function shiftIsoDate(value: string, days: number): string {
+  const parsed = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
 
 function responseText(payload: any): string {
   if (typeof payload?.output_text === "string") return payload.output_text;
@@ -55,9 +63,15 @@ Deno.serve(async (req: Request) => {
     if (!message) return reply({ error: "message_required" }, 400);
     if (message.length > 4000) return reply({ error: "message_too_long" }, 400);
 
+    const requestDate = body.date || new Date().toISOString().slice(0, 10);
+    const intents = detectCoachIntents(message);
+    const contextDate = intents.yesterday && !intents.period
+      ? shiftIsoDate(requestDate, -1)
+      : requestDate;
+
     const contextResult = await db.rpc("get_ai_coach_context", {
       p_user_id: userId,
-      p_date: body.date || new Date().toISOString().slice(0, 10),
+      p_date: contextDate,
       p_mode: body.mode || "today_coach",
       p_from_date: body.from_date || null,
       p_to_date: body.to_date || null,
@@ -65,18 +79,37 @@ Deno.serve(async (req: Request) => {
     });
 
     if (contextResult.error) throw contextResult.error;
-    const cards = buildCoachCards({ message, context: contextResult.data || {} });
-    const contextVersion = contextResult.data?.context_version || "ai_context_v1";
+    const context = contextResult.data || {};
+    const deterministic = buildDeterministicCoachReply({ message, context });
+    const cards = deterministic.cards;
+    const contextVersion = context?.context_version || "ai_context_v1";
+    const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
+
+    if (!llmEnabled) {
+      return reply({
+        ok: true,
+        answer: deterministic.answer,
+        cards,
+        degraded: false,
+        error: null,
+        response_mode: "deterministic",
+        llm_used: false,
+        context_version: contextVersion,
+        usage: null,
+      });
+    }
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) {
       console.warn("coach_reply_llm_unavailable", "openai_api_key_missing");
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_api_key_missing",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -119,10 +152,12 @@ Deno.serve(async (req: Request) => {
       );
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_request_failed",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -134,10 +169,12 @@ Deno.serve(async (req: Request) => {
       console.warn("coach_reply_llm_unavailable", "openai_empty_response");
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_empty_response",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -177,6 +214,8 @@ Deno.serve(async (req: Request) => {
       ok: true,
       answer,
       cards,
+      response_mode: "llm",
+      llm_used: true,
       context_version: contextVersion,
       usage: usagePayload,
     });
