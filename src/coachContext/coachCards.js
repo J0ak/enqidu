@@ -123,6 +123,7 @@ const EQUIPMENT_LOCATION_PATTERNS = [
 ];
 
 const normalizeLocation = (value = "") => normalizeText(value).replace(/[\s-]+/g, "_");
+const isAvailable = (value) => value === true || normalizeText(value) === "true";
 
 function detectEquipmentLocation(text) {
   return EQUIPMENT_LOCATION_PATTERNS.find((location) =>
@@ -132,7 +133,7 @@ function detectEquipmentLocation(text) {
 
 function buildEquipmentCard(equipment = [], requestedLocation = null) {
   const available = (Array.isArray(equipment) ? equipment : [])
-    .filter((item) => item && typeof item === "object" && item.available !== false && item.available !== "false");
+    .filter((item) => item && typeof item === "object" && isAvailable(item.available));
 
   const filtered = requestedLocation
     ? available.filter((item) => normalizeLocation(item.location) === requestedLocation.key)
@@ -180,7 +181,6 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
   const recoveryIntent = hasAny(text, [
     "recuperacion",
     "readiness",
-    "descanso",
     "sueno",
     "dormi",
     "hrv",
@@ -192,9 +192,11 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
   const equipmentIntent = hasAny(text, [
     "material",
     "equipamiento",
-    "que tengo",
-    "puedo usar",
-    "disponible",
+    "material disponible",
+    "equipamiento disponible",
+    "que material tengo",
+    "que equipamiento tengo",
+    "puedo usar para entrenar",
     "con que entreno",
     "entrenar en casa",
     "entreno en casa",
@@ -204,7 +206,9 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     "carga",
     "volumen",
     "balance",
-    "resumen",
+    "resumen semanal",
+    "resumen de la semana",
+    "resumen entrenamiento",
     "como voy",
     "progreso",
   ]);
@@ -214,10 +218,13 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     "ultima",
     "he hecho",
     "hice",
-    "actividad",
-    "sesion",
-    "entreno",
+    "que hice",
+    "actividad de hoy",
+    "sesion de hoy",
+    "entreno de hoy",
     "entrenamiento de hoy",
+    "mi sesion",
+    "mi entreno",
   ]);
 
   if (recoveryIntent) cards.push(buildRecoveryCard(context?.health_recovery || {}));
