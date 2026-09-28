@@ -25,3 +25,12 @@ test("coach-reply preserves deterministic answers if the optional LLM path fails
   assert.match(source, /answer: deterministic\.answer[\s\S]*error: "openai_empty_response"/);
   assert.match(source, /response_mode: "deterministic_fallback"/);
 });
+
+
+test("coach-reply resolves yesterday against the previous calendar date before querying context", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+
+  assert.match(source, /const requestDate = body\.date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(source, /intents\.yesterday && !intents\.period[\s\S]*shiftIsoDate\(requestDate, -1\)/);
+  assert.match(source, /p_date: contextDate/);
+});
