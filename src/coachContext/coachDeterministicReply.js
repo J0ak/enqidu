@@ -135,10 +135,17 @@ function buildUnsupportedAnswer() {
   return "En esta primera fase puedo responder directamente con datos ENQIDU sobre tu semana, tu última sesión, recuperación y equipamiento. Para análisis libre o planificación compleja, la capa LLM está desactivada.";
 }
 
+function buildGreetingAnswer() {
+  return "¡Hola! Puedo contarte cómo vas esta semana, qué hiciste ayer, cómo estás hoy de recuperación o qué material tienes disponible.";
+}
+
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
   const intents = detectCoachIntents(message);
   const answers = [];
 
+  if (intents.greeting) {
+    answers.push(buildGreetingAnswer());
+  }
   if (intents.recovery) {
     answers.push(buildRecoveryAnswer(context?.health_recovery || {}));
   }

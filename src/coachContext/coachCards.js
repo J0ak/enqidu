@@ -51,6 +51,7 @@ export function detectEquipmentLocation(message = "") {
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
   return {
+    greeting: /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim()),
     recovery: hasAny(text, [
       "recuperacion",
       "readiness",
