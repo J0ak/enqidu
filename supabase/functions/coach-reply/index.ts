@@ -41,9 +41,6 @@ Deno.serve(async (req: Request) => {
     const auth = req.headers.get("Authorization");
     if (!auth) return reply({ error: "auth_required" }, 401);
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) return reply({ error: "openai_api_key_missing" }, 503);
-
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -69,6 +66,21 @@ Deno.serve(async (req: Request) => {
 
     if (contextResult.error) throw contextResult.error;
     const cards = buildCoachCards({ message, context: contextResult.data || {} });
+    const contextVersion = contextResult.data?.context_version || "ai_context_v1";
+
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!apiKey) {
+      console.warn("coach_reply_llm_unavailable", "openai_api_key_missing");
+      return reply({
+        ok: true,
+        answer: null,
+        cards,
+        degraded: true,
+        error: "openai_api_key_missing",
+        context_version: contextVersion,
+        usage: null,
+      });
+    }
 
     const model = Deno.env.get("OPENAI_COACH_MODEL") || "gpt-4.1-mini";
     const started = Date.now();
@@ -101,14 +113,35 @@ Deno.serve(async (req: Request) => {
 
     const openaiPayload = await openaiResponse.json().catch(() => ({}));
     if (!openaiResponse.ok) {
+      console.warn(
+        "coach_reply_llm_unavailable",
+        openaiPayload?.error?.message || openaiResponse.statusText || "openai_request_failed",
+      );
       return reply({
+        ok: true,
+        answer: null,
+        cards,
+        degraded: true,
         error: "openai_request_failed",
-        detail: openaiPayload?.error?.message || openaiResponse.statusText,
-      }, 502);
+        context_version: contextVersion,
+        usage: null,
+      });
     }
 
     const usage = openaiPayload?.usage || {};
     const answer = responseText(openaiPayload);
+    if (!answer) {
+      console.warn("coach_reply_llm_unavailable", "openai_empty_response");
+      return reply({
+        ok: true,
+        answer: null,
+        cards,
+        degraded: true,
+        error: "openai_empty_response",
+        context_version: contextVersion,
+        usage: null,
+      });
+    }
 
     const usagePayload = {
       response_id: openaiPayload?.id || null,
@@ -144,7 +177,7 @@ Deno.serve(async (req: Request) => {
       ok: true,
       answer,
       cards,
-      context_version: contextResult.data?.context_version || "ai_context_v1",
+      context_version: contextVersion,
       usage: usagePayload,
     });
   } catch (error) {

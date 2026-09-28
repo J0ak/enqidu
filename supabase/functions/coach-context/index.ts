@@ -100,6 +100,73 @@ function firstGoal(goals: any[]) {
   };
 }
 
+function compactAiCoachContext(context: any) {
+  const athleteContext = context?.athlete_context || {};
+  const athlete = athleteContext?.athlete || {};
+  const goals = Array.isArray(athleteContext?.goals) ? athleteContext.goals : [];
+  const constraints = Array.isArray(athleteContext?.constraints) ? athleteContext.constraints : [];
+  const equipment = Array.isArray(athleteContext?.equipment) ? athleteContext.equipment : [];
+  const availableEquipment = equipment.filter((item: any) =>
+    item && typeof item === "object" && (item.available === true || String(item.available).toLowerCase() === "true")
+  );
+  const locations = [...new Set(availableEquipment.map((item: any) => item.location).filter(Boolean))];
+  const categories = [...new Set(availableEquipment.map((item: any) => item.category || item.type).filter(Boolean))].sort();
+  const sessionsCount = Number(context?.training_period?.summary?.sessions_count || 0);
+  const hasContext = Boolean(
+    athlete?.display_name
+    || goals.length
+    || constraints.length
+    || availableEquipment.length
+    || sessionsCount
+  );
+  const normalizedGoals = goals.map((goal: any) => ({
+    priority: goal.priority ?? null,
+    description: goal.name || goal.description || null,
+    source_key: null,
+  }));
+  const normalizedConstraints = constraints.map((constraint: any) => ({
+    type: constraint.constraint_type || constraint.type || null,
+    description: constraint.description || constraint.name || null,
+    active: constraint.active !== false,
+    source_key: null,
+  }));
+
+  return {
+    status: hasContext ? "available" : "empty",
+    scope: {
+      type: "user",
+      fixture_user: null,
+    },
+    profile: athlete?.display_name ? {
+      display_name: athlete.display_name,
+      profile_type: "user",
+      source_key: null,
+    } : null,
+    goals: normalizedGoals,
+    primaryGoal: normalizedGoals[0] || null,
+    constraints: normalizedConstraints,
+    equipmentSummary: {
+      locations: locations.length,
+      items: availableEquipment.length,
+      categories,
+    },
+    sourcesCount: 0,
+    sessionsCount,
+    dataQuality: context?.data_quality || { warnings: [] },
+    traceability: {
+      sourceKeys: ["get_ai_coach_context"],
+    },
+    updatedAt: null,
+    cardContext: {
+      training_period: context?.training_period || {},
+      health_recovery: context?.health_recovery || {},
+      athlete_context: {
+        equipment: availableEquipment,
+      },
+    },
+  };
+}
+
 function compactContext(rows: Record<string, any[]>, scope: Scope) {
   const totalRows = Object.values(rows).reduce((sum, items) => sum + items.length, 0);
   if (!totalRows) return emptyContext(scope);
@@ -187,6 +254,20 @@ Deno.serve(async (req: Request) => {
       ? { type: "fixture", userId: null, fixtureUser }
       : { type: "user", userId, fixtureUser: null };
     activeScope = scope;
+
+    if (!fixtureUser) {
+      const contextResult = await userDb.rpc("get_ai_coach_context", {
+        p_user_id: userId,
+        p_date: body.date || new Date().toISOString().slice(0, 10),
+        p_mode: body.context_mode || "today_coach",
+        p_from_date: body.from_date || null,
+        p_to_date: body.to_date || null,
+        p_session_id: body.session_id || null,
+      });
+      if (contextResult.error) throw contextResult.error;
+      return reply({ ok: true, context: compactAiCoachContext(contextResult.data || {}) });
+    }
+
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const db = fixtureUser && serviceKey
       ? createClient(Deno.env.get("SUPABASE_URL")!, serviceKey)
