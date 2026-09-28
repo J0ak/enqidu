@@ -10,6 +10,23 @@ import {
 } from "../src/coachContext/coachCardsView.js";
 
 const context = {
+  athlete_context: {
+    equipment: [
+      { name: "Rack", category: "strength", location: "home", available: true },
+      { name: "Barra", category: "strength", location: "home", available: true },
+      { name: "Comba", category: "conditioning", location: "home", available: true },
+      { name: "Piscina", category: "cardio", location: "pool", available: true },
+      { name: "No disponible", category: "other", location: "home", available: false },
+      { name: "Sin marca de disponibilidad", category: "other", location: "home" },
+    ],
+  },
+  health_recovery: {
+    date: "2026-09-28",
+    readiness: { score: 82, flags: [] },
+    sleep: { score: 79, duration_seconds: 27000, resting_hr: 51, avg_sleep_hr: 54 },
+    hrv: { night_avg_ms: 47, status: "balanced" },
+    body_battery: { morning: 76, charged: 58, drained: 9 },
+  },
   training_period: {
     period: { from: "2026-09-21", to: "2026-09-27" },
     summary: {
@@ -48,9 +65,52 @@ test("builds the latest session card for activity questions", () => {
   assert.equal(cards[0].metrics.find((item) => item.key === "blocks").value, 4);
 });
 
+test("builds recovery/readiness only when factual recovery metrics exist", () => {
+  const cards = buildCoachCards({ message: "¿Cómo estoy hoy de recuperación?", context });
+  assert.equal(cards[0].id, "recovery_readiness");
+  assert.equal(cards[0].metrics.find((item) => item.key === "readiness").value, 82);
+  assert.equal(cards[0].metrics.find((item) => item.key === "hrv").value, 47);
+
+  const withoutRecovery = {
+    ...context,
+    health_recovery: {
+      date: "2026-09-28",
+      readiness: { score: null },
+      sleep: { score: null, duration_seconds: null },
+      hrv: { night_avg_ms: null },
+      body_battery: { morning: null },
+    },
+  };
+  assert.deepEqual(buildCoachCards({ message: "¿Cómo estoy hoy de recuperación?", context: withoutRecovery }), []);
+});
+
+test("builds equipment context for a requested training environment", () => {
+  const cards = buildCoachCards({ message: "¿Qué material tengo en casa?", context });
+  assert.equal(cards[0].id, "equipment_context");
+  assert.equal(cards[0].title, "Equipamiento · Casa");
+  assert.equal(cards[0].metrics.find((item) => item.key === "equipment_items").value, 3);
+  assert.equal(cards[0].metrics.find((item) => item.key === "equipment_categories").value, 2);
+  assert.deepEqual(cards[0].breakdown, [
+    { label: "Strength", value: 2 },
+    { label: "Conditioning", value: 1 },
+  ]);
+});
+
 test("does not show cards for generic conversation", () => {
   assert.deepEqual(buildCoachCards({ message: "Hola", context }), []);
   assert.deepEqual(buildCoachCards({ message: "Gracias", context }), []);
+});
+
+test("keeps ambiguous conversational phrases from triggering unrelated cards", () => {
+  assert.deepEqual(buildCoachCards({ message: "¿Qué tengo que hacer hoy?", context }), []);
+  assert.deepEqual(buildCoachCards({ message: "¿Cuánto descanso entre series?", context }), []);
+  assert.deepEqual(buildCoachCards({ message: "¿Qué es HYROX?", context }), []);
+});
+
+test("counts only equipment explicitly marked available", () => {
+  const [card] = buildCoachCards({ message: "¿Qué material tengo en casa?", context });
+  assert.equal(card.metrics.find((item) => item.key === "equipment_items").value, 3);
+  assert.equal(card.breakdown.some((item) => item.label === "Other"), false);
 });
 
 test("formats period ranges without losing either date", () => {
@@ -68,8 +128,13 @@ test("never invents cards when no real training data exists", () => {
 });
 
 test("caps reply cards and declares no-extra-LLM token policy", () => {
-  const cards = buildCoachCards({ message: "Resumen de la semana y última sesión", context });
+  const cards = buildCoachCards({
+    message: "¿Cómo estoy hoy, qué material tengo en casa y cómo voy esta semana?",
+    context,
+  });
   assert.ok(cards.length <= coachCardContract.maxCardsPerReply);
+  assert.equal(cards.length, 2);
+  assert.equal(coachCardContract.version, "coach_card_v2");
   assert.equal(coachCardContract.tokenPolicy, "deterministic_from_context_no_extra_llm_call");
 });
 

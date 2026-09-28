@@ -1,4 +1,4 @@
-# Coach-first cards v1
+# Coach-first cards
 
 ENQIDU treats the Coach as the primary product surface. Health, activities, plans and connected providers remain structured sources and drill-down views, but the main interaction can surface their relevant data inline in the conversation.
 
@@ -18,34 +18,49 @@ user message
 
 This keeps token cost focused on coaching language while UI metrics come directly from canonical data.
 
-## V1 contract
+## Contract
 
 `src/coachContext/coachCards.js` exposes:
 
 - `buildCoachCards({ message, context })`
 - `coachCardContract`
 
-V1 supports a training-period summary and latest-session summary. It caps a reply at two cards, declares provenance as `enkidu_context`, and returns no card when the required factual data is absent.
+The current contract is `coach_card_v2`. It caps a reply at two cards, declares provenance as `enkidu_context`, and returns no card when the required factual data is absent.
 
-## V1 implementation status
+Cards only appear for a recognized, relevant intent.
 
-V1 is implemented end to end. `coach-reply` calls the deterministic builder after
-`get_ai_coach_context`, makes the existing single LLM call for the narrative, and
-returns `answer`, `cards`, `context_version` and `usage`. The frontend stores cards
-with the assistant message and renders them directly below its text.
+## Implemented card families
 
-Cards only appear for a recognized, relevant intent. The current types are:
+- `training_period_summary`
+  - sessions, active days, duration and activity-type breakdown;
+  - action to Activities.
+- `latest_training_session`
+  - duration, distance, elevation and blocks;
+  - action to the concrete session only when the context includes a trustworthy `session_id`.
+- `recovery_readiness`
+  - readiness score, sleep score/duration, nightly HRV and morning Body Battery when those metrics exist;
+  - no card is emitted from empty recovery containers.
+- `equipment_context`
+  - available equipment and category counts;
+  - can scope deterministically to known environments such as home, pool, trail, outdoor and functional training center.
 
-- `training_period_summary`, with a link to Activities.
-- `latest_training_session`, with a link to the concrete session only when the
-  context includes a trustworthy `session_id`.
+## Session navigation limitation
 
-The current `get_ai_training_period_summary` context does not yet include
-`session_id`, so a latest-session card normally renders without a navigation
-button. The UI does not infer an identity from title or date.
+The current `get_ai_training_period_summary` context does not yet include `session_id`, so a latest-session card normally renders without a navigation button. The UI does not infer an identity from title or date.
 
-## Next cards
+A future change can expose a stable UI-only navigation identifier while keeping technical IDs out of the model-facing context.
 
-Planned follow-up card families are recovery/readiness, today's plan, and
-environment/equipment context. They must follow the same deterministic,
-context-backed and no-extra-LLM-call policy.
+## Product rules
+
+- No second LLM call for cards.
+- No card for generic conversation such as greetings or thanks.
+- Missing or non-positive numeric metrics are omitted.
+- Equipment cards only use items marked available.
+- Recovery/readiness cards only render when at least one factual recovery metric exists.
+- Maximum two cards per response.
+
+## Next work
+
+The next major card family is the planned workout / plan of the day. It should wait until planned sessions are exposed in a canonical Coach context distinct from completed sessions.
+
+Future work can also improve session navigation and progressively extract Coach UI components from `src/main.jsx` without a broad rewrite.

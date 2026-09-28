@@ -20,6 +20,12 @@ const metric = (key, label, value, unit = "") => {
 
 const compact = (items) => items.filter(Boolean);
 
+const titleCase = (value = "") => String(value)
+  .replace(/[_-]+/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+
 function buildTrainingPeriodCard(period = {}) {
   const summary = period?.summary || {};
   const sessionsCount = asNumber(summary.sessions_count);
@@ -76,6 +82,95 @@ function buildLatestSessionCard(session) {
   };
 }
 
+function buildRecoveryCard(recovery = {}) {
+  const readiness = recovery?.readiness || {};
+  const sleep = recovery?.sleep || {};
+  const hrv = recovery?.hrv || {};
+  const battery = recovery?.body_battery || {};
+  const metrics = compact([
+    metric("readiness", "Readiness", readiness.score),
+    metric("sleep_score", "Sueño", sleep.score),
+    metric("sleep_duration", "Duración sueño", sleep.duration_seconds, "s"),
+    metric("hrv", "HRV nocturna", hrv.night_avg_ms, "ms"),
+    metric("body_battery", "Body Battery", battery.morning),
+  ]);
+
+  if (!metrics.length) return null;
+
+  return {
+    id: "recovery_readiness",
+    type: "recovery_summary",
+    title: "Recuperación de hoy",
+    subtitle: recovery.date || null,
+    badge: "Recovery",
+    metrics,
+    breakdown: [],
+    actions: [],
+    provenance: "enkidu_context",
+  };
+}
+
+const EQUIPMENT_LOCATION_PATTERNS = [
+  { key: "home", label: "Casa", patterns: ["casa", "home"] },
+  { key: "pool", label: "Piscina", patterns: ["piscina", "pool", "natacion"] },
+  { key: "trail", label: "Trail", patterns: ["trail", "montana", "sendero"] },
+  { key: "outdoor", label: "Aire libre", patterns: ["aire libre", "outdoor", "parque"] },
+  {
+    key: "functional_training_center",
+    label: "Centro funcional",
+    patterns: ["centro funcional", "functional", "box", "gimnasio", "gym"],
+  },
+];
+
+const normalizeLocation = (value = "") => normalizeText(value).replace(/[\s-]+/g, "_");
+const isAvailable = (value) => value === true || normalizeText(value) === "true";
+
+function detectEquipmentLocation(text) {
+  return EQUIPMENT_LOCATION_PATTERNS.find((location) =>
+    hasAny(text, location.patterns.map((pattern) => normalizeText(pattern)))
+  ) || null;
+}
+
+function buildEquipmentCard(equipment = [], requestedLocation = null) {
+  const available = (Array.isArray(equipment) ? equipment : [])
+    .filter((item) => item && typeof item === "object" && isAvailable(item.available));
+
+  const filtered = requestedLocation
+    ? available.filter((item) => normalizeLocation(item.location) === requestedLocation.key)
+    : available;
+
+  if (!filtered.length) return null;
+
+  const categories = new Map();
+  for (const item of filtered) {
+    const rawCategory = item.category || item.type || "Otros";
+    const label = titleCase(rawCategory) || "Otros";
+    categories.set(label, (categories.get(label) || 0) + 1);
+  }
+
+  const breakdown = [...categories.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "es"))
+    .slice(0, 5);
+
+  return {
+    id: "equipment_context",
+    type: "equipment_summary",
+    title: requestedLocation
+      ? `Equipamiento · ${requestedLocation.label}`
+      : "Tu equipamiento disponible",
+    subtitle: requestedLocation?.label || null,
+    badge: "Entorno",
+    metrics: compact([
+      metric("equipment_items", "Elementos", filtered.length),
+      metric("equipment_categories", "Categorías", categories.size),
+    ]),
+    breakdown,
+    actions: [],
+    provenance: "enkidu_context",
+  };
+}
+
 export function buildCoachCards({ message = "", context = {} } = {}) {
   const text = normalizeText(message);
   const period = context?.training_period || {};
@@ -83,17 +178,39 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
   const latest = sessions[0] || null;
   const cards = [];
 
+  const recoveryIntent = hasAny(text, [
+    "recuperacion",
+    "readiness",
+    "sueno",
+    "dormi",
+    "hrv",
+    "body battery",
+    "fatiga",
+    "como estoy hoy",
+    "puedo entrenar hoy",
+  ]);
+  const equipmentIntent = hasAny(text, [
+    "material",
+    "equipamiento",
+    "material disponible",
+    "equipamiento disponible",
+    "que material tengo",
+    "que equipamiento tengo",
+    "puedo usar para entrenar",
+    "con que entreno",
+    "entrenar en casa",
+    "entreno en casa",
+  ]);
   const periodIntent = hasAny(text, [
     "semana",
     "carga",
     "volumen",
     "balance",
-    "resumen",
+    "resumen semanal",
+    "resumen de la semana",
+    "resumen entrenamiento",
     "como voy",
     "progreso",
-    "hyrox",
-    "deka",
-    "trail",
   ]);
   const sessionIntent = hasAny(text, [
     "ayer",
@@ -101,12 +218,22 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     "ultima",
     "he hecho",
     "hice",
-    "actividad",
-    "sesion",
-    "entreno",
+    "que hice",
+    "actividad de hoy",
+    "sesion de hoy",
+    "entreno de hoy",
     "entrenamiento de hoy",
+    "mi sesion",
+    "mi entreno",
   ]);
 
+  if (recoveryIntent) cards.push(buildRecoveryCard(context?.health_recovery || {}));
+  if (equipmentIntent) {
+    cards.push(buildEquipmentCard(
+      context?.athlete_context?.equipment || [],
+      detectEquipmentLocation(text),
+    ));
+  }
   if (periodIntent) cards.push(buildTrainingPeriodCard(period));
   if (sessionIntent) cards.push(buildLatestSessionCard(latest));
 
@@ -114,7 +241,7 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
 }
 
 export const coachCardContract = Object.freeze({
-  version: "coach_card_v1",
+  version: "coach_card_v2",
   maxCardsPerReply: MAX_CARDS,
   tokenPolicy: "deterministic_from_context_no_extra_llm_call",
 });
