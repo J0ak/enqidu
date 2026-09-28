@@ -106,3 +106,13 @@ test("unsupported free-form questions are honest about phase-1 scope", () => {
   assert.match(reply.answer, /capa LLM está desactivada/);
   assert.deepEqual(reply.cards, []);
 });
+
+test("greets naturally without cards or LLM messaging", () => {
+  const reply = buildDeterministicCoachReply({ message: "Hola", context });
+
+  assert.match(reply.answer, /^¡Hola!/);
+  assert.doesNotMatch(reply.answer, /LLM|fuera de alcance|primera fase/i);
+  assert.deepEqual(reply.cards, []);
+  assert.equal(reply.responseMode, "deterministic");
+  assert.equal(reply.llmUsed, false);
+});
