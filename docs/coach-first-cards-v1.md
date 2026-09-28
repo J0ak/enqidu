@@ -64,3 +64,14 @@ A future change can expose a stable UI-only navigation identifier while keeping 
 The next major card family is the planned workout / plan of the day. It should wait until planned sessions are exposed in a canonical Coach context distinct from completed sessions.
 
 Future work can also improve session navigation and progressively extract Coach UI components from `src/main.jsx` without a broad rewrite.
+
+
+## Resilience and live context
+
+The Coach must remain useful when the narrative LLM is temporarily unavailable.
+
+- `coach-reply` resolves the authenticated ENQIDU context and deterministic cards before attempting the LLM call.
+- If the OpenAI provider is unavailable or not configured, the endpoint returns a successful degraded response with real cards instead of failing the whole Coach request.
+- The frontend renders those cards and a user-facing fallback message without exposing endpoint names or infrastructure errors.
+- `coach-context` reads the authenticated user's canonical `get_ai_coach_context` RPC for normal user mode. The older fixture/table path remains only for explicit fixture diagnostics.
+- No service-role key or privileged database access is exposed to the browser.
