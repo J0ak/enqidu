@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
+import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,13 @@ Prioriza seguridad, progresión y coherencia con objetivos y restricciones del a
 
 const reply = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers });
+
+function shiftIsoDate(value: string, days: number): string {
+  const parsed = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
 
 function responseText(payload: any): string {
   if (typeof payload?.output_text === "string") return payload.output_text;
@@ -55,9 +63,15 @@ Deno.serve(async (req: Request) => {
     if (!message) return reply({ error: "message_required" }, 400);
     if (message.length > 4000) return reply({ error: "message_too_long" }, 400);
 
+    const requestDate = body.date || new Date().toISOString().slice(0, 10);
+    const intents = detectCoachIntents(message);
+    const contextDate = intents.yesterday && !intents.period
+      ? shiftIsoDate(requestDate, -1)
+      : requestDate;
+
     const contextResult = await db.rpc("get_ai_coach_context", {
       p_user_id: userId,
-      p_date: body.date || new Date().toISOString().slice(0, 10),
+      p_date: contextDate,
       p_mode: body.mode || "today_coach",
       p_from_date: body.from_date || null,
       p_to_date: body.to_date || null,
