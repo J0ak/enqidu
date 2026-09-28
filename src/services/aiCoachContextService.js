@@ -26,9 +26,11 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
 
   return {
     ok: true,
-    answer: data.answer,
+    answer: data.answer || null,
     cards: Array.isArray(data.cards) ? data.cards : [],
-    usage: data.usage,
+    usage: data.usage || null,
     contextVersion: data.context_version,
+    degraded: Boolean(data.degraded),
+    error: data.error || null,
   };
 }
