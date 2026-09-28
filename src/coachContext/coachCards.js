@@ -99,6 +99,7 @@ export function detectCoachIntents(message = "") {
       "mi sesion",
       "mi entreno",
     ]),
+    yesterday: text.includes("ayer"),
     equipmentLocation: detectEquipmentLocation(text),
   };
 }
@@ -233,7 +234,10 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
   const intents = detectCoachIntents(message);
   const period = context?.training_period || {};
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
-  const latest = sessions[0] || null;
+  const requestedDate = context?.request?.date || null;
+  const sessionForIntent = intents.yesterday && requestedDate
+    ? sessions.find((session) => session?.date === requestedDate) || null
+    : sessions[0] || null;
   const cards = [];
 
   if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
@@ -244,7 +248,7 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     ));
   }
   if (intents.period) cards.push(buildTrainingPeriodCard(period));
-  if (intents.session) cards.push(buildLatestSessionCard(latest));
+  if (intents.session) cards.push(buildLatestSessionCard(sessionForIntent));
 
   return compact(cards).slice(0, MAX_CARDS);
 }
