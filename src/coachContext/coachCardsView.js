@@ -26,6 +26,33 @@ export function formatCoachCardDate(value) {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
+const parseCalendarDate = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const date = new Date(`${value.slice(0, 10)}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDatePart = (date, options) => new Intl.DateTimeFormat("es-ES", {
+  ...options,
+  timeZone: "UTC",
+}).format(date).replace(/\./g, "");
+
+export function formatCoachCardDateRange(from, to) {
+  const start = parseCalendarDate(from);
+  const end = parseCalendarDate(to);
+  if (!start || !end) return null;
+
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
+  if (sameMonth) {
+    return `${start.getUTCDate()}–${end.getUTCDate()} ${formatDatePart(end, { month: "short", year: "numeric" })}`;
+  }
+  if (sameYear) {
+    return `${formatDatePart(start, { day: "numeric", month: "short" })}–${formatDatePart(end, { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  return `${formatDatePart(start, { day: "numeric", month: "short", year: "numeric" })}–${formatDatePart(end, { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
 export function normalizeStoredCoachMessages(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((message) => message && typeof message.content === "string")

@@ -7,7 +7,7 @@ import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { formatCoachCardDate, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -4297,7 +4297,9 @@ function CoachInlineCard({ card, onAction }) {
   const metrics = (Array.isArray(card.metrics) ? card.metrics : [])
     .map((item) => ({ ...item, displayValue: formatCoachCardMetric(item) }))
     .filter((item) => item.displayValue);
-  const subtitle = formatCoachCardDate(card.subtitle) || card.subtitle;
+  const subtitle = card.date_range
+    ? formatCoachCardDateRange(card.date_range.from, card.date_range.to)
+    : (formatCoachCardDate(card.subtitle) || card.subtitle);
   const breakdown = (Array.isArray(card.breakdown) ? card.breakdown : [])
     .filter((item) => item?.label && Number.isFinite(Number(item.value)) && Number(item.value) > 0);
   return (

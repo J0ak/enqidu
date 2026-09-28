@@ -3,6 +3,8 @@ import test from "node:test";
 import { buildCoachCards, coachCardContract } from "../src/coachContext/coachCards.js";
 import {
   formatCoachCardMetric,
+  formatCoachCardDate,
+  formatCoachCardDateRange,
   normalizeStoredCoachMessages,
   resolveCoachCardAction,
 } from "../src/coachContext/coachCardsView.js";
@@ -44,6 +46,17 @@ test("builds the latest session card for activity questions", () => {
   assert.equal(cards[0].id, "latest_training_session");
   assert.equal(cards[0].title, "Hybrid strength");
   assert.equal(cards[0].metrics.find((item) => item.key === "blocks").value, 4);
+});
+
+test("does not show cards for generic conversation", () => {
+  assert.deepEqual(buildCoachCards({ message: "Hola", context }), []);
+  assert.deepEqual(buildCoachCards({ message: "Gracias", context }), []);
+});
+
+test("formats period ranges without losing either date", () => {
+  assert.equal(formatCoachCardDateRange("2026-09-21", "2026-09-27"), "21–27 sept 2026");
+  assert.equal(formatCoachCardDateRange("2026-09-29", "2026-10-05"), "29 sept–5 oct 2026");
+  assert.equal(formatCoachCardDate("2026-09-27"), "27 sept 2026");
 });
 
 test("never invents cards when no real training data exists", () => {

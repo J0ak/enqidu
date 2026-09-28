@@ -32,6 +32,9 @@ function buildTrainingPeriodCard(period = {}) {
     subtitle: period?.period?.from && period?.period?.to
       ? `${period.period.from} · ${period.period.to}`
       : null,
+    date_range: period?.period?.from && period?.period?.to
+      ? { from: period.period.from, to: period.period.to }
+      : null,
     metrics: compact([
       metric("sessions", "Sesiones", summary.sessions_count),
       metric("active_days", "Días activos", summary.active_days),
@@ -106,10 +109,6 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
 
   if (periodIntent) cards.push(buildTrainingPeriodCard(period));
   if (sessionIntent) cards.push(buildLatestSessionCard(latest));
-
-  if (!cards.filter(Boolean).length && latest) {
-    cards.push(buildLatestSessionCard(latest));
-  }
 
   return compact(cards).slice(0, MAX_CARDS);
 }
