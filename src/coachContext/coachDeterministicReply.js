@@ -59,10 +59,16 @@ function buildPeriodAnswer(period = {}) {
   return `En el periodo consultado tienes ${joinNatural(facts)}.${breakdown}`;
 }
 
-function buildSessionAnswer(period = {}) {
+function buildSessionAnswer(period = {}, { targetDate = null, exactDate = false } = {}) {
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
-  const session = sessions[0];
-  if (!session) return "No tengo una sesión reciente disponible en ENQIDU.";
+  const session = exactDate && targetDate
+    ? sessions.find((item) => item?.date === targetDate)
+    : sessions[0];
+  if (!session) {
+    return exactDate
+      ? "No tengo una sesión registrada para ayer en ENQIDU."
+      : "No tengo una sesión reciente disponible en ENQIDU.";
+  }
 
   const duration = formatDuration(session.duration_seconds);
   const distance = formatDistance(session.distance_meters);
@@ -77,7 +83,8 @@ function buildSessionAnswer(period = {}) {
 
   const date = session.date ? ` del ${session.date}` : "";
   const suffix = details.length ? ` (${joinNatural(details)})` : "";
-  return `Tu última sesión disponible es ${session.title || session.garmin_type_label || "una sesión registrada"}${date}${suffix}.`;
+  const prefix = exactDate ? "Ayer registraste" : "Tu última sesión disponible es";
+  return `${prefix} ${session.title || session.garmin_type_label || "una sesión registrada"}${date}${suffix}.`;
 }
 
 function buildRecoveryAnswer(recovery = {}) {
@@ -145,7 +152,13 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     answers.push(buildPeriodAnswer(context?.training_period || {}));
   }
   if (intents.session) {
-    answers.push(buildSessionAnswer(context?.training_period || {}));
+    answers.push(buildSessionAnswer(
+      context?.training_period || {},
+      {
+        targetDate: context?.request?.date || null,
+        exactDate: intents.yesterday,
+      },
+    ));
   }
 
   const answer = (answers.length ? answers : [buildUnsupportedAnswer()])
