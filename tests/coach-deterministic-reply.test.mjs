@@ -3,6 +3,7 @@ import test from "node:test";
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
 
 const context = {
+  request: { date: "2026-09-27" },
   athlete_context: {
     equipment: [
       { name: "Rack", category: "strength", location: "home", available: true },
@@ -37,6 +38,16 @@ const context = {
         elevation_gain_meters: 0,
         blocks_count: 4,
       },
+      {
+        session_id: "session-26",
+        date: "2026-09-26",
+        title: "Older trail",
+        garmin_type_label: "Trail",
+        duration_seconds: 5400,
+        distance_meters: 12000,
+        elevation_gain_meters: 500,
+        blocks_count: 1,
+      },
     ],
   },
 };
@@ -53,7 +64,9 @@ test("answers weekly progress from ENQIDU context without an LLM", () => {
 
 test("answers latest session from structured data", () => {
   const reply = buildDeterministicCoachReply({ message: "¿Qué hice ayer?", context });
-  assert.match(reply.answer, /Hybrid strength/);
+  assert.match(reply.answer, /Ayer registraste Hybrid strength/);
+  assert.match(reply.answer, /2026-09-27/);
+  assert.doesNotMatch(reply.answer, /Older trail/);
   assert.match(reply.answer, /1 h/);
   assert.match(reply.answer, /4 bloques/);
   assert.equal(reply.cards[0].id, "latest_training_session");
