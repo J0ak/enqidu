@@ -7,6 +7,7 @@ import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
+import { formatCoachCardDate, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -287,11 +288,11 @@ const initialMessages = [
   },
 ];
 
-function useStoredState(key, initialValue) {
+function useStoredState(key, initialValue, normalize = (stored) => stored) {
   const [value, setValue] = useState(() => {
     try {
       const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : initialValue;
+      return saved ? normalize(JSON.parse(saved)) : initialValue;
     } catch {
       return initialValue;
     }
@@ -673,7 +674,7 @@ function App() {
   const [discipline, setDiscipline] = useState("boyle");
   const [profile, setProfile] = useStoredState(storageKeys.profile, profileSeed);
   const [fitImports, setFitImports] = useStoredState(storageKeys.fitImports, []);
-  const [messages, setMessages] = useStoredState(storageKeys.messages, initialMessages);
+  const [messages, setMessages] = useStoredState(storageKeys.messages, initialMessages, normalizeStoredCoachMessages);
   const [backoffice, setBackoffice] = useStoredState(storageKeys.backoffice, {
     lastSync: null,
     tableStatus: [],
@@ -1212,6 +1213,8 @@ function App() {
             setMessages={setMessages}
             discipline={activeDiscipline}
             sessions={filteredSessions}
+            onOpenActivities={() => setRoute("activities")}
+            onOpenSession={openSessionDetail}
           />
         )}
         {route === "profile" && (
@@ -4036,7 +4039,7 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
   );
 }
 
-function CoachView({ messages, setMessages, discipline, sessions }) {
+function CoachView({ messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession }) {
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
@@ -4080,7 +4083,7 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
       const content = result.ok && result.answer
         ? result.answer
         : buildCoachFallbackReply(text, discipline, sessions, result.error);
-      setMessages((current) => replaceLastAssistantMessage(current, content));
+      setMessages((current) => replaceLastAssistantMessage(current, content, result.ok ? result.cards : []));
     } catch (error) {
       setMessages((current) => replaceLastAssistantMessage(
         current,
@@ -4105,6 +4108,11 @@ function CoachView({ messages, setMessages, discipline, sessions }) {
             key={`${message.role}-${index}`}
             message={message}
             onCopied={() => setMicNotice("Copiado")}
+            onCardAction={(action) => {
+              const resolved = resolveCoachCardAction(action, sessions);
+              if (resolved?.type === "open_activities") onOpenActivities?.();
+              if (resolved?.type === "open_training_session") onOpenSession?.(resolved.session);
+            }}
           />
         ))}
         <div ref={endRef} />
@@ -4203,18 +4211,18 @@ function CoachContextStatusCard({ context, onMemoryPrompt }) {
   );
 }
 
-function replaceLastAssistantMessage(messages, content) {
+function replaceLastAssistantMessage(messages, content, cards = []) {
   const next = [...messages];
   for (let index = next.length - 1; index >= 0; index -= 1) {
     if (next[index]?.role === "assistant") {
-      next[index] = { ...next[index], content };
+      next[index] = { ...next[index], content, cards: Array.isArray(cards) ? cards : [] };
       return next;
     }
   }
-  return [...next, { role: "assistant", content }];
+  return [...next, { role: "assistant", content, cards: Array.isArray(cards) ? cards : [] }];
 }
 
-function CopyableChatMessage({ message, onCopied }) {
+function CopyableChatMessage({ message, onCopied, onCardAction }) {
   const [copied, setCopied] = useState(false);
   const pressTimerRef = useRef(null);
   const feedbackTimerRef = useRef(null);
@@ -4262,6 +4270,7 @@ function CopyableChatMessage({ message, onCopied }) {
   };
 
   return (
+    <div className={`coachMessage ${message.role}`}>
     <div
       className={`bubble ${message.role}`}
       onPointerDown={startPressTimer}
@@ -4275,6 +4284,32 @@ function CopyableChatMessage({ message, onCopied }) {
       {message.content}
       {copied && <small className="copyToast">Copiado</small>}
     </div>
+    {message.role === "assistant" && Array.isArray(message.cards) && message.cards.length > 0 && (
+      <div className="coachInlineCards">
+        {message.cards.map((card) => <CoachInlineCard key={card.id} card={card} onAction={onCardAction} />)}
+      </div>
+    )}
+    </div>
+  );
+}
+
+function CoachInlineCard({ card, onAction }) {
+  const metrics = (Array.isArray(card.metrics) ? card.metrics : [])
+    .map((item) => ({ ...item, displayValue: formatCoachCardMetric(item) }))
+    .filter((item) => item.displayValue);
+  const subtitle = formatCoachCardDate(card.subtitle) || card.subtitle;
+  const breakdown = (Array.isArray(card.breakdown) ? card.breakdown : [])
+    .filter((item) => item?.label && Number.isFinite(Number(item.value)) && Number(item.value) > 0);
+  return (
+    <article className="coachInlineCard">
+      <div className="coachInlineCardHeading">
+        <div><span>{card.badge || "ENQIDU"}</span><strong>{card.title}</strong>{subtitle && <small>{subtitle}</small>}</div>
+        <ShieldCheck size={17} aria-label="Datos ENQIDU" />
+      </div>
+      {metrics.length > 0 && <div className="coachInlineMetrics">{metrics.map((item) => <div key={item.key}><strong>{item.displayValue}</strong><span>{item.label}</span></div>)}</div>}
+      {breakdown.length > 0 && <p className="coachInlineBreakdown">{breakdown.map((item) => `${item.label}: ${item.value}`).join(" · ")}</p>}
+      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" key={`${action.type}-${action.session_id || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
+    </article>
   );
 }
 

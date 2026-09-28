@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { buildCoachCards } from "../../../src/coachContext/coachCards.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (contextResult.error) throw contextResult.error;
+    const cards = buildCoachCards({ message, context: contextResult.data || {} });
 
     const model = Deno.env.get("OPENAI_COACH_MODEL") || "gpt-4.1-mini";
     const started = Date.now();
@@ -141,6 +143,7 @@ Deno.serve(async (req: Request) => {
     return reply({
       ok: true,
       answer,
+      cards,
       context_version: contextResult.data?.context_version || "ai_context_v1",
       usage: usagePayload,
     });
