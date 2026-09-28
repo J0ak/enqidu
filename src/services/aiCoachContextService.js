@@ -32,5 +32,7 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
     contextVersion: data.context_version,
     degraded: Boolean(data.degraded),
     error: data.error || null,
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
   };
 }
