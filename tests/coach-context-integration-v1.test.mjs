@@ -83,6 +83,22 @@ test("coach-context uses canonical authenticated context and keeps fixture diagn
   assert.doesNotMatch(edge, /session_samples/);
 });
 
+test("authenticated Coach context can read its RLS-protected profile dependencies", async () => {
+  const migration = await readText(
+    "supabase/migrations/20260928194920_grant_ai_context_read_access.sql",
+  );
+
+  for (const table of ["user_goals", "user_equipment", "equipment_catalog"]) {
+    assert.match(
+      migration,
+      new RegExp(`grant select on table public\\\\.${table} to authenticated`, "i"),
+    );
+  }
+
+  assert.doesNotMatch(migration, /to anon/i);
+  assert.doesNotMatch(migration, /security\\s+definer/i);
+});
+
 test("frontend service invokes coach-context without exposing service role", async () => {
   const service = await readText("src/services/coachContextService.js");
 
