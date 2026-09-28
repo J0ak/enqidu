@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildCoachCards } from "../../../src/coachContext/coachCards.js";
+import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -65,18 +65,37 @@ Deno.serve(async (req: Request) => {
     });
 
     if (contextResult.error) throw contextResult.error;
-    const cards = buildCoachCards({ message, context: contextResult.data || {} });
-    const contextVersion = contextResult.data?.context_version || "ai_context_v1";
+    const context = contextResult.data || {};
+    const deterministic = buildDeterministicCoachReply({ message, context });
+    const cards = deterministic.cards;
+    const contextVersion = context?.context_version || "ai_context_v1";
+    const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
+
+    if (!llmEnabled) {
+      return reply({
+        ok: true,
+        answer: deterministic.answer,
+        cards,
+        degraded: false,
+        error: null,
+        response_mode: "deterministic",
+        llm_used: false,
+        context_version: contextVersion,
+        usage: null,
+      });
+    }
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) {
       console.warn("coach_reply_llm_unavailable", "openai_api_key_missing");
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_api_key_missing",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -119,10 +138,12 @@ Deno.serve(async (req: Request) => {
       );
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_request_failed",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -134,10 +155,12 @@ Deno.serve(async (req: Request) => {
       console.warn("coach_reply_llm_unavailable", "openai_empty_response");
       return reply({
         ok: true,
-        answer: null,
+        answer: deterministic.answer,
         cards,
         degraded: true,
         error: "openai_empty_response",
+        response_mode: "deterministic_fallback",
+        llm_used: false,
         context_version: contextVersion,
         usage: null,
       });
@@ -177,6 +200,8 @@ Deno.serve(async (req: Request) => {
       ok: true,
       answer,
       cards,
+      response_mode: "llm",
+      llm_used: true,
       context_version: contextVersion,
       usage: usagePayload,
     });
