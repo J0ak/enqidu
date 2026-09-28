@@ -75,3 +75,20 @@ The Coach must remain useful when the narrative LLM is temporarily unavailable.
 - The frontend renders those cards and a user-facing fallback message without exposing endpoint names or infrastructure errors.
 - `coach-context` reads the authenticated user's canonical `get_ai_coach_context` RPC for normal user mode. The older fixture/table path remains only for explicit fixture diagnostics.
 - No service-role key or privileged database access is exposed to the browser.
+
+
+## Phase 1 response model
+
+Phase 1 is deliberately **deterministic-first**.
+
+- The default `coach-reply` path does **not** call an LLM.
+- Intent detection, factual answer text and cards are built from the authenticated canonical ENQIDU context.
+- Supported deterministic topics are:
+  - training period / weekly progress;
+  - latest training session;
+  - recovery/readiness facts when available;
+  - available equipment and environment context.
+- Unsupported free-form analysis is answered honestly as outside the current deterministic scope.
+- The future LLM path is retained behind `OPENAI_COACH_ENABLED=true`, which is off by default.
+- If that optional LLM path is enabled later and fails, ENQIDU falls back to the deterministic answer and cards rather than failing the Coach interaction.
+- With the default Phase 1 configuration, Coach responses consume zero OpenAI tokens.
