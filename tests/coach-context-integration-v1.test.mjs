@@ -91,12 +91,12 @@ test("authenticated Coach context can read its RLS-protected profile dependencie
   for (const table of ["user_goals", "user_equipment", "equipment_catalog"]) {
     assert.match(
       migration,
-      new RegExp(`grant select on table public\\\\.${table} to authenticated`, "i"),
+      new RegExp(`grant select on table public\\.${table} to authenticated`, "i"),
     );
   }
 
   assert.doesNotMatch(migration, /to anon/i);
-  assert.doesNotMatch(migration, /security\\s+definer/i);
+  assert.doesNotMatch(migration, /security\s+definer/i);
 });
 
 test("frontend service invokes coach-context without exposing service role", async () => {
