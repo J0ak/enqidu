@@ -27,6 +27,7 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
   return {
     ok: true,
     answer: data.answer,
+    cards: Array.isArray(data.cards) ? data.cards : [],
     usage: data.usage,
     contextVersion: data.context_version,
   };

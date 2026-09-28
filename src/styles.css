@@ -4719,3 +4719,19 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.coachMessage { display: grid; gap: 8px; }
+.coachMessage.assistant { justify-self: start; max-width: min(92%, 720px); }
+.coachMessage.user { justify-self: end; }
+.coachMessage .bubble { max-width: 100%; }
+.coachInlineCards { display: grid; gap: 8px; }
+.coachInlineCard { border: 1px solid rgba(35, 230, 193, .25); border-radius: 16px; padding: 14px; background: #0d1820; }
+.coachInlineCardHeading { display: flex; justify-content: space-between; gap: 16px; color: var(--accent); }
+.coachInlineCardHeading span, .coachInlineCardHeading small { display: block; color: var(--muted); font-size: 11px; }
+.coachInlineCardHeading strong { display: block; margin: 3px 0; color: var(--text); }
+.coachInlineMetrics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.coachInlineMetrics div { min-width: 90px; border-radius: 10px; padding: 8px 10px; background: rgba(255,255,255,.05); }
+.coachInlineMetrics strong, .coachInlineMetrics span { display: block; }
+.coachInlineMetrics span, .coachInlineBreakdown { color: var(--muted); font-size: 11px; }
+.coachInlineBreakdown { margin: 10px 0 0; }
+.coachInlineCard button { margin-top: 12px; border: 0; border-radius: 10px; padding: 8px 11px; display: inline-flex; align-items: center; gap: 4px; color: #06100d; background: var(--accent); font-weight: 800; cursor: pointer; }
