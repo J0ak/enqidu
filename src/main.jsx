@@ -4082,7 +4082,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
       });
       const content = result.ok && result.answer
         ? result.answer
-        : buildCoachFallbackReply(text, discipline, sessions, result.error);
+        : buildCoachFallbackReply(text, discipline, sessions, result.error, result.cards);
       setMessages((current) => replaceLastAssistantMessage(current, content, result.ok ? result.cards : []));
     } catch (error) {
       setMessages((current) => replaceLastAssistantMessage(
@@ -6328,21 +6328,35 @@ function buildCoachReply(input, discipline, sessions = []) {
 
   if (latestSession?.id) {
     const duration = latestSession.duration_seconds ? formatDurationClock(latestSession.duration_seconds) : "";
-    return `He registrado tu actualización. La última actividad disponible es ${latestSession.title}${duration ? ` (${duration})` : ""}. Cuéntame objetivo, sensación o molestias y lo afinamos desde ahí.`;
+    return `Puedo trabajar con tu historial ENQIDU disponible. La última actividad registrada es ${latestSession.title}${duration ? ` (${duration})` : ""}.`;
   }
 
-  return `He registrado tu actualización para ${intent}. Cuando importes un FIT o sincronices datos, podré usar tu historial real para responder con más contexto.`;
+  return `Puedo ayudarte con ${intent}. En cuanto haya datos estructurados suficientes, los usaré para darte una respuesta más concreta.`;
 }
 
-function buildCoachFallbackReply(input, discipline, sessions = [], error) {
+function buildCoachFallbackReply(input, discipline, sessions = [], error, cards = []) {
+  const cardIds = new Set((Array.isArray(cards) ? cards : []).map((card) => card?.id).filter(Boolean));
+  if (cardIds.has("recovery_readiness")) {
+    return "Te muestro debajo las métricas de recuperación disponibles en ENQIDU. La interpretación conversacional avanzada no está disponible ahora mismo.";
+  }
+  if (cardIds.has("equipment_context")) {
+    return "Te muestro debajo el equipamiento disponible que ENQIDU tiene registrado para ese entorno.";
+  }
+  if (cardIds.has("training_period_summary")) {
+    return "Te muestro debajo el resumen real de tu periodo de entrenamiento con los datos disponibles en ENQIDU.";
+  }
+  if (cardIds.has("latest_training_session")) {
+    return "Te muestro debajo la última sesión disponible en ENQIDU.";
+  }
+
   const localReply = buildCoachReply(input, discipline, sessions);
-  if (error === "openai_api_key_missing") {
-    return `${localReply}\n\nModo local: el coach IA con contexto seguro todavía no está activado. Para el piloto manual, copia este mensaje y pégalo en ChatGPT.`;
-  }
   if (error === "supabase_unavailable") {
-    return `${localReply}\n\nModo local: la conexión con Supabase no está disponible en este entorno.`;
+    return `${localReply}\n\nAhora mismo no puedo acceder al contexto sincronizado.`;
   }
-  return `${localReply}\n\nModo local: no he podido consultar el endpoint coach-reply ahora mismo.`;
+  if (error) {
+    return `${localReply}\n\nLa respuesta conversacional avanzada no está disponible ahora mismo.`;
+  }
+  return localReply;
 }
 
 function computeHealthReadiness(health) {
