@@ -17,6 +17,7 @@ const context = {
       { name: "Comba", category: "conditioning", location: "home", available: true },
       { name: "Piscina", category: "cardio", location: "pool", available: true },
       { name: "No disponible", category: "other", location: "home", available: false },
+      { name: "Sin marca de disponibilidad", category: "other", location: "home" },
     ],
   },
   health_recovery: {
@@ -98,6 +99,18 @@ test("builds equipment context for a requested training environment", () => {
 test("does not show cards for generic conversation", () => {
   assert.deepEqual(buildCoachCards({ message: "Hola", context }), []);
   assert.deepEqual(buildCoachCards({ message: "Gracias", context }), []);
+});
+
+test("keeps ambiguous conversational phrases from triggering unrelated cards", () => {
+  assert.deepEqual(buildCoachCards({ message: "¿Qué tengo que hacer hoy?", context }), []);
+  assert.deepEqual(buildCoachCards({ message: "¿Cuánto descanso entre series?", context }), []);
+  assert.deepEqual(buildCoachCards({ message: "¿Qué es HYROX?", context }), []);
+});
+
+test("counts only equipment explicitly marked available", () => {
+  const [card] = buildCoachCards({ message: "¿Qué material tengo en casa?", context });
+  assert.equal(card.metrics.find((item) => item.key === "equipment_items").value, 3);
+  assert.equal(card.breakdown.some((item) => item.label === "Other"), false);
 });
 
 test("formats period ranges without losing either date", () => {
