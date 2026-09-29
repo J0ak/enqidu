@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const restrictedFunctions = [
@@ -58,7 +59,7 @@ test("SEC-01 migration revokes client execution and preserves service_role", asy
 });
 
 test("frontend runtime does not call SEC-01 legacy privileged RPCs", async () => {
-  const files = await walk(new URL("../src/", import.meta.url));
+  const files = await walk(fileURLToPath(new URL("../src/", import.meta.url)));
   const violations = [];
 
   for (const file of files) {
