@@ -20,6 +20,23 @@ const context = {
       { name: "Sin marca de disponibilidad", category: "other", location: "home" },
     ],
   },
+  planned_training: {
+    date: "2026-09-29",
+    sessions: [
+      {
+        title: "Lower strength + unilateral",
+        session_type: "strength",
+        planned_duration_min: 50,
+        planned_duration_max: 60,
+        blocks_count: 3,
+        blocks: [
+          { title: "Activación", planned_duration_seconds: 600 },
+          { title: "Fuerza principal", planned_duration_seconds: 1800 },
+          { title: "Unilateral", planned_duration_seconds: 1200 },
+        ],
+      },
+    ],
+  },
   health_recovery: {
     date: "2026-09-28",
     readiness: { score: 82, flags: [] },
@@ -158,4 +175,22 @@ test("only resolves session navigation against an exact known id", () => {
   assert.equal(resolveCoachCardAction({ type: "open_training_session" }, sessions), null);
   assert.equal(resolveCoachCardAction({ type: "open_training_session", session_id: "unknown" }, sessions), null);
   assert.equal(resolveCoachCardAction({ type: "open_training_session", session_id: "session-27" }, sessions)?.session, sessions[0]);
+});
+
+
+test("builds today's planned training card and does not confuse it with completed-session intent", () => {
+  const cards = buildCoachCards({ message: "¿Qué entreno hoy?", context });
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].id, "planned_training_today");
+  assert.equal(cards[0].title, "Lower strength + unilateral");
+  assert.equal(cards[0].metrics.find((item) => item.key === "planned_duration").value, 60);
+  assert.equal(cards[0].metrics.find((item) => item.key === "blocks").value, 3);
+});
+
+test("does not invent a planned-training card when today has no plan", () => {
+  const cards = buildCoachCards({
+    message: "¿Qué me toca hoy?",
+    context: { ...context, planned_training: { date: "2026-09-29", sessions: [] } },
+  });
+  assert.deepEqual(cards, []);
 });
