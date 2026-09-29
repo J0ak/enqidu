@@ -96,6 +96,8 @@ test("a home request uses only available home equipment", () => {
   assert.equal(session.environment, "home");
   assert.deepEqual(session.equipment, ["Rack", "Barra"]);
   assert.doesNotMatch(JSON.stringify(session), /Bicicleta/);
+  assert.match(reply.answer, /Entorno: casa/);
+  assert.doesNotMatch(reply.answer, /Entorno: home/);
 });
 
 test("an active knee restriction changes the proposal and avoids impact", () => {
