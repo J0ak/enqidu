@@ -6,12 +6,16 @@ La pregunta sobre qué entrenar hoy sigue este flujo:
 
 1. `coach-reply` obtiene el contexto mediante el RPC autenticado existente y carga
    `planned_training_sessions`/`planned_session_blocks` con el JWT del usuario y RLS.
-2. `trainingRecommendation.js` normaliza objetivos, restricciones, recuperación,
-   historial, entorno y material disponibles en el contexto.
-3. El motor aplica reglas puras y devuelve una sesión estructurada o un resultado
+2. `coach-reply` carga además las restricciones activas desde
+   `coach_athlete_constraints` con el JWT del usuario y RLS. Las localizaciones de
+   entrenamiento presentes en `athlete_context.constraints` no se interpretan como
+   restricciones físicas.
+3. `trainingRecommendation.js` normaliza objetivos, restricciones reales,
+   recuperación, historial, entorno y material disponibles en el contexto.
+4. El motor aplica reglas puras y devuelve una sesión estructurada o un resultado
    explícito de datos insuficientes.
-4. `coachDeterministicReply.js` crea la explicación sin LLM.
-5. `coachCards.js` presenta `planned_training_today` si existe plan o, de forma
+5. `coachDeterministicReply.js` crea la explicación sin LLM.
+6. `coachCards.js` presenta `planned_training_today` si existe plan o, de forma
    excluyente, `recommended_training_today` si el motor calculó una propuesta.
 
 No se escribe ninguna recomendación. La tabla `recommended_sessions` no se usa en
@@ -27,8 +31,9 @@ planificar. Tampoco se añadieron migraciones, políticas ni permisos.
 - Una restricción activa compatible con lesión o impacto fuerza una propuesta sin
   impacto ni carga incompatible.
 - Una sesión intensa en los dos días anteriores no repite la misma modalidad. La
-  ventana está centralizada y se aplica solo si la sesión contiene intensidad
-  explícita; no se deduce intensidad de métricas ausentes.
+  ventana está centralizada. V1 solo acepta señales explícitas que existen en el
+  contexto canónico: intensidad declarada cuando exista o actividad clasificada
+  explícitamente como HIIT. Una sesión sin fecha válida nunca se presume reciente.
 - Los objetivos activos orientan fuerza o resistencia, sin anular recuperación o
   restricciones.
 - Un entorno solicitado tiene precedencia. El material se filtra por disponibilidad
@@ -54,8 +59,8 @@ persistido.
 
 ## Limitaciones V1
 
-- El motor consume solo campos ya presentes en el contexto del Coach; no consulta
-  proveedores externos.
+- El motor consume el contexto canónico del Coach y las restricciones activas de la
+  tabla RLS `coach_athlete_constraints`; no consulta proveedores externos.
 - La detección de restricciones y modalidades usa vocabulario explícito en español
   e inglés. Una restricción no descrita de forma reconocible no puede interpretarse
   de manera segura.
