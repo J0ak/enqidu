@@ -92,3 +92,24 @@ Phase 1 is deliberately **deterministic-first**.
 - The future LLM path is retained behind `OPENAI_COACH_ENABLED=true`, which is off by default.
 - If that optional LLM path is enabled later and fails, ENQIDU falls back to the deterministic answer and cards rather than failing the Coach interaction.
 - With the default Phase 1 configuration, Coach responses consume zero OpenAI tokens.
+
+
+## Planned training — read-only V1
+
+The deterministic Coach can now read an existing planned session for the selected day from the authenticated user's canonical planning tables.
+
+Supported prompts include variants of:
+- `¿Qué entreno hoy?`
+- `¿Qué me toca hoy?`
+- `¿Qué tengo hoy?`
+- `Plan de hoy`
+
+Behavior:
+- reads `planned_training_sessions` and `planned_session_blocks` through the signed-in user's Supabase session and existing RLS;
+- never creates, edits or recommends a workout in this slice;
+- if a plan exists, returns factual session details and a `planned_training_today` card;
+- if no plan exists, states that explicitly and emits no invented card;
+- planned-session intent is kept distinct from completed-session intent;
+- no schema changes, no new grants, no Garmin/FIT changes and no LLM call are required.
+
+This read-only slice is the prerequisite for a future deterministic recommendation/adaptation layer.
