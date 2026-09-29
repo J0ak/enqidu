@@ -56,6 +56,7 @@ function modalityOf(session = {}) {
     session.garmin_type_label,
     session.title,
   ].filter(Boolean).join(" "));
+  if (/(^|\s)hiit($|\s)/.test(text)) return "hiit";
   if (/strength|fuerza|hyrox|crossfit|pesas|lower|upper/.test(text)) return "strength";
   if (/swim|natacion|piscina/.test(text)) return "swim";
   if (/run|running|trail|carrera|correr/.test(text)) return "run";
@@ -216,7 +217,7 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
     });
   }
 
-  if (recentHardModality === "strength" || goalPrefersEndurance || outdoor) {
+  if (["strength", "hiit"].includes(recentHardModality) || goalPrefersEndurance || outdoor) {
     return recommendation({
       type: "aerobic",
       title: "Sesión aeróbica fácil",
@@ -231,7 +232,7 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
         { title: "Vuelta a la calma", duration_minutes: 5 },
       ],
       reasons: compact([
-        recentHardModality === "strength" ? "fuerza intensa reciente; no se repite ese estímulo" : null,
+        recentHard ? `estímulo intenso reciente${recentHardModality ? ` (${recentHardModality})` : ""}; no se repite` : null,
         goalPrefersEndurance ? "coherente con el objetivo activo" : null,
         outdoor ? `adaptada al entorno ${environment}` : null,
       ]),
