@@ -16,7 +16,8 @@
     "coach:supabase:seed-v1": "node scripts/coach-context/generate-coach-context-seed-sql.mjs",
     "coach:supabase:dev-preflight": "node scripts/coach-context/preflight-dev-apply.mjs",
     "coach:supabase:dev-verify-sql": "node scripts/coach-context/generate-dev-apply-verification-sql.mjs",
-    "preview": "vite preview --host 0.0.0.0 --port 4174"
+    "preview": "vite preview --host 0.0.0.0 --port 4174",
+    "test:coach-evals": "node --test tests/coach-contract-evals.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

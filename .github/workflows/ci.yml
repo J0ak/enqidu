@@ -6,8 +6,15 @@ on:
       - main
   push:
     branches:
-      - planned-first-activity-merge
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-build:
@@ -25,7 +32,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Coach contract evals
+        run: npm run test:coach-evals
+
+      - name: Full test suite
         run: npm test
 
       - name: Build
