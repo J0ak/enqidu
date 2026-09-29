@@ -123,7 +123,9 @@ Deno.serve(async (req: Request) => {
 
     if (contextResult.error) throw contextResult.error;
     const context = contextResult.data || {};
-    context.planned_training = await loadPlannedTraining(db, userId, contextDate);
+    context.planned_training = intents.planToday
+      ? await loadPlannedTraining(db, userId, contextDate)
+      : { date: contextDate, sessions: [] };
     const deterministic = buildDeterministicCoachReply({ message, context });
     const cards = deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";
