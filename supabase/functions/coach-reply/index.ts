@@ -135,7 +135,11 @@ Deno.serve(async (req: Request) => {
 
     if (contextResult.error) throw contextResult.error;
     const context = contextResult.data || {};
-    context.request = { ...(context.request || {}), date: requestDate };
+    context.request = {
+      ...(context.request || {}),
+      date: contextDate,
+      reference_date: requestDate,
+    };
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };

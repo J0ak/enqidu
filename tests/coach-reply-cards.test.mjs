@@ -45,6 +45,8 @@ test("coach-reply resolves yesterday against the previous calendar date before q
   assert.match(source, /const requestDate = body\.date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
   assert.match(source, /intents\.yesterday && !intents\.period[\s\S]*shiftIsoDate\(requestDate, -1\)/);
   assert.match(source, /p_date: contextDate/);
+  assert.match(source, /context\.request = \{[\s\S]*date: contextDate,[\s\S]*reference_date: requestDate/);
+  assert.doesNotMatch(source, /context\.request = \{ \.\.\.\(context\.request \|\| \{\}\), date: requestDate \}/);
 });
 
 

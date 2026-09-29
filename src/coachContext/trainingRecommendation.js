@@ -6,6 +6,19 @@ const normalizeText = (value = "") => String(value)
 const compact = (values) => values.filter(Boolean);
 const list = (value) => Array.isArray(value) ? value : [];
 
+const ENVIRONMENT_LABELS = Object.freeze({
+  home: "casa",
+  pool: "piscina",
+  outdoor: "aire libre",
+  trail: "entorno trail",
+  functional_training_center: "centro de entrenamiento funcional",
+});
+
+function displayEnvironment(value) {
+  const key = normalizeText(value).replace(/[\s-]+/g, "_");
+  return ENVIRONMENT_LABELS[key] || value;
+}
+
 // ENQIDU's existing readiness UI labels values below 62 as "Bajo". Keeping the
 // boundary here makes the recommendation rule visible, testable and replaceable.
 export const RECOMMENDATION_RULES = Object.freeze({
@@ -319,5 +332,5 @@ export function explainTrainingRecommendation(result) {
   const material = result.equipment.length ? result.equipment.join(", ") : "sin material específico";
   const blocks = result.blocks.map((block) => `${block.title} (${block.duration_minutes} min)`).join(", ");
   const why = result.reasons.length ? result.reasons.join("; ") : "propuesta prudente con el contexto ENQIDU disponible";
-  return `Recomendación calculada (no es un plan guardado): ${result.title}. Objetivo: ${result.objective}. Duración aproximada: ${result.duration_minutes} min. Intensidad: ${result.intensity}. Entorno: ${result.environment}. Material: ${material}. Bloques: ${blocks}. Motivo: ${why}.`;
+  return `Recomendación calculada (no es un plan guardado): ${result.title}. Objetivo: ${result.objective}. Duración aproximada: ${result.duration_minutes} min. Intensidad: ${result.intensity}. Entorno: ${displayEnvironment(result.environment)}. Material: ${material}. Bloques: ${blocks}. Motivo: ${why}.`;
 }
