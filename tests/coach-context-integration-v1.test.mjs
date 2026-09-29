@@ -156,6 +156,13 @@ test("Coach UI has minimal context status card and does not touch FIT import str
   assert.match(main, /getArrayBuffer, readRecord/);
 });
 
+test("Coach cards use the defined discipline color for visible actions", async () => {
+  const styles = await readText("src/styles.css");
+
+  assert.match(styles, /\.coachInlineCard button \{[^}]*background: var\(--discipline\)/s);
+  assert.doesNotMatch(styles, /var\(--accent\)/);
+});
+
 test("finish integration does not modify migrations or add destructive package scripts", async () => {
   const packageJson = JSON.parse(await readText("package.json"));
   const scripts = JSON.stringify(packageJson.scripts);
