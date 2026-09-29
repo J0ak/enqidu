@@ -29,6 +29,49 @@ function shiftIsoDate(value: string, days: number): string {
   return parsed.toISOString().slice(0, 10);
 }
 
+async function loadPlannedTraining(db: any, userId: string, date: string) {
+  const sessionsResult = await db
+    .from("planned_training_sessions")
+    .select("id, planned_date, planned_time, title, session_type, status, location_type, planned_intensity, planned_duration_min, planned_duration_max, objective, coach_notes, source")
+    .eq("user_id", userId)
+    .eq("planned_date", date)
+    .order("planned_time", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+
+  if (sessionsResult.error) throw sessionsResult.error;
+  const sessions = Array.isArray(sessionsResult.data) ? sessionsResult.data : [];
+  if (!sessions.length) return { date, sessions: [] };
+
+  const ids = sessions.map((session: any) => session.id).filter(Boolean);
+  const blocksResult = await db
+    .from("planned_session_blocks")
+    .select("planned_session_id, block_order, block_type, title, objective, planned_duration_seconds, planned_rounds")
+    .in("planned_session_id", ids)
+    .order("block_order", { ascending: true });
+
+  if (blocksResult.error) throw blocksResult.error;
+  const blocks = Array.isArray(blocksResult.data) ? blocksResult.data : [];
+
+  return {
+    date,
+    sessions: sessions.map((session: any) => {
+      const sessionBlocks = blocks.filter((block: any) => block.planned_session_id === session.id);
+      return {
+        ...session,
+        blocks_count: sessionBlocks.length,
+        blocks: sessionBlocks.map((block: any) => ({
+          block_order: block.block_order,
+          block_type: block.block_type,
+          title: block.title,
+          objective: block.objective,
+          planned_duration_seconds: block.planned_duration_seconds,
+          planned_rounds: block.planned_rounds,
+        })),
+      };
+    }),
+  };
+}
+
 function responseText(payload: any): string {
   if (typeof payload?.output_text === "string") return payload.output_text;
   const parts = Array.isArray(payload?.output)
@@ -80,6 +123,7 @@ Deno.serve(async (req: Request) => {
 
     if (contextResult.error) throw contextResult.error;
     const context = contextResult.data || {};
+    context.planned_training = await loadPlannedTraining(db, userId, contextDate);
     const deterministic = buildDeterministicCoachReply({ message, context });
     const cards = deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";
