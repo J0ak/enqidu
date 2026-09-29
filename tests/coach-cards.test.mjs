@@ -194,3 +194,31 @@ test("does not invent a planned-training card when today has no plan", () => {
   });
   assert.deepEqual(cards, []);
 });
+
+
+test("builds a dedicated trend card without duplicating the normal period card", () => {
+  const comparisonContext = {
+    ...context,
+    training_comparison: {
+      basis: "immediately_preceding_equal_length_period",
+      current: context.training_period,
+      previous: {
+        period: { from: "2026-09-14", to: "2026-09-20" },
+        summary: {
+          sessions_count: 2,
+          active_days: 2,
+          total_duration_seconds: 7200,
+          activity_types: { Strength: 1, Trail: 1 },
+        },
+        sessions: [],
+      },
+    },
+  };
+  const cards = buildCoachCards({
+    message: "Compárame esta semana con la anterior",
+    context: comparisonContext,
+  });
+  assert.deepEqual(cards.map((card) => card.id), ["training_trend_comparison"]);
+  assert.equal(cards[0].type, "comparison_summary");
+  assert.equal(cards[0].provenance, "enkidu_context");
+});
