@@ -36,6 +36,11 @@ function activeConstraints(context) {
     .filter((item) => item && item.active !== false);
 }
 
+function trainingLocations(context) {
+  return list(context?.athlete_context?.constraints)
+    .filter((item) => item && (item.location_type || item.display_name));
+}
+
 function goals(context) {
   return list(context?.athlete_context?.goals || context?.goals)
     .filter((item) => item && item.active !== false
@@ -99,13 +104,25 @@ function recoveryState(recovery = {}) {
 
 function resolveEnvironment(equipment, requestedLocation) {
   if (requestedLocation?.key) return requestedLocation.key;
-  const locations = [...new Set(equipment.map((item) => normalizeText(item.location)).filter(Boolean))];
+  const locations = [...new Set(equipment
+    .map((item) => normalizeText(item.location).replace(/[\s-]+/g, "_"))
+    .filter(Boolean))];
   return locations.length === 1 ? locations[0] : null;
 }
 
+function findTrainingLocation(locations, environment) {
+  if (!environment) return null;
+  return locations.find((item) => {
+    const type = normalizeText(item.location_type).replace(/[\s-]+/g, "_");
+    const name = normalizeText(item.display_name).replace(/[\s-]+/g, "_");
+    return type === environment || name.includes(environment);
+  }) || null;
+}
+
 function equipmentNames(equipment, environment) {
+  if (!environment) return [];
   return [...new Set(equipment
-    .filter((item) => !environment || normalizeText(item.location).replace(/[\s-]+/g, "_") === environment)
+    .filter((item) => normalizeText(item.location).replace(/[\s-]+/g, "_") === environment)
     .map((item) => item.name || item.label || item.item_name)
     .filter(Boolean))];
 }
@@ -130,10 +147,12 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
 
   const equipment = availableEquipment(context);
   const constraints = activeConstraints(context);
+  const locations = trainingLocations(context);
   const athleteGoals = goals(context);
   const sessions = list(context?.training_period?.sessions);
   const recovery = recoveryState(context?.health_recovery || {});
   const environment = resolveEnvironment(equipment, requestedLocation);
+  const selectedLocation = findTrainingLocation(locations, environment);
   const relevantEquipment = equipmentNames(equipment, environment);
   const constraintText = joinedText(constraints);
   const goalText = joinedText(athleteGoals);
@@ -150,6 +169,14 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
     + equipment.length + Number(recovery.hasData) + Number(Boolean(environment));
 
   if (!evidenceCount) return { insufficient: true, reason: "insufficient_enqidu_context" };
+
+  if (normalizeText(selectedLocation?.prescription_scope) === "coach_led_only") {
+    return {
+      insufficient: true,
+      reason: "coach_led_environment",
+      environment: selectedLocation.display_name || selectedLocation.location_type || environment,
+    };
+  }
 
   if (recovery.low) {
     return recommendation({
@@ -196,7 +223,7 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
   const outdoor = ["outdoor", "trail", "aire_libre", "parque"].includes(environment);
   const strengthEquipment = relevantEquipment.filter((name) =>
     /barra|rack|mancuerna|dumbbell|kettlebell|pesa|banda|band/.test(normalizeText(name)));
-  const goalPrefersStrength = /fuerza|strength|hyrox|crossfit/.test(goalText);
+  const goalPrefersStrength = /fuerza|strength|hyrox|crossfit|masa magra|hipertrof|muscle|body[_\s]?composition/.test(goalText);
   const goalPrefersEndurance = /trail|running|correr|carrera|resistencia|endurance|cardio/.test(goalText);
 
   if (pool && recentHardModality !== "swim") {
@@ -284,6 +311,9 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
 
 export function explainTrainingRecommendation(result) {
   if (!result || result.insufficient) {
+    if (result?.reason === "coach_led_environment") {
+      return `Ese entorno está registrado en ENQIDU como sesión guiada${result.environment ? ` (${result.environment})` : ""}. No genero una prescripción autónoma para ese entorno; sigue la sesión del monitor o indícame otro lugar de entrenamiento.`;
+    }
     return "No tengo información ENQIDU suficiente para recomendar una sesión con seguridad hoy. Registra un objetivo, entorno o material disponible, o alguna sesión reciente.";
   }
   const material = result.equipment.length ? result.equipment.join(", ") : "sin material específico";
