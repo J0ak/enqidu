@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
 import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
+import { buildTrainingTrendRanges } from "../../../src/coachContext/trainingTrend.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -29,29 +30,11 @@ function shiftIsoDate(value: string, days: number): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-function inclusivePeriodDays(from: string, to: string): number | null {
-  const start = new Date(`${from}T12:00:00Z`);
-  const end = new Date(`${to}T12:00:00Z`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return null;
-  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
-}
-
-function previousPeriodRange(from: string, to: string) {
-  const days = inclusivePeriodDays(from, to);
-  if (!days) return null;
-  const previousTo = shiftIsoDate(from, -1);
-  const previousFrom = shiftIsoDate(previousTo, -(days - 1));
-  return { from: previousFrom, to: previousTo };
-}
-
-async function loadPreviousTrainingPeriod(db: any, userId: string, from: string, to: string) {
-  const range = previousPeriodRange(from, to);
-  if (!range) return null;
-
+async function loadTrainingPeriod(db: any, userId: string, from: string, to: string) {
   const result = await db.rpc("get_ai_training_period_summary", {
     p_user_id: userId,
-    p_from_date: range.from,
-    p_to_date: range.to,
+    p_from_date: from,
+    p_to_date: to,
     p_limit: 30,
   });
 
@@ -180,16 +163,34 @@ Deno.serve(async (req: Request) => {
     };
     const currentFrom = context?.request?.from_date || null;
     const currentTo = context?.request?.to_date || null;
-    const previousTrainingPeriod = intents.trend && currentFrom && currentTo
-      ? await loadPreviousTrainingPeriod(db, userId, currentFrom, currentTo)
+    const trendRanges = intents.trend && currentFrom && currentTo
+      ? buildTrainingTrendRanges({
+          from: currentFrom,
+          to: currentTo,
+          referenceDate: requestDate,
+        })
       : null;
-    context.training_comparison = intents.trend
-      ? {
-          basis: "immediately_preceding_equal_length_period",
-          current: context?.training_period || null,
-          previous: previousTrainingPeriod,
-        }
-      : null;
+
+    if (intents.trend && trendRanges) {
+      const currentNeedsReload = trendRanges.current.from !== currentFrom
+        || trendRanges.current.to !== currentTo;
+      const [currentTrainingPeriod, previousTrainingPeriod] = await Promise.all([
+        currentNeedsReload
+          ? loadTrainingPeriod(db, userId, trendRanges.current.from, trendRanges.current.to)
+          : Promise.resolve(context?.training_period || null),
+        loadTrainingPeriod(db, userId, trendRanges.previous.from, trendRanges.previous.to),
+      ]);
+
+      context.training_comparison = {
+        basis: trendRanges.basis,
+        partial_current_period: trendRanges.partial_current_period,
+        requested_current_period: trendRanges.requested_current_period,
+        current: currentTrainingPeriod,
+        previous: previousTrainingPeriod,
+      };
+    } else {
+      context.training_comparison = null;
+    }
     const deterministic = buildDeterministicCoachReply({ message, context });
     const cards = deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";

@@ -222,3 +222,34 @@ test("builds a dedicated trend card without duplicating the normal period card",
   assert.equal(cards[0].type, "comparison_summary");
   assert.equal(cards[0].provenance, "enkidu_context");
 });
+
+
+test("trend card labels an in-progress comparison as the same elapsed portion", () => {
+  const current = {
+    period: { from: "2026-09-28", to: "2026-09-29" },
+    summary: { sessions_count: 1, active_days: 1, total_duration_seconds: 3919, activity_types: { HIIT: 1 } },
+    sessions: [],
+  };
+  const previous = {
+    period: { from: "2026-09-21", to: "2026-09-22" },
+    summary: { sessions_count: 1, active_days: 1, total_duration_seconds: 5149, activity_types: { Strength: 1 } },
+    sessions: [],
+  };
+  const cards = buildCoachCards({
+    message: "¿Cómo va mi carga?",
+    context: {
+      ...context,
+      training_period: current,
+      training_comparison: {
+        basis: "same_elapsed_portion_of_previous_period",
+        partial_current_period: true,
+        requested_current_period: { from: "2026-09-28", to: "2026-10-04" },
+        current,
+        previous,
+      },
+    },
+  });
+  assert.equal(cards[0].id, "training_trend_comparison");
+  assert.equal(cards[0].subtitle, "Mismo tramo transcurrido vs periodo anterior");
+  assert.equal(cards[0].comparison.partial_current_period, true);
+});

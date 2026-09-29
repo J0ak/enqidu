@@ -79,12 +79,13 @@ test("coach-reply loads only authenticated active athlete constraints for recomm
 });
 
 
-test("coach-reply loads the immediately preceding equal-length period only for trend intent", async () => {
+test("coach-reply uses elapsed trend ranges and loads only comparable periods", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  assert.match(source, /function previousPeriodRange/);
+  assert.match(source, /buildTrainingTrendRanges/);
   assert.match(source, /get_ai_training_period_summary/);
-  assert.match(source, /intents\.trend && currentFrom && currentTo[\s\S]*loadPreviousTrainingPeriod/);
-  assert.match(source, /basis: "immediately_preceding_equal_length_period"/);
+  assert.match(source, /intents\.trend && currentFrom && currentTo[\s\S]*buildTrainingTrendRanges/);
+  assert.match(source, /currentNeedsReload[\s\S]*loadTrainingPeriod/);
+  assert.match(source, /partial_current_period: trendRanges\.partial_current_period/);
 });
 
 test("trend intent returns before the optional OpenAI call", async () => {

@@ -5,6 +5,60 @@ const asNonNegativeNumber = (value) => {
 
 const asObject = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 
+const isoDate = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return null;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const shiftIsoDate = (value, days) => {
+  const date = isoDate(value);
+  if (!date) return null;
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const inclusiveDays = (from, to) => {
+  const start = isoDate(from);
+  const end = isoDate(to);
+  if (!start || !end || end < start) return null;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+};
+
+export function buildTrainingTrendRanges({ from, to, referenceDate } = {}) {
+  const fullPeriodDays = inclusiveDays(from, to);
+  if (!fullPeriodDays) return null;
+
+  const reference = isoDate(referenceDate);
+  const start = isoDate(from);
+  const end = isoDate(to);
+  if (!start || !end) return null;
+  if (reference && reference < start) return null;
+
+  const effectiveEnd = reference && reference < end
+    ? referenceDate
+    : to;
+  const elapsedDays = inclusiveDays(from, effectiveEnd);
+  if (!elapsedDays) return null;
+
+  const previousFrom = shiftIsoDate(from, -fullPeriodDays);
+  const previousTo = previousFrom
+    ? shiftIsoDate(previousFrom, elapsedDays - 1)
+    : null;
+  if (!previousFrom || !previousTo) return null;
+
+  const partialCurrentPeriod = effectiveEnd !== to;
+  return {
+    basis: partialCurrentPeriod
+      ? "same_elapsed_portion_of_previous_period"
+      : "immediately_preceding_equal_length_period",
+    partial_current_period: partialCurrentPeriod,
+    requested_current_period: { from, to },
+    current: { from, to: effectiveEnd },
+    previous: { from: previousFrom, to: previousTo },
+  };
+}
+
 const normalizeSummary = (period = {}) => {
   const summary = period?.summary || {};
   return {
@@ -46,6 +100,8 @@ export function buildTrainingTrendComparison(comparison = {}) {
     kind: "training_period_comparison",
     comparable: true,
     basis: comparison?.basis || "immediately_preceding_equal_length_period",
+    partial_current_period: comparison?.partial_current_period === true,
+    requested_current_period: comparison?.requested_current_period || periodRange(currentPeriod),
     current_period: periodRange(currentPeriod),
     previous_period: periodRange(previousPeriod),
     current,
@@ -116,5 +172,9 @@ export function explainTrainingTrend(result) {
       : null,
   ].filter(Boolean).join(" ");
 
-  return `Comparando ${formatPeriod(result.current_period)} con ${formatPeriod(result.previous_period)}: ${comparison}. ${modalityNotes} Esto describe carga y volumen registrados; con estos datos por sí solos no puedo afirmar una mejora de rendimiento.`;
+  const scope = result.partial_current_period
+    ? `Como el periodo actual sigue en curso, comparo solo el mismo tramo transcurrido: ${formatPeriod(result.current_period)} frente a ${formatPeriod(result.previous_period)}.`
+    : `Comparando ${formatPeriod(result.current_period)} con ${formatPeriod(result.previous_period)}.`;
+
+  return `${scope} Resultado: ${comparison}. ${modalityNotes} Esto describe carga y volumen registrados; con estos datos por sí solos no puedo afirmar una mejora de rendimiento.`;
 }

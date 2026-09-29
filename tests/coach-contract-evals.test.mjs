@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
+import { buildTrainingTrendRanges } from "../src/coachContext/trainingTrend.js";
 
 const baseContext = {
   request: { date: "2026-09-29", reference_date: "2026-09-29" },
@@ -235,4 +236,17 @@ test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   assert.match(source.slice(gate, openAi), /response_mode: "deterministic"/);
   assert.match(source.slice(gate, openAi), /llm_used: false/);
   assert.match(source.slice(gate, openAi), /usage: null/);
+});
+
+
+test("EVAL: an in-progress week compares the same elapsed weekdays, never a partial week against a full week", () => {
+  const ranges = buildTrainingTrendRanges({
+    from: "2026-09-28",
+    to: "2026-10-04",
+    referenceDate: "2026-09-29",
+  });
+  assert.equal(ranges.partial_current_period, true);
+  assert.deepEqual(ranges.current, { from: "2026-09-28", to: "2026-09-29" });
+  assert.deepEqual(ranges.previous, { from: "2026-09-21", to: "2026-09-22" });
+  assert.equal(ranges.basis, "same_elapsed_portion_of_previous_period");
 });

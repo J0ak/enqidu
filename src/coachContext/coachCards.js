@@ -189,7 +189,9 @@ function buildTrainingTrendCard(comparison) {
     id: "training_trend_comparison",
     type: "comparison_summary",
     title: "Tendencia de entrenamiento",
-    subtitle: "Periodo actual vs anterior",
+    subtitle: comparison.partial_current_period
+      ? "Mismo tramo transcurrido vs periodo anterior"
+      : "Periodo actual vs anterior",
     badge: "Comparativa",
     metrics: compact([
       metric("sessions_current", "Sesiones actuales", current.sessions_count),
@@ -201,6 +203,8 @@ function buildTrainingTrendCard(comparison) {
       current_period: comparison.current_period,
       previous_period: comparison.previous_period,
       deltas: comparison.deltas,
+      basis: comparison.basis,
+      partial_current_period: comparison.partial_current_period,
       previous,
     },
     actions: [{ type: "open_activities", label: "Ver entrenamiento" }],

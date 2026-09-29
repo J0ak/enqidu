@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildTrainingTrendComparison,
+  buildTrainingTrendRanges,
   explainTrainingTrend,
 } from "../src/coachContext/trainingTrend.js";
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
@@ -109,4 +110,66 @@ test("asking whether I am improving stays evidence-limited", () => {
   assert.match(reply.answer, /carga y volumen registrados/);
   assert.match(reply.answer, /no puedo afirmar una mejora de rendimiento/);
   assert.doesNotMatch(reply.answer, /sí, estás mejorando|no estás mejorando/i);
+});
+
+test("an in-progress week compares only the same elapsed weekdays from the previous week", () => {
+  const ranges = buildTrainingTrendRanges({
+    from: "2026-09-28",
+    to: "2026-10-04",
+    referenceDate: "2026-09-29",
+  });
+
+  assert.deepEqual(ranges, {
+    basis: "same_elapsed_portion_of_previous_period",
+    partial_current_period: true,
+    requested_current_period: { from: "2026-09-28", to: "2026-10-04" },
+    current: { from: "2026-09-28", to: "2026-09-29" },
+    previous: { from: "2026-09-21", to: "2026-09-22" },
+  });
+});
+
+test("a completed historical period keeps a full equal-length comparison", () => {
+  const ranges = buildTrainingTrendRanges({
+    from: "2026-09-21",
+    to: "2026-09-27",
+    referenceDate: "2026-09-29",
+  });
+
+  assert.equal(ranges.partial_current_period, false);
+  assert.equal(ranges.basis, "immediately_preceding_equal_length_period");
+  assert.deepEqual(ranges.current, { from: "2026-09-21", to: "2026-09-27" });
+  assert.deepEqual(ranges.previous, { from: "2026-09-14", to: "2026-09-20" });
+});
+
+test("partial comparison explanation makes the elapsed-period basis explicit", () => {
+  const result = buildTrainingTrendComparison({
+    basis: "same_elapsed_portion_of_previous_period",
+    partial_current_period: true,
+    requested_current_period: { from: "2026-09-28", to: "2026-10-04" },
+    current: {
+      period: { from: "2026-09-28", to: "2026-09-29" },
+      summary: {
+        sessions_count: 1,
+        active_days: 1,
+        total_duration_seconds: 3919,
+        activity_types: { HIIT: 1 },
+      },
+    },
+    previous: {
+      period: { from: "2026-09-21", to: "2026-09-22" },
+      summary: {
+        sessions_count: 1,
+        active_days: 1,
+        total_duration_seconds: 5149,
+        activity_types: { Fuerza: 1 },
+      },
+    },
+  });
+
+  const answer = explainTrainingTrend(result);
+  assert.match(answer, /periodo actual sigue en curso/i);
+  assert.match(answer, /2026-09-28–2026-09-29/);
+  assert.match(answer, /2026-09-21–2026-09-22/);
+  assert.match(answer, /1 vs 1 sesiones \(sin cambio\)/);
+  assert.match(answer, /no puedo afirmar una mejora de rendimiento/);
 });
