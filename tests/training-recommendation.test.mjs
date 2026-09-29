@@ -159,3 +159,58 @@ test("training locations in athlete_context.constraints are not treated as physi
   });
   assert.equal(result.session_type, "strength");
 });
+
+
+test("a coach-led-only training location does not receive an autonomous prescription", () => {
+  const context = {
+    ...base,
+    athlete_context: {
+      ...base.athlete_context,
+      constraints: [{
+        display_name: "Centro de entrenamiento funcional / híbrido",
+        location_type: "functional_training_center",
+        prescription_scope: "coach_led_only",
+      }],
+      equipment: [
+        { name: "Sled", location: "functional_training_center", available: true },
+      ],
+    },
+  };
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué entreno hoy en el gimnasio?",
+    context,
+  });
+  assert.match(reply.answer, /sesión guiada/);
+  assert.match(reply.answer, /No genero una prescripción autónoma/);
+  assert.deepEqual(reply.cards, []);
+});
+
+test("equipment from different locations is never combined without a selected environment", () => {
+  const result = buildTrainingRecommendation({
+    ...base,
+    athlete_context: {
+      ...base.athlete_context,
+      equipment: [
+        { name: "Rack", location: "home", available: true },
+        { name: "Mancuerna", location: "gym", available: true },
+      ],
+    },
+  });
+  assert.deepEqual(result.equipment, []);
+});
+
+test("lean-mass and body-composition goals are recognized as strength-oriented", () => {
+  const result = buildTrainingRecommendation({
+    ...base,
+    athlete_context: {
+      ...base.athlete_context,
+      goals: [{ name: "Ganar masa magra", goal_type: "body_composition", status: "active" }],
+      equipment: [
+        { name: "Rack", location: "home", available: true },
+        { name: "Barra", location: "home", available: true },
+      ],
+    },
+  });
+  assert.equal(result.session_type, "strength");
+  assert.match(result.reasons.join(" "), /objetivo activo/);
+});
