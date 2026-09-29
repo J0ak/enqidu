@@ -3,6 +3,10 @@ import {
   detectCoachIntents,
   filterAvailableEquipment,
 } from "./coachCards.js";
+import {
+  buildTrainingRecommendation,
+  explainTrainingRecommendation,
+} from "./trainingRecommendation.js";
 
 const asPositiveNumber = (value) => {
   const number = Number(value);
@@ -183,12 +187,20 @@ function buildGreetingAnswer() {
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
   const intents = detectCoachIntents(message);
   const answers = [];
+  const plannedSessions = Array.isArray(context?.planned_training?.sessions)
+    ? context.planned_training.sessions
+    : [];
+  const recommendation = intents.planToday && !plannedSessions.length
+    ? buildTrainingRecommendation(context, { requestedLocation: intents.equipmentLocation })
+    : null;
 
   if (intents.greeting) {
     answers.push(buildGreetingAnswer());
   }
   if (intents.planToday) {
-    answers.push(buildPlannedTrainingAnswer(context?.planned_training || {}));
+    answers.push(plannedSessions.length
+      ? buildPlannedTrainingAnswer(context?.planned_training || {})
+      : explainTrainingRecommendation(recommendation));
   }
   if (intents.recovery) {
     answers.push(buildRecoveryAnswer(context?.health_recovery || {}));
@@ -218,7 +230,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
 
   return {
     answer,
-    cards: buildCoachCards({ message, context }),
+    cards: buildCoachCards({ message, context, recommendation }),
     intents,
     responseMode: "deterministic",
     llmUsed: false,

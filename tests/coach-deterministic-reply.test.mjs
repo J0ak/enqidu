@@ -151,11 +151,11 @@ test("answers today's existing plan without inventing a recommendation", () => {
   assert.equal(reply.llmUsed, false);
 });
 
-test("says explicitly when there is no plan today", () => {
+test("recommends deterministically when there is no plan today", () => {
   const reply = buildDeterministicCoachReply({
     message: "¿Qué me toca hoy?",
     context: { ...context, planned_training: { date: "2026-09-29", sessions: [] } },
   });
-  assert.match(reply.answer, /No tienes una sesión planificada para hoy/);
-  assert.deepEqual(reply.cards, []);
+  assert.match(reply.answer, /Recomendación calculada/);
+  assert.equal(reply.cards[0].id, "recommended_training_today");
 });

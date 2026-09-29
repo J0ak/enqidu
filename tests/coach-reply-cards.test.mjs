@@ -7,14 +7,26 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
 
   assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
   assert.match(source, /OPENAI_COACH_ENABLED/);
-  assert.match(source, /if \(!llmEnabled\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
+  assert.match(source, /if \(!llmEnabled \|\| intents\.planToday\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
   assert.match(source, /response_mode: "llm"[\s\S]*llm_used: true/);
 
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
   assert.equal((source.match(/api\.openai\.com\/v1\/responses/g) || []).length, 1);
+});
+
+test("today's training intent returns before the OpenAI call even when its optional flag is on", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday)");
+  const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+
+  assert.ok(deterministicGateIndex >= 0);
+  assert.ok(openAiFetchIndex > deterministicGateIndex);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /response_mode: "deterministic"/);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /llm_used: false/);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /usage: null/);
 });
 
 test("coach-reply preserves deterministic answers if the optional LLM path fails", async () => {

@@ -53,6 +53,10 @@ export function detectCoachIntents(message = "") {
   const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
   const planToday = hasAny(text, [
     "que entreno hoy",
+    "que hago hoy",
+    "que me recomiendas hoy",
+    "que recomiendas hoy",
+    "recomiendame para hoy",
     "que tengo hoy",
     "que toca hoy",
     "que me toca hoy",
@@ -254,6 +258,28 @@ function buildPlannedTrainingCard(plannedTraining = {}) {
   };
 }
 
+function buildRecommendedTrainingCard(recommendation) {
+  if (!recommendation || recommendation.insufficient) return null;
+  return {
+    id: "recommended_training_today",
+    type: "recommended_session_summary",
+    title: recommendation.title,
+    subtitle: "Recomendación calculada · no guardada",
+    badge: "Recomendación",
+    metrics: compact([
+      metric("recommended_duration", "Duración aproximada", recommendation.duration_minutes, "min"),
+      metric("blocks", "Bloques", recommendation.blocks?.length),
+    ]),
+    breakdown: (recommendation.blocks || []).slice(0, 5).map((block) => ({
+      label: block.title,
+      value: block.duration_minutes,
+    })),
+    session: recommendation,
+    actions: [],
+    provenance: "enkidu_deterministic_recommendation",
+  };
+}
+
 function buildEquipmentCard(equipment = [], requestedLocation = null) {
   const filtered = filterAvailableEquipment(equipment, requestedLocation);
   if (!filtered.length) return null;
@@ -288,7 +314,7 @@ function buildEquipmentCard(equipment = [], requestedLocation = null) {
   };
 }
 
-export function buildCoachCards({ message = "", context = {} } = {}) {
+export function buildCoachCards({ message = "", context = {}, recommendation = null } = {}) {
   const intents = detectCoachIntents(message);
   const period = context?.training_period || {};
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
@@ -298,7 +324,10 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     : sessions[0] || null;
   const cards = [];
 
-  if (intents.planToday) cards.push(buildPlannedTrainingCard(context?.planned_training || {}));
+  if (intents.planToday) {
+    const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
+    cards.push(plannedCard || buildRecommendedTrainingCard(recommendation));
+  }
   if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
   if (intents.equipment) {
     cards.push(buildEquipmentCard(

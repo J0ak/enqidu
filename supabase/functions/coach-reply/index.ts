@@ -123,6 +123,7 @@ Deno.serve(async (req: Request) => {
 
     if (contextResult.error) throw contextResult.error;
     const context = contextResult.data || {};
+    context.request = { ...(context.request || {}), date: requestDate };
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };
@@ -131,7 +132,9 @@ Deno.serve(async (req: Request) => {
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
-    if (!llmEnabled) {
+    // Today's plan/recommendation is always deterministic, even when the
+    // optional LLM feature flag is enabled for other Coach conversations.
+    if (!llmEnabled || intents.planToday) {
       return reply({
         ok: true,
         answer: deterministic.answer,
