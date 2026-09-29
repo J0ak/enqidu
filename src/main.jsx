@@ -18,6 +18,7 @@ import {
   normalizePlannedCalendarItem,
   resolveCalendarItemRoute,
 } from "@/training/plannedCalendar";
+import { isDateWithinPeriod } from "@/training/activityPeriod";
 import {
   Activity,
   ArrowLeft,
@@ -6789,11 +6790,6 @@ function matchesActivityFilters(item, sourceFilter, typeFilter) {
     (sourceFilter === "mixed" && hasGarmin && hasCoach);
   const typeMatch = typeFilter === "all" || item.garminActivityTypeKey === typeFilter;
   return sourceMatch && typeMatch;
-}
-
-function isDateWithinPeriod(key, period) {
-  const date = new Date(`${key}T12:00:00`);
-  return date >= period.start && date <= period.end;
 }
 
 function summarizeActivityPeriod(items, dayCount) {
