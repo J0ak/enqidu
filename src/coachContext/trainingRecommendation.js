@@ -5,7 +5,6 @@ const normalizeText = (value = "") => String(value)
 
 const compact = (values) => values.filter(Boolean);
 const list = (value) => Array.isArray(value) ? value : [];
-const textOf = (value) => typeof value === "string" ? value : "";
 
 // ENQIDU's existing readiness UI labels values below 62 as "Bajo". Keeping the
 // boundary here makes the recommendation rule visible, testable and replaceable.
@@ -33,7 +32,7 @@ function availableEquipment(context) {
 }
 
 function activeConstraints(context) {
-  return list(context?.athlete_context?.constraints || context?.constraints)
+  return list(context?.recommendation_context?.constraints || context?.constraints)
     .filter((item) => item && item.active !== false);
 }
 
@@ -67,7 +66,13 @@ function modalityOf(session = {}) {
 
 function isHard(session = {}) {
   const intensity = normalizeText(session.intensity || session.planned_intensity || session.intensity_label);
+  const activityType = normalizeText([
+    session.garmin_type_key,
+    session.garmin_type_label,
+    session.session_type,
+  ].filter(Boolean).join(" "));
   return /high|hard|vigorous|alta|duro|max|vo2|umbral|threshold/.test(intensity)
+    || /(^|\s)hiit($|\s)/.test(activityType)
     || /vo2|max effort|umbral|intervalos duros/.test(normalizeText(session.title));
 }
 
@@ -134,7 +139,10 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
   const requestDate = context?.request?.date || context?.planned_training?.date || null;
   const recentHard = sessions.find((session) => {
     const days = dateDistance(session?.date, requestDate);
-    return isHard(session) && (days == null || (days >= 0 && days <= RECOMMENDATION_RULES.hardSessionLookbackDays));
+    return isHard(session)
+      && days != null
+      && days >= 0
+      && days <= RECOMMENDATION_RULES.hardSessionLookbackDays;
   });
   const recentHardModality = modalityOf(recentHard);
   const evidenceCount = sessions.length + athleteGoals.length + constraints.length
