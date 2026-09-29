@@ -50,8 +50,23 @@ export function detectEquipmentLocation(message = "") {
 
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
+  const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
+  const planToday = hasAny(text, [
+    "que entreno hoy",
+    "que tengo hoy",
+    "que toca hoy",
+    "que me toca hoy",
+    "plan de hoy",
+    "entrenamiento de hoy previsto",
+    "entrenamiento previsto",
+    "sesion planificada",
+    "sesion prevista",
+    "entrenamiento planificado",
+  ]);
+
   return {
-    greeting: /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim()),
+    greeting,
+    planToday,
     recovery: hasAny(text, [
       "recuperacion",
       "readiness",
@@ -62,18 +77,6 @@ export function detectCoachIntents(message = "") {
       "fatiga",
       "como estoy hoy",
       "puedo entrenar hoy",
-    ]),
-    planToday: hasAny(text, [
-      "que entreno hoy",
-      "que tengo hoy",
-      "que toca hoy",
-      "que me toca hoy",
-      "plan de hoy",
-      "entrenamiento de hoy previsto",
-      "entrenamiento previsto",
-      "sesion planificada",
-      "sesion prevista",
-      "entrenamiento planificado",
     ]),
     equipment: hasAny(text, [
       "material",
@@ -98,7 +101,7 @@ export function detectCoachIntents(message = "") {
       "como voy",
       "progreso",
     ]),
-    session: hasAny(text, [
+    session: !planToday && hasAny(text, [
       "ayer",
       "ultimo",
       "ultima",
