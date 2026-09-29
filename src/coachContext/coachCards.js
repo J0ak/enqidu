@@ -1,3 +1,5 @@
+import { buildTrainingTrendComparison } from "./trainingTrend.js";
+
 const MAX_CARDS = 2;
 
 const normalizeText = (value = "") => String(value)
@@ -51,6 +53,20 @@ export function detectEquipmentLocation(message = "") {
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
   const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
+  const trend = hasAny(text, [
+    "estoy mejorando",
+    "voy mejorando",
+    "he mejorado",
+    "comparame esta semana",
+    "compara esta semana",
+    "semana anterior",
+    "respecto a la semana anterior",
+    "tendencia",
+    "evolucion",
+    "como va mi carga",
+    "carga comparada",
+    "progreso respecto",
+  ]);
   const planToday = hasAny(text, [
     "que entreno hoy",
     "que hago hoy",
@@ -70,6 +86,7 @@ export function detectCoachIntents(message = "") {
 
   return {
     greeting,
+    trend,
     planToday,
     recovery: hasAny(text, [
       "recuperacion",
@@ -155,6 +172,37 @@ function buildTrainingPeriodCard(period = {}) {
     breakdown: summary.activity_types && typeof summary.activity_types === "object"
       ? Object.entries(summary.activity_types).map(([label, value]) => ({ label, value }))
       : [],
+    actions: [{ type: "open_activities", label: "Ver entrenamiento" }],
+    provenance: "enkidu_context",
+  };
+}
+
+function buildTrainingTrendCard(comparison) {
+  if (!comparison?.comparable) return null;
+  const current = comparison.current || {};
+  const previous = comparison.previous || {};
+  const currentTypes = current.activity_types && typeof current.activity_types === "object"
+    ? current.activity_types
+    : {};
+
+  return {
+    id: "training_trend_comparison",
+    type: "comparison_summary",
+    title: "Tendencia de entrenamiento",
+    subtitle: "Periodo actual vs anterior",
+    badge: "Comparativa",
+    metrics: compact([
+      metric("sessions_current", "Sesiones actuales", current.sessions_count),
+      metric("active_days_current", "Días activos actuales", current.active_days),
+      metric("duration_current", "Tiempo actual", current.total_duration_seconds, "s"),
+    ]),
+    breakdown: Object.entries(currentTypes).map(([label, value]) => ({ label, value })),
+    comparison: {
+      current_period: comparison.current_period,
+      previous_period: comparison.previous_period,
+      deltas: comparison.deltas,
+      previous,
+    },
     actions: [{ type: "open_activities", label: "Ver entrenamiento" }],
     provenance: "enkidu_context",
   };
@@ -314,7 +362,7 @@ function buildEquipmentCard(equipment = [], requestedLocation = null) {
   };
 }
 
-export function buildCoachCards({ message = "", context = {}, recommendation = null } = {}) {
+export function buildCoachCards({ message = "", context = {}, recommendation = null, trendComparison = null } = {}) {
   const intents = detectCoachIntents(message);
   const period = context?.training_period || {};
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
@@ -328,6 +376,11 @@ export function buildCoachCards({ message = "", context = {}, recommendation = n
     const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
     cards.push(plannedCard || buildRecommendedTrainingCard(recommendation));
   }
+  if (intents.trend) {
+    cards.push(buildTrainingTrendCard(
+      trendComparison || buildTrainingTrendComparison(context?.training_comparison || {}),
+    ));
+  }
   if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
   if (intents.equipment) {
     cards.push(buildEquipmentCard(
@@ -335,7 +388,7 @@ export function buildCoachCards({ message = "", context = {}, recommendation = n
       intents.equipmentLocation,
     ));
   }
-  if (intents.period) cards.push(buildTrainingPeriodCard(period));
+  if (intents.period && !intents.trend) cards.push(buildTrainingPeriodCard(period));
   if (intents.session) cards.push(buildLatestSessionCard(sessionForIntent));
 
   return compact(cards).slice(0, MAX_CARDS);
