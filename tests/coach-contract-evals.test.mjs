@@ -71,7 +71,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
   assert.equal(reply.llmUsed, false);
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday)");
+  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
   const openAiCall = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
