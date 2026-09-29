@@ -7,10 +7,10 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
 
   assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
   assert.match(source, /OPENAI_COACH_ENABLED/);
-  assert.match(source, /if \(!llmEnabled \|\| intents\.planToday\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
+  assert.match(source, /if \(!llmEnabled \|\| intents\.planToday \|\| intents\.trend\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
   assert.match(source, /response_mode: "llm"[\s\S]*llm_used: true/);
 
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
@@ -19,7 +19,7 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
 
 test("today's training intent returns before the OpenAI call even when its optional flag is on", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
 
   assert.ok(deterministicGateIndex >= 0);
@@ -76,4 +76,24 @@ test("coach-reply loads only authenticated active athlete constraints for recomm
   assert.match(source, /\.eq\("user_id", userId\)/);
   assert.match(source, /\.eq\("active", true\)/);
   assert.match(source, /context\.recommendation_context = \{[\s\S]*loadRecommendationConstraints\(db, userId\)/);
+});
+
+
+test("coach-reply loads the immediately preceding equal-length period only for trend intent", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  assert.match(source, /function previousPeriodRange/);
+  assert.match(source, /get_ai_training_period_summary/);
+  assert.match(source, /intents\.trend && currentFrom && currentTo[\s\S]*loadPreviousTrainingPeriod/);
+  assert.match(source, /basis: "immediately_preceding_equal_length_period"/);
+});
+
+test("trend intent returns before the optional OpenAI call", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  assert.ok(deterministicGateIndex >= 0);
+  assert.ok(openAiFetchIndex > deterministicGateIndex);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /response_mode: "deterministic"/);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /llm_used: false/);
+  assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /usage: null/);
 });
