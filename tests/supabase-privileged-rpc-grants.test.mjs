@@ -71,3 +71,25 @@ test("frontend runtime does not call SEC-01 legacy privileged RPCs", async () =>
 
   assert.deepEqual(violations, []);
 });
+
+
+test("SEC-01 final migration keeps conversation enrichment behind caller RLS", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20260929210827_make_conversation_enrichment_security_invoker.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    sql,
+    /alter function public\.persist_conversation_enrichment\(uuid, jsonb, jsonb\)[\s\S]*security invoker;/i,
+  );
+  assert.doesNotMatch(sql, /security definer/i);
+});
+
+test("frontend still uses the reviewed conversation enrichment RPC", async () => {
+  const source = await readFile(
+    new URL("../src/services/conversationEnrichmentService.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /supabase\.rpc\("persist_conversation_enrichment"/);
+});
