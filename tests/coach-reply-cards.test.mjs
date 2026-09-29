@@ -43,6 +43,14 @@ test("coach-reply loads today's RLS-protected planned sessions before building t
   assert.match(source, /from\("planned_session_blocks"\)/);
   assert.match(source, /\.eq\("user_id", userId\)/);
   assert.match(source, /\.eq\("planned_date", date\)/);
-  assert.match(source, /context\.planned_training = await loadPlannedTraining\(db, userId, contextDate\)/);
+  assert.match(source, /context\.planned_training = intents\.planToday[\s\S]*loadPlannedTraining\(db, userId, contextDate\)/);
   assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
+});
+
+
+test("frontend sends the local calendar date instead of UTC for Coach today/ayer semantics", async () => {
+  const source = await readFile(new URL("../src/services/aiCoachContextService.js", import.meta.url), "utf8");
+  assert.match(source, /getLocalCalendarDate/);
+  assert.match(source, /date: date \|\| getLocalCalendarDate\(\)/);
+  assert.doesNotMatch(source, /date: date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
 });
