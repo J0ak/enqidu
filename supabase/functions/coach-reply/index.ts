@@ -29,6 +29,36 @@ function shiftIsoDate(value: string, days: number): string {
   return parsed.toISOString().slice(0, 10);
 }
 
+function inclusivePeriodDays(from: string, to: string): number | null {
+  const start = new Date(`${from}T12:00:00Z`);
+  const end = new Date(`${to}T12:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return null;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function previousPeriodRange(from: string, to: string) {
+  const days = inclusivePeriodDays(from, to);
+  if (!days) return null;
+  const previousTo = shiftIsoDate(from, -1);
+  const previousFrom = shiftIsoDate(previousTo, -(days - 1));
+  return { from: previousFrom, to: previousTo };
+}
+
+async function loadPreviousTrainingPeriod(db: any, userId: string, from: string, to: string) {
+  const range = previousPeriodRange(from, to);
+  if (!range) return null;
+
+  const result = await db.rpc("get_ai_training_period_summary", {
+    p_user_id: userId,
+    p_from_date: range.from,
+    p_to_date: range.to,
+    p_limit: 30,
+  });
+
+  if (result.error) throw result.error;
+  return result.data || null;
+}
+
 async function loadPlannedTraining(db: any, userId: string, date: string) {
   const sessionsResult = await db
     .from("planned_training_sessions")
@@ -148,14 +178,26 @@ Deno.serve(async (req: Request) => {
         ? await loadRecommendationConstraints(db, userId)
         : [],
     };
+    const currentFrom = context?.request?.from_date || null;
+    const currentTo = context?.request?.to_date || null;
+    const previousTrainingPeriod = intents.trend && currentFrom && currentTo
+      ? await loadPreviousTrainingPeriod(db, userId, currentFrom, currentTo)
+      : null;
+    context.training_comparison = intents.trend
+      ? {
+          basis: "immediately_preceding_equal_length_period",
+          current: context?.training_period || null,
+          previous: previousTrainingPeriod,
+        }
+      : null;
     const deterministic = buildDeterministicCoachReply({ message, context });
     const cards = deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
-    // Today's plan/recommendation is always deterministic, even when the
-    // optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || intents.planToday) {
+    // Today's plan/recommendation and trend comparison are deterministic,
+    // even when the optional LLM feature flag is enabled for other Coach conversations.
+    if (!llmEnabled || intents.planToday || intents.trend) {
       return reply({
         ok: true,
         answer: deterministic.answer,

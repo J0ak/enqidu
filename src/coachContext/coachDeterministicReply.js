@@ -7,6 +7,10 @@ import {
   buildTrainingRecommendation,
   explainTrainingRecommendation,
 } from "./trainingRecommendation.js";
+import {
+  buildTrainingTrendComparison,
+  explainTrainingTrend,
+} from "./trainingTrend.js";
 
 const asPositiveNumber = (value) => {
   const number = Number(value);
@@ -177,11 +181,11 @@ function buildEquipmentAnswer(equipment = [], requestedLocation = null) {
 }
 
 function buildUnsupportedAnswer() {
-  return "En esta primera fase puedo responder directamente con datos ENQIDU sobre tu plan de hoy, tu semana, tu última sesión, recuperación y equipamiento. Para análisis libre o planificación compleja, la capa LLM está desactivada.";
+  return "En esta primera fase puedo responder directamente con datos ENQIDU sobre tu plan de hoy, tu semana, tendencias de carga/volumen, tu última sesión, recuperación y equipamiento. Para análisis libre o planificación compleja, la capa LLM está desactivada.";
 }
 
 function buildGreetingAnswer() {
-  return "¡Hola! Puedo decirte qué tienes planificado hoy, cómo vas esta semana, qué hiciste ayer, cómo estás de recuperación o qué material tienes disponible.";
+  return "¡Hola! Puedo decirte qué tienes planificado hoy, cómo vas esta semana, comparar tu carga con el periodo anterior, qué hiciste ayer, cómo estás de recuperación o qué material tienes disponible.";
 }
 
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
@@ -192,6 +196,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     : [];
   const recommendation = intents.planToday && !plannedSessions.length
     ? buildTrainingRecommendation(context, { requestedLocation: intents.equipmentLocation })
+    : null;
+  const trendComparison = intents.trend
+    ? buildTrainingTrendComparison(context?.training_comparison || {})
     : null;
 
   if (intents.greeting) {
@@ -211,7 +218,10 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
       intents.equipmentLocation,
     ));
   }
-  if (intents.period) {
+  if (intents.trend) {
+    answers.push(explainTrainingTrend(trendComparison));
+  }
+  if (intents.period && !intents.trend) {
     answers.push(buildPeriodAnswer(context?.training_period || {}));
   }
   if (intents.session) {
@@ -230,7 +240,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
 
   return {
     answer,
-    cards: buildCoachCards({ message, context, recommendation }),
+    cards: buildCoachCards({ message, context, recommendation, trendComparison }),
     intents,
     responseMode: "deterministic",
     llmUsed: false,
