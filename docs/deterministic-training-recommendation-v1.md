@@ -38,6 +38,10 @@ planificar. Tampoco se añadieron migraciones, políticas ni permisos.
   restricciones.
 - Un entorno solicitado tiene precedencia. El material se filtra por disponibilidad
   y entorno, y únicamente sus nombres reales aparecen en la recomendación.
+- Si un entorno está marcado con `prescription_scope=coach_led_only`, el Coach no
+  genera una prescripción autónoma para ese lugar.
+- Si el material disponible está repartido entre varios entornos y el usuario no ha
+  indicado dónde entrenará, V1 no mezcla material de ubicaciones distintas.
 - Sin señales accionables (historial, objetivos, restricciones, recuperación,
   entorno o material), se explica que faltan datos y no se genera card.
 
