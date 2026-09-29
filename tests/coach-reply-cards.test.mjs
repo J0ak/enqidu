@@ -34,3 +34,23 @@ test("coach-reply resolves yesterday against the previous calendar date before q
   assert.match(source, /intents\.yesterday && !intents\.period[\s\S]*shiftIsoDate\(requestDate, -1\)/);
   assert.match(source, /p_date: contextDate/);
 });
+
+
+test("coach-reply loads today's RLS-protected planned sessions before building the deterministic reply", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+
+  assert.match(source, /from\("planned_training_sessions"\)/);
+  assert.match(source, /from\("planned_session_blocks"\)/);
+  assert.match(source, /\.eq\("user_id", userId\)/);
+  assert.match(source, /\.eq\("planned_date", date\)/);
+  assert.match(source, /context\.planned_training = intents\.planToday[\s\S]*loadPlannedTraining\(db, userId, contextDate\)/);
+  assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
+});
+
+
+test("frontend sends the local calendar date instead of UTC for Coach today/ayer semantics", async () => {
+  const source = await readFile(new URL("../src/services/aiCoachContextService.js", import.meta.url), "utf8");
+  assert.match(source, /getLocalCalendarDate/);
+  assert.match(source, /date: date \|\| getLocalCalendarDate\(\)/);
+  assert.doesNotMatch(source, /date: date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+});

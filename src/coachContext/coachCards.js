@@ -50,8 +50,23 @@ export function detectEquipmentLocation(message = "") {
 
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
+  const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
+  const planToday = hasAny(text, [
+    "que entreno hoy",
+    "que tengo hoy",
+    "que toca hoy",
+    "que me toca hoy",
+    "plan de hoy",
+    "entrenamiento de hoy previsto",
+    "entrenamiento previsto",
+    "sesion planificada",
+    "sesion prevista",
+    "entrenamiento planificado",
+  ]);
+
   return {
-    greeting: /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim()),
+    greeting,
+    planToday,
     recovery: hasAny(text, [
       "recuperacion",
       "readiness",
@@ -86,7 +101,7 @@ export function detectCoachIntents(message = "") {
       "como voy",
       "progreso",
     ]),
-    session: hasAny(text, [
+    session: !planToday && hasAny(text, [
       "ayer",
       "ultimo",
       "ultima",
@@ -197,6 +212,48 @@ function buildRecoveryCard(recovery = {}) {
   };
 }
 
+function buildPlannedTrainingCard(plannedTraining = {}) {
+  const sessions = Array.isArray(plannedTraining?.sessions) ? plannedTraining.sessions : [];
+  if (!sessions.length) return null;
+
+  const primary = sessions[0];
+  const minDuration = asNumber(primary.planned_duration_min);
+  const maxDuration = asNumber(primary.planned_duration_max);
+  const duration = maxDuration || minDuration;
+  const blocksCount = asNumber(primary.blocks_count);
+
+  const breakdown = sessions.length === 1
+    ? (Array.isArray(primary.blocks) ? primary.blocks : [])
+      .slice(0, 5)
+      .map((block) => ({
+        label: block.title || titleCase(block.block_type || "Bloque"),
+        value: asNumber(block.planned_duration_seconds)
+          ? Math.round(Number(block.planned_duration_seconds) / 60)
+          : 1,
+      }))
+    : sessions.slice(0, 5).map((session) => ({
+      label: session.title || titleCase(session.session_type || "Sesión"),
+      value: 1,
+    }));
+
+  return {
+    id: "planned_training_today",
+    type: "planned_session_summary",
+    title: sessions.length === 1
+      ? (primary.title || "Entrenamiento de hoy")
+      : `Plan de hoy · ${sessions.length} sesiones`,
+    subtitle: plannedTraining.date || primary.planned_date || null,
+    badge: titleCase(primary.session_type || primary.status || "Plan"),
+    metrics: compact([
+      metric("planned_duration", "Duración prevista", duration, "min"),
+      metric("blocks", "Bloques", blocksCount),
+    ]),
+    breakdown,
+    actions: [],
+    provenance: "enkidu_context",
+  };
+}
+
 function buildEquipmentCard(equipment = [], requestedLocation = null) {
   const filtered = filterAvailableEquipment(equipment, requestedLocation);
   if (!filtered.length) return null;
@@ -241,6 +298,7 @@ export function buildCoachCards({ message = "", context = {} } = {}) {
     : sessions[0] || null;
   const cards = [];
 
+  if (intents.planToday) cards.push(buildPlannedTrainingCard(context?.planned_training || {}));
   if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
   if (intents.equipment) {
     cards.push(buildEquipmentCard(

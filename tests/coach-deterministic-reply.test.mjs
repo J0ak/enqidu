@@ -12,6 +12,29 @@ const context = {
       { name: "Piscina", category: "cardio", location: "pool", available: true },
     ],
   },
+  planned_training: {
+    date: "2026-09-29",
+    sessions: [
+      {
+        id: "plan-29",
+        planned_date: "2026-09-29",
+        title: "Lower strength + unilateral",
+        session_type: "strength",
+        status: "planned",
+        location_type: "home",
+        planned_intensity: "moderate",
+        planned_duration_min: 50,
+        planned_duration_max: 60,
+        objective: "Fuerza de pierna y control unilateral",
+        blocks_count: 3,
+        blocks: [
+          { title: "Activación", block_type: "warmup", planned_duration_seconds: 600 },
+          { title: "Fuerza principal", block_type: "strength", planned_duration_seconds: 1800 },
+          { title: "Unilateral", block_type: "strength", planned_duration_seconds: 1200 },
+        ],
+      },
+    ],
+  },
   health_recovery: {
     date: "2026-09-28",
     readiness: { score: 82 },
@@ -115,4 +138,24 @@ test("greets naturally without cards or LLM messaging", () => {
   assert.deepEqual(reply.cards, []);
   assert.equal(reply.responseMode, "deterministic");
   assert.equal(reply.llmUsed, false);
+});
+
+
+test("answers today's existing plan without inventing a recommendation", () => {
+  const reply = buildDeterministicCoachReply({ message: "¿Qué entreno hoy?", context });
+  assert.match(reply.answer, /Lower strength \+ unilateral/);
+  assert.match(reply.answer, /50–60 min/);
+  assert.match(reply.answer, /Fuerza de pierna y control unilateral/);
+  assert.match(reply.answer, /Activación, Fuerza principal, Unilateral/);
+  assert.equal(reply.cards[0].id, "planned_training_today");
+  assert.equal(reply.llmUsed, false);
+});
+
+test("says explicitly when there is no plan today", () => {
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué me toca hoy?",
+    context: { ...context, planned_training: { date: "2026-09-29", sessions: [] } },
+  });
+  assert.match(reply.answer, /No tienes una sesión planificada para hoy/);
+  assert.deepEqual(reply.cards, []);
 });

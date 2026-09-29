@@ -109,6 +109,47 @@ function buildRecoveryAnswer(recovery = {}) {
   return `Datos de recuperación disponibles: ${joinNatural(facts)}.`;
 }
 
+function buildPlannedTrainingAnswer(plannedTraining = {}) {
+  const sessions = Array.isArray(plannedTraining?.sessions) ? plannedTraining.sessions : [];
+  if (!sessions.length) {
+    return "No tienes una sesión planificada para hoy en ENQIDU.";
+  }
+
+  if (sessions.length > 1) {
+    const names = sessions
+      .map((session) => session.title || session.session_type)
+      .filter(Boolean);
+    return `Hoy tienes ${sessions.length} sesiones planificadas: ${joinNatural(names)}.`;
+  }
+
+  const session = sessions[0];
+  const durationMin = asPositiveNumber(session.planned_duration_min);
+  const durationMax = asPositiveNumber(session.planned_duration_max);
+  const duration = durationMin && durationMax && durationMin !== durationMax
+    ? `${durationMin}–${durationMax} min`
+    : durationMax
+      ? `${durationMax} min`
+      : durationMin
+        ? `${durationMin} min`
+        : null;
+  const blocks = Array.isArray(session.blocks) ? session.blocks : [];
+  const blockNames = blocks.map((block) => block.title).filter(Boolean).slice(0, 5);
+  const details = [
+    session.session_type ? `tipo ${session.session_type}` : null,
+    session.planned_intensity ? `intensidad ${session.planned_intensity}` : null,
+    duration ? `duración prevista ${duration}` : null,
+    session.location_type ? `entorno ${session.location_type}` : null,
+  ];
+
+  let answer = `Hoy tienes planificado ${session.title || "un entrenamiento"}`;
+  if (details.filter(Boolean).length) answer += ` (${joinNatural(details)})`;
+  answer += ".";
+
+  if (session.objective) answer += ` Objetivo: ${session.objective}.`;
+  if (blockNames.length) answer += ` Bloques: ${blockNames.join(", ")}.`;
+  return answer;
+}
+
 function buildEquipmentAnswer(equipment = [], requestedLocation = null) {
   const filtered = filterAvailableEquipment(equipment, requestedLocation);
   const label = requestedLocation?.label ? ` en ${requestedLocation.label.toLowerCase()}` : "";
@@ -132,11 +173,11 @@ function buildEquipmentAnswer(equipment = [], requestedLocation = null) {
 }
 
 function buildUnsupportedAnswer() {
-  return "En esta primera fase puedo responder directamente con datos ENQIDU sobre tu semana, tu última sesión, recuperación y equipamiento. Para análisis libre o planificación compleja, la capa LLM está desactivada.";
+  return "En esta primera fase puedo responder directamente con datos ENQIDU sobre tu plan de hoy, tu semana, tu última sesión, recuperación y equipamiento. Para análisis libre o planificación compleja, la capa LLM está desactivada.";
 }
 
 function buildGreetingAnswer() {
-  return "¡Hola! Puedo contarte cómo vas esta semana, qué hiciste ayer, cómo estás hoy de recuperación o qué material tienes disponible.";
+  return "¡Hola! Puedo decirte qué tienes planificado hoy, cómo vas esta semana, qué hiciste ayer, cómo estás de recuperación o qué material tienes disponible.";
 }
 
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
@@ -145,6 +186,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
 
   if (intents.greeting) {
     answers.push(buildGreetingAnswer());
+  }
+  if (intents.planToday) {
+    answers.push(buildPlannedTrainingAnswer(context?.planned_training || {}));
   }
   if (intents.recovery) {
     answers.push(buildRecoveryAnswer(context?.health_recovery || {}));

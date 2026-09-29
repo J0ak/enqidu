@@ -1,5 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export function getLocalCalendarDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export async function requestCoachReply({ message, mode = "today_coach", date, sessionId } = {}) {
   if (!supabase) {
     return { ok: false, error: "supabase_unavailable" };
@@ -8,7 +15,7 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
   const payload = {
     message,
     mode,
-    date: date || new Date().toISOString().slice(0, 10),
+    date: date || getLocalCalendarDate(),
     session_id: sessionId || null,
   };
 
