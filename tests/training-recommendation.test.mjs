@@ -9,9 +9,9 @@ import { buildDeterministicCoachReply } from "../src/coachContext/coachDetermini
 const base = {
   request: { date: "2026-09-29" },
   planned_training: { date: "2026-09-29", sessions: [] },
+  recommendation_context: { constraints: [] },
   athlete_context: {
     goals: [{ description: "Mejorar fuerza para HYROX", active: true }],
-    constraints: [],
     equipment: [
       { name: "Rack", location: "home", available: true },
       { name: "Barra", location: "home", available: true },
@@ -64,15 +64,30 @@ test("missing recovery is not invented or cited", () => {
   assert.doesNotMatch(result.reasons.join(" "), /recuperaci|readiness|HRV|sueño/i);
 });
 
-test("a recent hard strength session is not repeated", () => {
+test("an explicit recent HIIT activity from the canonical context is treated as hard and not repeated", () => {
   const result = buildTrainingRecommendation({
     ...base,
     training_period: {
-      sessions: [{ date: "2026-09-28", title: "Fuerza máxima", session_type: "strength", intensity: "high" }],
+      sessions: [{
+        date: "2026-09-28",
+        title: "Aconcagua — isométricos + unilateral + híbrido",
+        garmin_type_key: "hiit",
+        garmin_type_label: "HIIT",
+      }],
     },
   });
   assert.equal(result.session_type, "aerobic");
-  assert.match(result.reasons.join(" "), /no se repite/);
+  assert.match(result.reasons.join(" "), /no se repite|estímulo duro reciente/);
+});
+
+test("a hard-looking session without a valid date is not assumed to be recent", () => {
+  const result = buildTrainingRecommendation({
+    ...base,
+    training_period: {
+      sessions: [{ title: "HIIT", garmin_type_key: "hiit" }],
+    },
+  });
+  assert.equal(result.session_type, "strength");
 });
 
 test("a home request uses only available home equipment", () => {
@@ -86,8 +101,7 @@ test("a home request uses only available home equipment", () => {
 test("an active knee restriction changes the proposal and avoids impact", () => {
   const result = buildTrainingRecommendation({
     ...base,
-    athlete_context: {
-      ...base.athlete_context,
+    recommendation_context: {
       constraints: [{ description: "Molestia de rodilla: evitar impacto", active: true }],
     },
   });
@@ -127,4 +141,21 @@ test("today recommendation never exceeds the card contract limit and uses no LLM
   assert.equal(reply.cards.filter((card) => card.id === "recommended_training_today").length, 1);
   assert.equal(reply.cards.some((card) => card.id === "planned_training_today"), false);
   assert.equal(reply.llmUsed, false);
+});
+
+
+test("training locations in athlete_context.constraints are not treated as physical restrictions", () => {
+  const result = buildTrainingRecommendation({
+    ...base,
+    athlete_context: {
+      ...base.athlete_context,
+      constraints: [{
+        display_name: "Centro de entrenamiento funcional / híbrido",
+        location_type: "functional_training_center",
+        prescription_scope: "coach_led_only",
+      }],
+    },
+    recommendation_context: { constraints: [] },
+  });
+  assert.equal(result.session_type, "strength");
 });
