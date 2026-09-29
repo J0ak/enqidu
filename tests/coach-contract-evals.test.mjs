@@ -197,3 +197,42 @@ test("EVAL: Coach never exceeds the card contract limit", () => {
   });
   assert.ok(reply.cards.length <= 2);
 });
+
+
+test("EVAL: trend comparison never turns higher volume into a performance verdict", () => {
+  const current = baseContext.training_period;
+  const context = {
+    ...baseContext,
+    training_comparison: {
+      basis: "immediately_preceding_equal_length_period",
+      current,
+      previous: {
+        period: { from: "2026-09-16", to: "2026-09-22" },
+        summary: {
+          sessions_count: 0,
+          active_days: 0,
+          total_duration_seconds: 0,
+          activity_types: {},
+        },
+        sessions: [],
+      },
+    },
+  };
+
+  const reply = buildDeterministicCoachReply({ message: "¿Estoy mejorando?", context });
+  assert.match(reply.answer, /carga y volumen registrados/);
+  assert.match(reply.answer, /no puedo afirmar una mejora de rendimiento/);
+  assert.doesNotMatch(reply.answer, /sí, estás mejorando|no estás mejorando/i);
+  assert.deepEqual(reply.cards.map((card) => card.id), ["training_trend_comparison"]);
+});
+
+test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const openAi = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  assert.ok(gate >= 0);
+  assert.ok(openAi > gate);
+  assert.match(source.slice(gate, openAi), /response_mode: "deterministic"/);
+  assert.match(source.slice(gate, openAi), /llm_used: false/);
+  assert.match(source.slice(gate, openAi), /usage: null/);
+});
