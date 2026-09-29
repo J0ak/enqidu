@@ -72,6 +72,18 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
   };
 }
 
+async function loadRecommendationConstraints(db: any, userId: string) {
+  const result = await db
+    .from("coach_athlete_constraints")
+    .select("constraint_type, severity, description, active")
+    .eq("user_id", userId)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data : [];
+}
+
 function responseText(payload: any): string {
   if (typeof payload?.output_text === "string") return payload.output_text;
   const parts = Array.isArray(payload?.output)
@@ -127,6 +139,11 @@ Deno.serve(async (req: Request) => {
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };
+    context.recommendation_context = {
+      constraints: intents.planToday
+        ? await loadRecommendationConstraints(db, userId)
+        : [],
+    };
     const deterministic = buildDeterministicCoachReply({ message, context });
     const cards = deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";
