@@ -13,7 +13,9 @@ without an LLM and without creating a synthetic fitness score.
 
 ## Comparison contract
 
-V1 compares the current canonical training period with the immediately preceding period of the same inclusive duration.
+V1 compares like with like. For a completed period, it compares the full period with the immediately preceding period of the same inclusive duration.
+
+If the current period is still in progress, it compares only the elapsed portion with the same elapsed portion of the previous period. Example: on Tuesday, a Monday–Sunday current week is compared as Monday–Tuesday vs Monday–Tuesday of the previous week, never against seven completed days.
 
 Inputs already available from `get_ai_training_period_summary`:
 
@@ -22,7 +24,7 @@ Inputs already available from `get_ai_training_period_summary`:
 - total recorded training duration;
 - activity type counts.
 
-The Edge Function only loads the previous period. Domain comparison lives in `src/coachContext/trainingTrend.js`.
+The date-range rule lives in `src/coachContext/trainingTrend.js`. The Edge Function loads the comparable current slice when the period is still in progress and the corresponding slice from the previous period.
 
 ## What ENQIDU may say
 
@@ -52,3 +54,10 @@ This feature:
 - does not persist analysis;
 - returns deterministically before the optional OpenAI path;
 - keeps `response_mode="deterministic"`, `llm_used=false` and `usage=null`.
+
+
+## In-progress period semantics
+
+The user's local request date is the comparison cutoff. Future days inside the current canonical week/month are excluded from trend comparison.
+
+The response and card explicitly identify an in-progress comparison as the "same elapsed portion" so a partial week is not presented as if it were a completed week.
