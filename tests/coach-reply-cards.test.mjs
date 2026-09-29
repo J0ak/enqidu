@@ -66,3 +66,12 @@ test("frontend sends the local calendar date instead of UTC for Coach today/ayer
   assert.match(source, /date: date \|\| getLocalCalendarDate\(\)/);
   assert.doesNotMatch(source, /date: date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
 });
+
+
+test("coach-reply loads only authenticated active athlete constraints for recommendation context", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  assert.match(source, /from\("coach_athlete_constraints"\)/);
+  assert.match(source, /\.eq\("user_id", userId\)/);
+  assert.match(source, /\.eq\("active", true\)/);
+  assert.match(source, /context\.recommendation_context = \{[\s\S]*loadRecommendationConstraints\(db, userId\)/);
+});
