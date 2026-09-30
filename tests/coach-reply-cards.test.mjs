@@ -98,3 +98,11 @@ test("trend intent returns before the optional OpenAI call", async () => {
   assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /llm_used: false/);
   assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /usage: null/);
 });
+
+
+test("coach-reply loads weekly planning only for weekly-plan intent", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  assert.match(source, /from\("planned_training_sessions"\)[\s\S]*linked_completed_session_id/);
+  assert.match(source, /from\("weekly_plans"\)[\s\S]*weekly_focus/);
+  assert.match(source, /context\.weekly_planning = intents\.weekPlan/);
+});
