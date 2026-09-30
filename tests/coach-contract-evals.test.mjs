@@ -291,3 +291,54 @@ test("EVAL: weekly plan progress never labels an unlinked past plan as missed", 
   assert.deepEqual(reply.cards.map((card) => card.id), ["weekly_plan_progress"]);
   assert.equal(reply.llmUsed, false);
 });
+
+test("EVAL: a natural weekly planned-sessions question never falls back to executed-period summary", () => {
+  const context = {
+    ...baseContext,
+    request: {
+      ...(baseContext.request || {}),
+      date: "2026-09-30",
+      from_date: "2026-09-28",
+      to_date: "2026-10-04",
+    },
+    current_week: {
+      week: {
+        start: "2026-09-28",
+        end: "2026-10-04",
+        sessions_count: 2,
+        active_days: 2,
+      },
+    },
+    weekly_planning: {
+      from: "2026-09-28",
+      to: "2026-10-04",
+      reference_date: "2026-09-30",
+      sessions: [],
+    },
+  };
+
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué sesiones tengo planificadas esta semana?",
+    context,
+  });
+
+  assert.match(reply.answer, /no tienes un plan semanal registrado/i);
+  assert.deepEqual(reply.cards, []);
+  assert.equal(reply.responseMode, "deterministic");
+  assert.equal(reply.llmUsed, false);
+});
+
+
+test("EVAL: next-week wording never returns the current weekly plan or period", () => {
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué entrenamientos tengo programados para esta semana que viene?",
+    context: baseContext,
+  });
+
+  assert.equal(reply.intents.weekPlan, false);
+  assert.equal(reply.intents.period, false);
+  assert.match(reply.answer, /primera fase/i);
+  assert.deepEqual(reply.cards, []);
+  assert.equal(reply.responseMode, "deterministic");
+  assert.equal(reply.llmUsed, false);
+});

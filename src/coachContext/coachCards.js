@@ -54,7 +54,11 @@ export function detectEquipmentLocation(message = "") {
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
   const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
-  const weekPlan = hasAny(text, [
+  const refersToFutureWeek = /\b(?:(?:esta|la)\s+)?semana\s+que\s+viene\b|\bproxima\s+semana\b|\bsemana\s+proxima\b/.test(text);
+  const plannedSessionsThisWeek = text.includes("esta semana")
+    && /\b(sesion|sesiones|entrenamiento|entrenamientos)\b/.test(text)
+    && /\b(planificada|planificadas|planificado|planificados|programada|programadas|programado|programados)\b/.test(text);
+  const weekPlan = !refersToFutureWeek && (plannedSessionsThisWeek || hasAny(text, [
     "que tengo esta semana",
     "que me queda esta semana",
     "que me queda por entrenar esta semana",
@@ -66,7 +70,7 @@ export function detectCoachIntents(message = "") {
     "plan de la semana",
     "sesiones planificadas esta semana",
     "entrenamientos planificados esta semana",
-  ]);
+  ]));
   const trend = hasAny(text, [
     "estoy mejorando",
     "voy mejorando",
@@ -126,7 +130,7 @@ export function detectCoachIntents(message = "") {
       "entrenar en casa",
       "entreno en casa",
     ]),
-    period: hasAny(text, [
+    period: !refersToFutureWeek && hasAny(text, [
       "semana",
       "carga",
       "volumen",
