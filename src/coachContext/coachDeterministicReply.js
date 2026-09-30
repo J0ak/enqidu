@@ -228,7 +228,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   if (intents.trend) {
     answers.push(explainTrainingTrend(trendComparison));
   }
-  if (intents.period && !intents.trend) {
+  if (intents.period && !intents.trend && !intents.weekPlan) {
     answers.push(buildPeriodAnswer(context?.training_period || {}));
   }
   if (intents.session) {
