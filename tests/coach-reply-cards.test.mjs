@@ -10,7 +10,7 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
   assert.match(source, /if \(!llmEnabled \|\| intents\.planToday \|\| intents\.trend\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
   assert.match(source, /response_mode: "llm"[\s\S]*llm_used: true/);
 
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
@@ -19,7 +19,7 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
 
 test("today's training intent returns before the OpenAI call even when its optional flag is on", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
 
   assert.ok(deterministicGateIndex >= 0);
@@ -90,7 +90,7 @@ test("coach-reply uses elapsed trend ranges and loads only comparable periods", 
 
 test("trend intent returns before the optional OpenAI call", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
   const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
