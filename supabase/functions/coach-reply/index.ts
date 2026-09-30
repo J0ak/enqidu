@@ -200,6 +200,9 @@ Deno.serve(async (req: Request) => {
     };
     const currentFrom = context?.request?.from_date || null;
     const currentTo = context?.request?.to_date || null;
+    context.weekly_planning = intents.weekPlan && currentFrom && currentTo
+      ? await loadWeeklyPlanning(db, userId, currentFrom, currentTo, requestDate)
+      : null;
     const trendRanges = intents.trend && currentFrom && currentTo
       ? buildTrainingTrendRanges({
           from: currentFrom,
