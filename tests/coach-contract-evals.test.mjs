@@ -72,7 +72,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
   assert.equal(reply.llmUsed, false);
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
   const openAiCall = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
@@ -229,7 +229,7 @@ test("EVAL: trend comparison never turns higher volume into a performance verdic
 
 test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend)");
+  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
   const openAi = source.indexOf('fetch("https://api.openai.com/v1/responses"');
   assert.ok(gate >= 0);
   assert.ok(openAi > gate);
@@ -249,4 +249,45 @@ test("EVAL: an in-progress week compares the same elapsed weekdays, never a part
   assert.deepEqual(ranges.current, { from: "2026-09-28", to: "2026-09-29" });
   assert.deepEqual(ranges.previous, { from: "2026-09-21", to: "2026-09-22" });
   assert.equal(ranges.basis, "same_elapsed_portion_of_previous_period");
+});
+
+
+test("EVAL: weekly plan progress never labels an unlinked past plan as missed", () => {
+  const context = {
+    ...baseContext,
+    request: {
+      ...(baseContext.request || {}),
+      date: "2026-09-30",
+      from_date: "2026-09-28",
+      to_date: "2026-10-04",
+    },
+    current_week: {
+      week: {
+        start: "2026-09-28",
+        end: "2026-10-04",
+        sessions_count: 2,
+        active_days: 2,
+      },
+    },
+    weekly_planning: {
+      from: "2026-09-28",
+      to: "2026-10-04",
+      reference_date: "2026-09-30",
+      sessions: [
+        { planned_date: "2026-09-29", title: "Upper", status: "planned" },
+        { planned_date: "2026-10-02", title: "Trail Z2", status: "planned" },
+      ],
+    },
+  };
+
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué me queda por entrenar esta semana?",
+    context,
+  });
+
+  assert.match(reply.answer, /sin ejecución enlazada/i);
+  assert.match(reply.answer, /no las marco como incumplidas/i);
+  assert.doesNotMatch(reply.answer, /incumpliste|fallaste|te saltaste/i);
+  assert.deepEqual(reply.cards.map((card) => card.id), ["weekly_plan_progress"]);
+  assert.equal(reply.llmUsed, false);
 });

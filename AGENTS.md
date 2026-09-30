@@ -19,6 +19,7 @@ Never make production code depend on a field that exists only in a synthetic tes
 
 - A persisted plan is authoritative over an automatically calculated recommendation.
 - A calculated recommendation is not a saved plan unless the user explicitly accepts/persists it.
+- A past planned session without explicit completion evidence must not be called missed, skipped or failed; report it as unlinked/unknown instead.
 - Missing health/recovery data must never be invented.
 - Missing Garmin/FIT data must never be inferred as if observed.
 - Training locations are not physical restrictions.

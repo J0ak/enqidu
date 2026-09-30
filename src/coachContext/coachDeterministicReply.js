@@ -11,6 +11,7 @@ import {
   buildTrainingTrendComparison,
   explainTrainingTrend,
 } from "./trainingTrend.js";
+import { buildWeekPlanProgress, explainWeekPlanProgress } from "./weekPlanProgress.js";
 
 const asPositiveNumber = (value) => {
   const number = Number(value);
@@ -200,6 +201,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   const trendComparison = intents.trend
     ? buildTrainingTrendComparison(context?.training_comparison || {})
     : null;
+  const weekPlanProgress = intents.weekPlan
+    ? buildWeekPlanProgress(context?.weekly_planning || {}, context?.current_week || {})
+    : null;
 
   if (intents.greeting) {
     answers.push(buildGreetingAnswer());
@@ -208,6 +212,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     answers.push(plannedSessions.length
       ? buildPlannedTrainingAnswer(context?.planned_training || {})
       : explainTrainingRecommendation(recommendation));
+  }
+  if (intents.weekPlan) {
+    answers.push(explainWeekPlanProgress(weekPlanProgress));
   }
   if (intents.recovery) {
     answers.push(buildRecoveryAnswer(context?.health_recovery || {}));
@@ -221,7 +228,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   if (intents.trend) {
     answers.push(explainTrainingTrend(trendComparison));
   }
-  if (intents.period && !intents.trend) {
+  if (intents.period && !intents.trend && !intents.weekPlan) {
     answers.push(buildPeriodAnswer(context?.training_period || {}));
   }
   if (intents.session) {
@@ -240,7 +247,13 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
 
   return {
     answer,
-    cards: buildCoachCards({ message, context, recommendation, trendComparison }),
+    cards: buildCoachCards({
+      message,
+      context,
+      recommendation,
+      trendComparison,
+      weekPlanProgress,
+    }),
     intents,
     responseMode: "deterministic",
     llmUsed: false,

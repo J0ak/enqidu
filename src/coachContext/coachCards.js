@@ -1,4 +1,5 @@
 import { buildTrainingTrendComparison } from "./trainingTrend.js";
+import { buildWeekPlanProgress } from "./weekPlanProgress.js";
 
 const MAX_CARDS = 2;
 
@@ -53,6 +54,19 @@ export function detectEquipmentLocation(message = "") {
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
   const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
+  const weekPlan = hasAny(text, [
+    "que tengo esta semana",
+    "que me queda esta semana",
+    "que me queda por entrenar esta semana",
+    "que me falta esta semana",
+    "que me falta por entrenar",
+    "como voy respecto al plan",
+    "respecto al plan semanal",
+    "plan semanal",
+    "plan de la semana",
+    "sesiones planificadas esta semana",
+    "entrenamientos planificados esta semana",
+  ]);
   const trend = hasAny(text, [
     "estoy mejorando",
     "voy mejorando",
@@ -86,6 +100,7 @@ export function detectCoachIntents(message = "") {
 
   return {
     greeting,
+    weekPlan,
     trend,
     planToday,
     recovery: hasAny(text, [
@@ -207,6 +222,38 @@ function buildTrainingTrendCard(comparison) {
       partial_current_period: comparison.partial_current_period,
       previous,
     },
+    actions: [{ type: "open_activities", label: "Ver entrenamiento" }],
+    provenance: "enkidu_context",
+  };
+}
+
+function buildWeeklyPlanProgressCard(progress) {
+  if (!progress?.has_plan) return null;
+
+  const breakdown = [
+    ...(progress.upcoming || []).slice(0, 4).map((session) => ({
+      label: `${session.planned_date || ""} · ${session.title || titleCase(session.session_type || "Sesión")}`.replace(/^ · /, ""),
+      value: 1,
+    })),
+    ...(progress.past_unlinked || []).slice(0, 2).map((session) => ({
+      label: `${session.planned_date || ""} · ${session.title || titleCase(session.session_type || "Sesión")} · sin ejecución enlazada`.replace(/^ · /, ""),
+      value: 1,
+    })),
+  ].slice(0, 5);
+
+  return {
+    id: "weekly_plan_progress",
+    type: "plan_progress_summary",
+    title: "Plan semanal",
+    subtitle: progress.from && progress.to ? `${progress.from} · ${progress.to}` : null,
+    badge: "Seguimiento",
+    metrics: compact([
+      metric("planned_sessions", "Planificadas", progress.planned_count),
+      metric("linked_completed", "Con ejecución enlazada", progress.completed_linked_count),
+      metric("upcoming_sessions", "Por delante", progress.upcoming_count),
+      metric("executed_week", "Ejecutadas esta semana", progress.executed_week_count),
+    ]),
+    breakdown,
     actions: [{ type: "open_activities", label: "Ver entrenamiento" }],
     provenance: "enkidu_context",
   };
@@ -366,7 +413,13 @@ function buildEquipmentCard(equipment = [], requestedLocation = null) {
   };
 }
 
-export function buildCoachCards({ message = "", context = {}, recommendation = null, trendComparison = null } = {}) {
+export function buildCoachCards({
+  message = "",
+  context = {},
+  recommendation = null,
+  trendComparison = null,
+  weekPlanProgress = null,
+} = {}) {
   const intents = detectCoachIntents(message);
   const period = context?.training_period || {};
   const sessions = Array.isArray(period?.sessions) ? period.sessions : [];
@@ -380,6 +433,14 @@ export function buildCoachCards({ message = "", context = {}, recommendation = n
     const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
     cards.push(plannedCard || buildRecommendedTrainingCard(recommendation));
   }
+  if (intents.weekPlan) {
+    cards.push(buildWeeklyPlanProgressCard(
+      weekPlanProgress || buildWeekPlanProgress(
+        context?.weekly_planning || {},
+        context?.current_week || {},
+      ),
+    ));
+  }
   if (intents.trend) {
     cards.push(buildTrainingTrendCard(
       trendComparison || buildTrainingTrendComparison(context?.training_comparison || {}),
@@ -392,7 +453,7 @@ export function buildCoachCards({ message = "", context = {}, recommendation = n
       intents.equipmentLocation,
     ));
   }
-  if (intents.period && !intents.trend) cards.push(buildTrainingPeriodCard(period));
+  if (intents.period && !intents.trend && !intents.weekPlan) cards.push(buildTrainingPeriodCard(period));
   if (intents.session) cards.push(buildLatestSessionCard(sessionForIntent));
 
   return compact(cards).slice(0, MAX_CARDS);

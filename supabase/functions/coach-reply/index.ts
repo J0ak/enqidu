@@ -85,6 +85,43 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
   };
 }
 
+async function loadWeeklyPlanning(
+  db: any,
+  userId: string,
+  from: string,
+  to: string,
+  referenceDate: string,
+) {
+  const sessionsResult = await db
+    .from("planned_training_sessions")
+    .select("id, planned_date, planned_time, title, session_type, status, location_type, planned_intensity, planned_duration_min, planned_duration_max, objective, source, linked_completed_session_id")
+    .eq("user_id", userId)
+    .gte("planned_date", from)
+    .lte("planned_date", to)
+    .order("planned_date", { ascending: true })
+    .order("planned_time", { ascending: true, nullsFirst: false });
+
+  if (sessionsResult.error) throw sessionsResult.error;
+
+  const focusResult = await db
+    .from("weekly_plans")
+    .select("weekly_focus")
+    .eq("user_id", userId)
+    .eq("week_start", from)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (focusResult.error) throw focusResult.error;
+
+  return {
+    from,
+    to,
+    reference_date: referenceDate,
+    weekly_focus: Array.isArray(focusResult.data) ? focusResult.data[0]?.weekly_focus || null : null,
+    sessions: Array.isArray(sessionsResult.data) ? sessionsResult.data : [],
+  };
+}
+
 async function loadRecommendationConstraints(db: any, userId: string) {
   const result = await db
     .from("coach_athlete_constraints")
@@ -163,6 +200,9 @@ Deno.serve(async (req: Request) => {
     };
     const currentFrom = context?.request?.from_date || null;
     const currentTo = context?.request?.to_date || null;
+    context.weekly_planning = intents.weekPlan && currentFrom && currentTo
+      ? await loadWeeklyPlanning(db, userId, currentFrom, currentTo, requestDate)
+      : null;
     const trendRanges = intents.trend && currentFrom && currentTo
       ? buildTrainingTrendRanges({
           from: currentFrom,
@@ -196,9 +236,9 @@ Deno.serve(async (req: Request) => {
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
-    // Today's plan/recommendation and trend comparison are deterministic,
+    // Today's plan/recommendation, weekly plan progress and trend comparison are deterministic,
     // even when the optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || intents.planToday || intents.trend) {
+    if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan) {
       return reply({
         ok: true,
         answer: deterministic.answer,
