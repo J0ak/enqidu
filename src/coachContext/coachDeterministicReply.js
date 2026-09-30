@@ -201,6 +201,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   const trendComparison = intents.trend
     ? buildTrainingTrendComparison(context?.training_comparison || {})
     : null;
+  const weekPlanProgress = intents.weekPlan
+    ? buildWeekPlanProgress(context?.weekly_planning || {}, context?.current_week || {})
+    : null;
 
   if (intents.greeting) {
     answers.push(buildGreetingAnswer());
