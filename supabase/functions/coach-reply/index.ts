@@ -236,9 +236,9 @@ Deno.serve(async (req: Request) => {
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
-    // Today's plan/recommendation and trend comparison are deterministic,
+    // Today's plan/recommendation, weekly plan progress and trend comparison are deterministic,
     // even when the optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || intents.planToday || intents.trend) {
+    if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan) {
       return reply({
         ok: true,
         answer: deterministic.answer,
