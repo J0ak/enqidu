@@ -11,6 +11,7 @@ import {
   buildTrainingTrendComparison,
   explainTrainingTrend,
 } from "./trainingTrend.js";
+import { buildWeekPlanProgress, explainWeekPlanProgress } from "./weekPlanProgress.js";
 
 const asPositiveNumber = (value) => {
   const number = Number(value);
