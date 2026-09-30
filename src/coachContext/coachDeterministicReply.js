@@ -213,6 +213,9 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
       ? buildPlannedTrainingAnswer(context?.planned_training || {})
       : explainTrainingRecommendation(recommendation));
   }
+  if (intents.weekPlan) {
+    answers.push(explainWeekPlanProgress(weekPlanProgress));
+  }
   if (intents.recovery) {
     answers.push(buildRecoveryAnswer(context?.health_recovery || {}));
   }
