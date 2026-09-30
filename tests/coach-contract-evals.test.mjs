@@ -327,3 +327,18 @@ test("EVAL: a natural weekly planned-sessions question never falls back to execu
   assert.equal(reply.responseMode, "deterministic");
   assert.equal(reply.llmUsed, false);
 });
+
+
+test("EVAL: next-week wording never returns the current weekly plan or period", () => {
+  const reply = buildDeterministicCoachReply({
+    message: "¿Qué entrenamientos tengo programados para esta semana que viene?",
+    context: baseContext,
+  });
+
+  assert.equal(reply.intents.weekPlan, false);
+  assert.equal(reply.intents.period, false);
+  assert.match(reply.answer, /primera fase/i);
+  assert.deepEqual(reply.cards, []);
+  assert.equal(reply.responseMode, "deterministic");
+  assert.equal(reply.llmUsed, false);
+});

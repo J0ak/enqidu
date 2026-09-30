@@ -78,6 +78,8 @@ test("builds a deterministic period summary for progress questions", () => {
 test("detects weekly planned-session questions regardless of natural word order", () => {
   assert.equal(detectCoachIntents("¿Qué sesiones tengo planificadas esta semana?").weekPlan, true);
   assert.equal(detectCoachIntents("¿Qué entrenamientos están programados esta semana?").weekPlan, true);
+  assert.equal(detectCoachIntents("¿Qué entrenamientos tengo programados para esta semana que viene?").weekPlan, false);
+  assert.equal(detectCoachIntents("¿Qué entrenamientos tengo programados para esta semana que viene?").period, false);
 });
 
 test("builds the latest session card for activity questions", () => {
