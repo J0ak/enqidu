@@ -247,7 +247,13 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
 
   return {
     answer,
-    cards: buildCoachCards({ message, context, recommendation, trendComparison }),
+    cards: buildCoachCards({
+      message,
+      context,
+      recommendation,
+      trendComparison,
+      weekPlanProgress,
+    }),
     intents,
     responseMode: "deterministic",
     llmUsed: false,
