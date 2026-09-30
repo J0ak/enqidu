@@ -54,7 +54,10 @@ export function detectEquipmentLocation(message = "") {
 export function detectCoachIntents(message = "") {
   const text = normalizeText(message);
   const greeting = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal)[!¡?¿.,]*$/.test(text.trim());
-  const weekPlan = hasAny(text, [
+  const plannedSessionsThisWeek = text.includes("esta semana")
+    && /\b(sesion|sesiones|entrenamiento|entrenamientos)\b/.test(text)
+    && /\b(planificada|planificadas|planificado|planificados|programada|programadas|programado|programados)\b/.test(text);
+  const weekPlan = plannedSessionsThisWeek || hasAny(text, [
     "que tengo esta semana",
     "que me queda esta semana",
     "que me queda por entrenar esta semana",

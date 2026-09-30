@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCoachCards, coachCardContract } from "../src/coachContext/coachCards.js";
+import { buildCoachCards, coachCardContract, detectCoachIntents } from "../src/coachContext/coachCards.js";
 import {
   formatCoachCardMetric,
   formatCoachCardDate,
@@ -73,6 +73,11 @@ test("builds a deterministic period summary for progress questions", () => {
   assert.equal(cards[0].id, "training_period_summary");
   assert.equal(cards[0].metrics.find((item) => item.key === "sessions").value, 4);
   assert.equal(cards[0].provenance, "enkidu_context");
+});
+
+test("detects weekly planned-session questions regardless of natural word order", () => {
+  assert.equal(detectCoachIntents("¿Qué sesiones tengo planificadas esta semana?").weekPlan, true);
+  assert.equal(detectCoachIntents("¿Qué entrenamientos están programados esta semana?").weekPlan, true);
 });
 
 test("builds the latest session card for activity questions", () => {
