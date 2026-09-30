@@ -7,7 +7,7 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
 
   assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
   assert.match(source, /OPENAI_COACH_ENABLED/);
-  assert.match(source, /if \(!llmEnabled \|\| intents\.planToday \|\| intents\.trend\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
+  assert.match(source, /if \(!llmEnabled \|\| intents\.planToday \|\| intents\.trend \|\| intents\.weekPlan\)[\s\S]*response_mode: "deterministic"[\s\S]*llm_used: false/);
   assert.match(source, /response_mode: "llm"[\s\S]*llm_used: true/);
 
   const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
