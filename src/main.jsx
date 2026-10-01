@@ -4044,6 +4044,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [cardActionBusy, setCardActionBusy] = useState(false);
   const [coachContextState, setCoachContextState] = useState({ status: "loading" });
   const endRef = useRef(null);
 
