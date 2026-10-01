@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
         ok: false,
         error: "plan_already_exists",
         message: "Ya existe un plan para hoy; no se ha creado otro.",
-      }, 409);
+      });
     }
 
     context.recommendation_context = {
@@ -122,14 +122,14 @@ Deno.serve(async (req: Request) => {
     const recommendation = buildTrainingRecommendation(context, { requestedLocation });
 
     if (!recommendation) {
-      return reply({ ok: false, error: "plan_already_exists" }, 409);
+      return reply({ ok: false, error: "plan_already_exists" });
     }
     if (recommendation.insufficient) {
       return reply({
         ok: false,
         error: "recommendation_unavailable",
         reason: recommendation.reason || "insufficient_enqidu_context",
-      }, 422);
+      });
     }
 
     const storageRecommendation = toPlannedRecommendationPayload({
@@ -137,7 +137,7 @@ Deno.serve(async (req: Request) => {
       environment: recommendation.environment || requestedLocationKey,
     });
     if (!storageRecommendation) {
-      return reply({ ok: false, error: "unsupported_recommendation_type" }, 422);
+      return reply({ ok: false, error: "unsupported_recommendation_type" });
     }
 
     // Important: keep this admin client separate from userDb. Do not attach the
@@ -158,14 +158,13 @@ Deno.serve(async (req: Request) => {
 
     const saved = saveResult.data || {};
     if (!saved.ok) {
-      const status = saved.error === "plan_already_exists" ? 409 : 422;
       return reply({
         ok: false,
         error: saved.error || "plan_save_rejected",
         message: saved.error === "plan_already_exists"
           ? "Ya existe un plan para hoy; no se ha creado otro."
           : null,
-      }, status);
+      });
     }
 
     return reply({
