@@ -19,6 +19,8 @@ Never make production code depend on a field that exists only in a synthetic tes
 
 - A persisted plan is authoritative over an automatically calculated recommendation.
 - A calculated recommendation is not a saved plan unless the user explicitly accepts/persists it.
+- Saving a recommendation must be an explicit user action. The server must recalculate/validate the recommendation and re-check that no plan already exists before writing.
+- Do not grant general INSERT/UPDATE/DELETE on planning tables to the frontend merely to support Coach actions; use a narrow audited server-side action boundary.
 - A past planned session without explicit completion evidence must not be called missed, skipped or failed; report it as unlinked/unknown instead.
 - Missing health/recovery data must never be invented.
 - Missing Garmin/FIT data must never be inferred as if observed.
@@ -46,7 +48,9 @@ Relevant files:
 - `src/coachContext/coachCards.js`
 - `src/coachContext/coachDeterministicReply.js`
 - `src/coachContext/trainingRecommendation.js`
+- `src/coachContext/coachPlanAction.js`
 - `supabase/functions/coach-reply/index.ts`
+- `supabase/functions/coach-plan-action/index.ts`
 
 ## Architecture
 
