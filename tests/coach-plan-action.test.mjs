@@ -178,3 +178,13 @@ test("service-role table grant migration is minimal and does not open planning w
   assert.doesNotMatch(sql, /to anon/i);
   assert.doesNotMatch(sql, /grant update|grant delete/i);
 });
+
+
+test("successful Coach save refreshes the read-only planned calendar state", async () => {
+  const source = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+  assert.match(source, /const refreshPlannedSessions = async \(\) =>/);
+  assert.match(source, /fetchReadonlyPlannedSessions\(supabase, userId\)/);
+  assert.match(source, /setPlannedSessions\(next\)/);
+  assert.match(source, /onPlanSaved=\{refreshPlannedSessions\}/);
+  assert.match(source, /const refreshed = await onPlanSaved\?\.\(\)/);
+});
