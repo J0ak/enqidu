@@ -342,3 +342,57 @@ test("EVAL: next-week wording never returns the current weekly plan or period", 
   assert.equal(reply.responseMode, "deterministic");
   assert.equal(reply.llmUsed, false);
 });
+
+
+test("EVAL: calculated recommendation requires explicit save action and a persisted plan still wins", () => {
+  const recommendationReply = buildDeterministicCoachReply({
+    message: "¿Qué entreno hoy?",
+    context: {
+      ...baseContext,
+      request: { ...(baseContext.request || {}), date: "2026-10-01" },
+      planned_training: { date: "2026-10-01", sessions: [] },
+    },
+  });
+
+  const recommendationCard = recommendationReply.cards.find((card) => card.id === "recommended_training_today");
+  assert.ok(recommendationCard);
+  assert.equal(recommendationCard.subtitle, "Recomendación calculada · no guardada");
+  assert.deepEqual(recommendationCard.actions, [{
+    type: "save_recommendation_to_plan",
+    label: "Guardar en plan",
+    date: "2026-10-01",
+    location: recommendationCard.session.environment,
+  }]);
+
+  const plannedReply = buildDeterministicCoachReply({
+    message: "¿Qué entreno hoy?",
+    context: {
+      ...baseContext,
+      request: { ...(baseContext.request || {}), date: "2026-10-01" },
+      planned_training: {
+        date: "2026-10-01",
+        sessions: [{
+          title: "Plan ya guardado",
+          session_type: "strength",
+          planned_duration_min: 45,
+          blocks_count: 1,
+          blocks: [{ title: "Fuerza", planned_duration_seconds: 2700 }],
+        }],
+      },
+    },
+  });
+
+  assert.deepEqual(plannedReply.cards.map((card) => card.id), ["planned_training_today"]);
+  assert.deepEqual(plannedReply.cards[0].actions, []);
+});
+
+test("EVAL: Coach action writer remains service-only and never exposes table writes to authenticated", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20261001205500_save_coach_recommendation_plan.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(sql, /revoke execute on function public\.save_coach_recommendation_plan[\s\S]*from public, anon, authenticated/);
+  assert.match(sql, /grant execute on function public\.save_coach_recommendation_plan[\s\S]*to service_role/);
+  assert.doesNotMatch(sql, /grant (insert|update|delete)[\s\S]*authenticated/i);
+});
