@@ -61,6 +61,19 @@ export function normalizeStoredCoachMessages(value) {
 
 export function resolveCoachCardAction(action, sessions = []) {
   if (action?.type === "open_activities") return { type: "open_activities" };
+
+  if (action?.type === "save_recommendation_to_plan") {
+    const date = typeof action.date === "string" ? action.date.trim() : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    return {
+      type: "save_recommendation_to_plan",
+      date,
+      location: typeof action.location === "string" && action.location.trim()
+        ? action.location.trim()
+        : null,
+    };
+  }
+
   if (action?.type !== "open_training_session" || typeof action.session_id !== "string" || !action.session_id.trim()) return null;
   const session = sessions.find((item) => String(item?.id || "") === action.session_id.trim());
   return session ? { type: "open_training_session", session } : null;
