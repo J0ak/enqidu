@@ -1,6 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildTrainingRecommendation } from "../../../src/coachContext/trainingRecommendation.js";
+import {
+  normalizeCoachPlanLocation,
+  toPlannedRecommendationPayload,
+} from "../../../src/coachContext/coachPlanAction.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -11,39 +15,6 @@ const headers = {
 
 const reply = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers });
-
-const LOCATION_ALIASES: Record<string, string> = {
-  home: "home",
-  casa: "home",
-  pool: "pool",
-  piscina: "pool",
-  outdoor: "outdoor",
-  "aire libre": "outdoor",
-  aire_libre: "outdoor",
-  trail: "trail",
-  "entorno trail": "trail",
-  functional_training_center: "functional_training_center",
-  "centro de entrenamiento funcional": "functional_training_center",
-  "centro funcional": "functional_training_center",
-  gym: "functional_training_center",
-  gimnasio: "functional_training_center",
-};
-
-function normalizeLocation(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[\s-]+/g, "_");
-
-  const direct = LOCATION_ALIASES[normalized];
-  if (direct) return direct;
-
-  const spaced = normalized.replace(/_/g, " ");
-  return LOCATION_ALIASES[spaced] || null;
-}
 
 async function loadPlannedTraining(db: any, userId: string, date: string) {
   const result = await db
@@ -110,7 +81,7 @@ Deno.serve(async (req: Request) => {
 
     const requestedLocationKey = body.location == null
       ? null
-      : normalizeLocation(body.location);
+      : normalizeCoachPlanLocation(body.location);
     if (body.location != null && !requestedLocationKey) {
       return reply({ ok: false, error: "invalid_location" }, 400);
     }
@@ -161,13 +132,13 @@ Deno.serve(async (req: Request) => {
       }, 422);
     }
 
-    const storageEnvironment = normalizeLocation(recommendation.environment)
-      || requestedLocationKey
-      || null;
-    const storageRecommendation = {
+    const storageRecommendation = toPlannedRecommendationPayload({
       ...recommendation,
-      environment: storageEnvironment,
-    };
+      environment: recommendation.environment || requestedLocationKey,
+    });
+    if (!storageRecommendation) {
+      return reply({ ok: false, error: "unsupported_recommendation_type" }, 422);
+    }
 
     // Important: keep this admin client separate from userDb. Do not attach the
     // user's Authorization header; the service role is used only for the narrow
@@ -204,10 +175,10 @@ Deno.serve(async (req: Request) => {
       planned_session: {
         date,
         title: recommendation.title,
-        session_type: recommendation.session_type,
+        session_type: storageRecommendation.session_type,
         duration_minutes: recommendation.duration_minutes,
         intensity: recommendation.intensity,
-        environment: storageEnvironment,
+        environment: storageRecommendation.environment,
         blocks_count: recommendation.blocks.length,
       },
       response_mode: "deterministic_action",
