@@ -1139,6 +1139,22 @@ function App() {
     setRoute("plannedSessionDetail");
   };
 
+  const refreshPlannedSessions = async () => {
+    const userId = session?.user?.id;
+    if (!supabase || !userId) return false;
+    try {
+      const next = await fetchReadonlyPlannedSessions(supabase, userId);
+      setPlannedSessions(next);
+      return true;
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn("[planned-calendar] refresh after Coach action failed", error);
+      }
+      return false;
+    }
+  };
+
+
   const renameActivitySession = async (sessionId, nextTitle) => {
     const title = `${nextTitle || ""}`.trim();
     if (!sessionId || !title) return;
@@ -1216,6 +1232,7 @@ function App() {
             sessions={filteredSessions}
             onOpenActivities={() => setRoute("activities")}
             onOpenSession={openSessionDetail}
+            onPlanSaved={refreshPlannedSessions}
           />
         )}
         {route === "profile" && (
@@ -4040,7 +4057,7 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
   );
 }
 
-function CoachView({ messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession }) {
+function CoachView({ messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession, onPlanSaved }) {
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
@@ -4143,7 +4160,10 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
             }),
           };
         }));
-        setMicNotice("Entrenamiento guardado en tu plan.");
+        const refreshed = await onPlanSaved?.();
+        setMicNotice(refreshed === false
+          ? "Entrenamiento guardado. Actualiza Actividades si no aparece todavía."
+          : "Entrenamiento guardado en tu plan.");
         return;
       }
 
