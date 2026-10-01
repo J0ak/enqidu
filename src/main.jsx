@@ -5,7 +5,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { requestCoachReply } from "@/services/aiCoachContextService";
+import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
@@ -4044,6 +4044,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [cardActionBusy, setCardActionBusy] = useState(false);
   const [coachContextState, setCoachContextState] = useState({ status: "loading" });
   const endRef = useRef(null);
 
@@ -4100,6 +4101,83 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
     setMicNotice("Preparando una nota para el Coach; la aplicacion automatica queda pendiente.");
   };
 
+  const handleCardAction = async (action) => {
+    const resolved = resolveCoachCardAction(action, sessions);
+    if (!resolved) return;
+
+    if (resolved.type === "open_activities") {
+      onOpenActivities?.();
+      return;
+    }
+    if (resolved.type === "open_training_session") {
+      onOpenSession?.(resolved.session);
+      return;
+    }
+    if (resolved.type !== "save_recommendation_to_plan" || cardActionBusy) return;
+
+    try {
+      setCardActionBusy(true);
+      setMicNotice("Guardando en tu plan...");
+      const result = await saveCoachRecommendationToPlan({
+        date: resolved.date,
+        location: resolved.location,
+      });
+
+      if (result.ok && result.saved) {
+        setMessages((current) => current.map((message) => {
+          if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
+          return {
+            ...message,
+            cards: message.cards.map((card) => {
+              const matchesDate = card?.actions?.some((item) =>
+                item?.type === "save_recommendation_to_plan" && item?.date === resolved.date
+              );
+              return card?.id === "recommended_training_today" && matchesDate
+                ? {
+                    ...card,
+                    subtitle: "Guardada en tu plan",
+                    badge: "Plan",
+                    actions: [],
+                  }
+                : card;
+            }),
+          };
+        }));
+        setMicNotice("Entrenamiento guardado en tu plan.");
+        return;
+      }
+
+      if (result.error === "plan_already_exists") {
+        setMessages((current) => current.map((message) => {
+          if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
+          return {
+            ...message,
+            cards: message.cards.map((card) => {
+              const matchesDate = card?.actions?.some((item) =>
+                item?.type === "save_recommendation_to_plan" && item?.date === resolved.date
+              );
+              return card?.id === "recommended_training_today" && matchesDate
+                ? {
+                    ...card,
+                    subtitle: "Ya existe un plan para hoy",
+                    actions: [],
+                  }
+                : card;
+            }),
+          };
+        }));
+        setMicNotice(result.message || "Ya existe un plan para hoy; no se ha creado otro.");
+        return;
+      }
+
+      setMicNotice(result.message || "No se ha podido guardar la recomendación.");
+    } catch {
+      setMicNotice("No se ha podido guardar la recomendación.");
+    } finally {
+      setCardActionBusy(false);
+    }
+  };
+
   return (
     <section className="coachView">
       <CoachContextStatusCard context={coachContextState} onMemoryPrompt={startMemoryDraft} />
@@ -4109,11 +4187,8 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
             key={`${message.role}-${index}`}
             message={message}
             onCopied={() => setMicNotice("Copiado")}
-            onCardAction={(action) => {
-              const resolved = resolveCoachCardAction(action, sessions);
-              if (resolved?.type === "open_activities") onOpenActivities?.();
-              if (resolved?.type === "open_training_session") onOpenSession?.(resolved.session);
-            }}
+            onCardAction={handleCardAction}
+            cardActionDisabled={cardActionBusy}
           />
         ))}
         <div ref={endRef} />
@@ -4223,7 +4298,7 @@ function replaceLastAssistantMessage(messages, content, cards = []) {
   return [...next, { role: "assistant", content, cards: Array.isArray(cards) ? cards : [] }];
 }
 
-function CopyableChatMessage({ message, onCopied, onCardAction }) {
+function CopyableChatMessage({ message, onCopied, onCardAction, cardActionDisabled = false }) {
   const [copied, setCopied] = useState(false);
   const pressTimerRef = useRef(null);
   const feedbackTimerRef = useRef(null);
@@ -4287,14 +4362,14 @@ function CopyableChatMessage({ message, onCopied, onCardAction }) {
     </div>
     {message.role === "assistant" && Array.isArray(message.cards) && message.cards.length > 0 && (
       <div className="coachInlineCards">
-        {message.cards.map((card) => <CoachInlineCard key={card.id} card={card} onAction={onCardAction} />)}
+        {message.cards.map((card) => <CoachInlineCard key={card.id} card={card} onAction={onCardAction} disabled={cardActionDisabled} />)}
       </div>
     )}
     </div>
   );
 }
 
-function CoachInlineCard({ card, onAction }) {
+function CoachInlineCard({ card, onAction, disabled = false }) {
   const metrics = (Array.isArray(card.metrics) ? card.metrics : [])
     .map((item) => ({ ...item, displayValue: formatCoachCardMetric(item) }))
     .filter((item) => item.displayValue);
@@ -4311,7 +4386,7 @@ function CoachInlineCard({ card, onAction }) {
       </div>
       {metrics.length > 0 && <div className="coachInlineMetrics">{metrics.map((item) => <div key={item.key}><strong>{item.displayValue}</strong><span>{item.label}</span></div>)}</div>}
       {breakdown.length > 0 && <p className="coachInlineBreakdown">{breakdown.map((item) => `${item.label}: ${item.value}`).join(" · ")}</p>}
-      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" key={`${action.type}-${action.session_id || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
+      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" disabled={disabled} key={`${action.type}-${action.session_id || action.date || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
     </article>
   );
 }

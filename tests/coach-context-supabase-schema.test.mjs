@@ -292,6 +292,7 @@ test("schema branch does not create forbidden runtime files", async () => {
     "_shared",
     "coach-context",
     "coach-context-memory",
+    "coach-plan-action",
     "coach-reply",
     "session-context",
     "session-correction-apply",

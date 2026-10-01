@@ -4735,3 +4735,4 @@ button:disabled {
 .coachInlineMetrics span, .coachInlineBreakdown { color: var(--muted); font-size: 11px; }
 .coachInlineBreakdown { margin: 10px 0 0; }
 .coachInlineCard button { margin-top: 12px; border: 0; border-radius: 10px; padding: 8px 11px; display: inline-flex; align-items: center; gap: 4px; color: #06100d; background: var(--discipline); font-weight: 800; cursor: pointer; }
+.coachInlineCard button:disabled { opacity: .55; cursor: wait; }
