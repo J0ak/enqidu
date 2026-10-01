@@ -43,3 +43,45 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
     llmUsed: Boolean(data.llm_used),
   };
 }
+
+
+export async function saveCoachRecommendationToPlan({ date, location } = {}) {
+  if (!supabase) {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const payload = {
+    action: "save_recommendation_today",
+    date: date || getLocalCalendarDate(),
+    location: location || null,
+  };
+
+  const { data, error } = await supabase.functions.invoke("coach-plan-action", {
+    body: payload,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: data?.error || error.message || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: data?.error || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  return {
+    ok: true,
+    saved: Boolean(data.saved),
+    plannedSession: data.planned_session || null,
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
+    usage: data.usage || null,
+  };
+}
