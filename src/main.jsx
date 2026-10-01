@@ -4101,6 +4101,83 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
     setMicNotice("Preparando una nota para el Coach; la aplicacion automatica queda pendiente.");
   };
 
+  const handleCardAction = async (action) => {
+    const resolved = resolveCoachCardAction(action, sessions);
+    if (!resolved) return;
+
+    if (resolved.type === "open_activities") {
+      onOpenActivities?.();
+      return;
+    }
+    if (resolved.type === "open_training_session") {
+      onOpenSession?.(resolved.session);
+      return;
+    }
+    if (resolved.type !== "save_recommendation_to_plan" || cardActionBusy) return;
+
+    try {
+      setCardActionBusy(true);
+      setMicNotice("Guardando en tu plan...");
+      const result = await saveCoachRecommendationToPlan({
+        date: resolved.date,
+        location: resolved.location,
+      });
+
+      if (result.ok && result.saved) {
+        setMessages((current) => current.map((message) => {
+          if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
+          return {
+            ...message,
+            cards: message.cards.map((card) => {
+              const matchesDate = card?.actions?.some((item) =>
+                item?.type === "save_recommendation_to_plan" && item?.date === resolved.date
+              );
+              return card?.id === "recommended_training_today" && matchesDate
+                ? {
+                    ...card,
+                    subtitle: "Guardada en tu plan",
+                    badge: "Plan",
+                    actions: [],
+                  }
+                : card;
+            }),
+          };
+        }));
+        setMicNotice("Entrenamiento guardado en tu plan.");
+        return;
+      }
+
+      if (result.error === "plan_already_exists") {
+        setMessages((current) => current.map((message) => {
+          if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
+          return {
+            ...message,
+            cards: message.cards.map((card) => {
+              const matchesDate = card?.actions?.some((item) =>
+                item?.type === "save_recommendation_to_plan" && item?.date === resolved.date
+              );
+              return card?.id === "recommended_training_today" && matchesDate
+                ? {
+                    ...card,
+                    subtitle: "Ya existe un plan para hoy",
+                    actions: [],
+                  }
+                : card;
+            }),
+          };
+        }));
+        setMicNotice(result.message || "Ya existe un plan para hoy; no se ha creado otro.");
+        return;
+      }
+
+      setMicNotice(result.message || "No se ha podido guardar la recomendación.");
+    } catch {
+      setMicNotice("No se ha podido guardar la recomendación.");
+    } finally {
+      setCardActionBusy(false);
+    }
+  };
+
   return (
     <section className="coachView">
       <CoachContextStatusCard context={coachContextState} onMemoryPrompt={startMemoryDraft} />
@@ -4110,11 +4187,8 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
             key={`${message.role}-${index}`}
             message={message}
             onCopied={() => setMicNotice("Copiado")}
-            onCardAction={(action) => {
-              const resolved = resolveCoachCardAction(action, sessions);
-              if (resolved?.type === "open_activities") onOpenActivities?.();
-              if (resolved?.type === "open_training_session") onOpenSession?.(resolved.session);
-            }}
+            onCardAction={handleCardAction}
+            cardActionDisabled={cardActionBusy}
           />
         ))}
         <div ref={endRef} />
