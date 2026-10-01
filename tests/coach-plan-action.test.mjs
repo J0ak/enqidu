@@ -164,3 +164,17 @@ test("writer migration is transactional, service-only and does not grant table w
   assert.doesNotMatch(sql, /grant (insert|update|delete) on .*planned_training_sessions.*authenticated/i);
   assert.doesNotMatch(sql, /security definer/i);
 });
+
+
+test("service-role table grant migration is minimal and does not open planning writes to clients", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20261001210700_grant_coach_plan_writer_service_role_tables.sql", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(sql, /grant select, insert on table public\.planned_training_sessions to service_role;/i);
+  assert.match(sql, /grant insert on table public\.planned_session_blocks to service_role;/i);
+  assert.doesNotMatch(sql, /to authenticated/i);
+  assert.doesNotMatch(sql, /to anon/i);
+  assert.doesNotMatch(sql, /grant update|grant delete/i);
+});
