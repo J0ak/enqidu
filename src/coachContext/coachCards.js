@@ -361,7 +361,7 @@ function buildPlannedTrainingCard(plannedTraining = {}) {
   };
 }
 
-function buildRecommendedTrainingCard(recommendation) {
+function buildRecommendedTrainingCard(recommendation, date = null) {
   if (!recommendation || recommendation.insufficient) return null;
   return {
     id: "recommended_training_today",
@@ -378,7 +378,12 @@ function buildRecommendedTrainingCard(recommendation) {
       value: block.duration_minutes,
     })),
     session: recommendation,
-    actions: [],
+    actions: date ? [{
+      type: "save_recommendation_to_plan",
+      label: "Guardar en plan",
+      date,
+      location: recommendation.environment || null,
+    }] : [],
     provenance: "enkidu_deterministic_recommendation",
   };
 }
@@ -435,7 +440,10 @@ export function buildCoachCards({
 
   if (intents.planToday) {
     const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
-    cards.push(plannedCard || buildRecommendedTrainingCard(recommendation));
+    cards.push(plannedCard || buildRecommendedTrainingCard(
+      recommendation,
+      context?.request?.date || context?.planned_training?.date || null,
+    ));
   }
   if (intents.weekPlan) {
     cards.push(buildWeeklyPlanProgressCard(
