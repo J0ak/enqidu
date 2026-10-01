@@ -4298,7 +4298,7 @@ function replaceLastAssistantMessage(messages, content, cards = []) {
   return [...next, { role: "assistant", content, cards: Array.isArray(cards) ? cards : [] }];
 }
 
-function CopyableChatMessage({ message, onCopied, onCardAction }) {
+function CopyableChatMessage({ message, onCopied, onCardAction, cardActionDisabled = false }) {
   const [copied, setCopied] = useState(false);
   const pressTimerRef = useRef(null);
   const feedbackTimerRef = useRef(null);
@@ -4362,14 +4362,14 @@ function CopyableChatMessage({ message, onCopied, onCardAction }) {
     </div>
     {message.role === "assistant" && Array.isArray(message.cards) && message.cards.length > 0 && (
       <div className="coachInlineCards">
-        {message.cards.map((card) => <CoachInlineCard key={card.id} card={card} onAction={onCardAction} />)}
+        {message.cards.map((card) => <CoachInlineCard key={card.id} card={card} onAction={onCardAction} disabled={cardActionDisabled} />)}
       </div>
     )}
     </div>
   );
 }
 
-function CoachInlineCard({ card, onAction }) {
+function CoachInlineCard({ card, onAction, disabled = false }) {
   const metrics = (Array.isArray(card.metrics) ? card.metrics : [])
     .map((item) => ({ ...item, displayValue: formatCoachCardMetric(item) }))
     .filter((item) => item.displayValue);
@@ -4386,7 +4386,7 @@ function CoachInlineCard({ card, onAction }) {
       </div>
       {metrics.length > 0 && <div className="coachInlineMetrics">{metrics.map((item) => <div key={item.key}><strong>{item.displayValue}</strong><span>{item.label}</span></div>)}</div>}
       {breakdown.length > 0 && <p className="coachInlineBreakdown">{breakdown.map((item) => `${item.label}: ${item.value}`).join(" · ")}</p>}
-      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" key={`${action.type}-${action.session_id || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
+      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" disabled={disabled} key={`${action.type}-${action.session_id || action.date || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
     </article>
   );
 }
