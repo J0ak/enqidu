@@ -42,7 +42,9 @@ test("coach-reply preserves deterministic answers if the optional LLM path fails
 test("coach-reply resolves yesterday against the previous calendar date before querying context", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
 
-  assert.match(source, /const requestDate = body\.date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(source, /const profileTimezone = await loadUserTimezone\(db, userId\)/);
+  assert.match(source, /resolveUserCalendar\(\{[\s\S]*profileTimezone,[\s\S]*clientTimezone: body\.client_timezone/);
+  assert.match(source, /const requestDate = calendar\.date/);
   assert.match(source, /intents\.yesterday && !intents\.period[\s\S]*shiftIsoDate\(requestDate, -1\)/);
   assert.match(source, /p_date: contextDate/);
   assert.match(source, /context\.request = \{[\s\S]*date: contextDate,[\s\S]*reference_date: requestDate/);
@@ -62,11 +64,12 @@ test("coach-reply loads today's RLS-protected planned sessions before building t
 });
 
 
-test("frontend sends the local calendar date instead of UTC for Coach today/ayer semantics", async () => {
+test("frontend does not impose the browser calendar date on Coach relative-day semantics", async () => {
   const source = await readFile(new URL("../src/services/aiCoachContextService.js", import.meta.url), "utf8");
-  assert.match(source, /getLocalCalendarDate/);
-  assert.match(source, /date: date \|\| getLocalCalendarDate\(\)/);
-  assert.doesNotMatch(source, /date: date \|\| new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(source, /date: date \|\| null/);
+  assert.match(source, /date_source: date \? "explicit" : "profile_timezone"/);
+  assert.match(source, /client_timezone: getClientCalendarTimezone\(\)/);
+  assert.doesNotMatch(source, /date: date \|\| getLocalCalendarDate\(\)/);
 });
 
 
@@ -105,4 +108,12 @@ test("coach-reply loads weekly planning only for weekly-plan intent", async () =
   assert.match(source, /from\("planned_training_sessions"\)[\s\S]*linked_completed_session_id/);
   assert.match(source, /from\("weekly_plans"\)[\s\S]*weekly_focus/);
   assert.match(source, /context\.weekly_planning = intents\.weekPlan/);
+});
+
+
+test("coach-reply exposes the canonical request date and timezone for QA/debugging", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  assert.match(source, /request_date: requestDate/);
+  assert.match(source, /calendar_timezone: calendar\.timezone/);
+  assert.match(source, /date_source: calendar\.source/);
 });
