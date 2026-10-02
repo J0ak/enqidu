@@ -7,6 +7,14 @@ export function getLocalCalendarDate(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+export function getClientCalendarTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestCoachReply({ message, mode = "today_coach", date, sessionId } = {}) {
   if (!supabase) {
     return { ok: false, error: "supabase_unavailable" };
@@ -15,7 +23,9 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
   const payload = {
     message,
     mode,
-    date: date || getLocalCalendarDate(),
+    date: date || null,
+    date_source: date ? "explicit" : "profile_timezone",
+    client_timezone: getClientCalendarTimezone(),
     session_id: sessionId || null,
   };
 
@@ -52,7 +62,8 @@ export async function saveCoachRecommendationToPlan({ date, location } = {}) {
 
   const payload = {
     action: "save_recommendation_today",
-    date: date || getLocalCalendarDate(),
+    date: date || null,
+    client_timezone: getClientCalendarTimezone(),
     location: location || null,
   };
 
