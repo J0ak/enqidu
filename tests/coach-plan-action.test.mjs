@@ -199,3 +199,11 @@ test("write Edge Function rejects a stale recommendation date using the profile 
   assert.match(source, /error: "stale_recommendation_date"/);
   assert.match(source, /calendar_timezone: calendar\.timezone/);
 });
+
+
+test("stale Coach action expires the old card instead of leaving a repeatable write button", async () => {
+  const source = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");
+  assert.match(source, /result\.error === "stale_recommendation_date"/);
+  assert.match(source, /subtitle: "Recomendación caducada"/);
+  assert.match(source, /actions: \[\]/);
+});
