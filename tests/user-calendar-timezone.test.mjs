@@ -67,7 +67,7 @@ test("timezone and ISO date validation reject invalid values", () => {
 
 test("profile timezone migration adds the field without widening client permissions", async () => {
   const sql = await readFile(
-    new URL("../supabase/migrations/20261002083500_add_profile_timezone.sql", import.meta.url),
+    new URL("../supabase/migrations/20261002062917_add_profile_timezone.sql", import.meta.url),
     "utf8",
   );
 
