@@ -119,7 +119,8 @@ test("frontend service sends only action metadata to the write endpoint", async 
   const block = source.slice(start);
   assert.match(block, /functions\.invoke\("coach-plan-action"/);
   assert.match(block, /action: "save_recommendation_today"/);
-  assert.match(block, /date: date \|\| getLocalCalendarDate\(\)/);
+  assert.match(block, /date: date \|\| null/);
+  assert.match(block, /client_timezone: getClientCalendarTimezone\(\)/);
   assert.match(block, /location: location \|\| null/);
   assert.doesNotMatch(block, /title:|session_type:|blocks:/);
 });
@@ -187,4 +188,14 @@ test("successful Coach save refreshes the read-only planned calendar state", asy
   assert.match(source, /setPlannedSessions\(next\)/);
   assert.match(source, /onPlanSaved=\{refreshPlannedSessions\}/);
   assert.match(source, /const refreshed = await onPlanSaved\?\.\(\)/);
+});
+
+
+test("write Edge Function rejects a stale recommendation date using the profile calendar", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
+  assert.match(source, /const profileTimezone = await loadUserTimezone\(userDb, userId\)/);
+  assert.match(source, /resolveUserCalendar\(\{[\s\S]*profileTimezone/);
+  assert.match(source, /if \(date !== calendar\.date\)/);
+  assert.match(source, /error: "stale_recommendation_date"/);
+  assert.match(source, /calendar_timezone: calendar\.timezone/);
 });
