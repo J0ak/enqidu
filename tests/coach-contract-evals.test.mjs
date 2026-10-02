@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
 import { buildTrainingTrendRanges } from "../src/coachContext/trainingTrend.js";
+import { resolveUserCalendar } from "../src/time/userCalendar.js";
 
 const baseContext = {
   request: { date: "2026-09-29", reference_date: "2026-09-29" },
@@ -395,4 +396,24 @@ test("EVAL: Coach action writer remains service-only and never exposes table wri
   assert.match(sql, /revoke execute on function public\.save_coach_recommendation_plan[\s\S]*from public, anon, authenticated/);
   assert.match(sql, /grant execute on function public\.save_coach_recommendation_plan[\s\S]*to service_role/);
   assert.doesNotMatch(sql, /grant (insert|update|delete)[\s\S]*authenticated/i);
+});
+
+
+test("EVAL: athlete profile timezone owns today semantics over the browser timezone", () => {
+  const resolved = resolveUserCalendar({
+    profileTimezone: "Europe/Madrid",
+    clientTimezone: "America/Los_Angeles",
+    now: new Date("2026-10-02T06:20:00Z"),
+  });
+
+  assert.equal(resolved.date, "2026-10-02");
+  assert.equal(resolved.timezone, "Europe/Madrid");
+  assert.equal(resolved.source, "profile_timezone");
+});
+
+test("EVAL: stale recommendation actions cannot silently write into yesterday after timezone rollover", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
+  assert.match(source, /if \(date !== calendar\.date\)/);
+  assert.match(source, /error: "stale_recommendation_date"/);
+  assert.match(source, /Vuelve a preguntar qué entrenar hoy/);
 });
