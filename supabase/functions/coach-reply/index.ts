@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
 import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 import { buildTrainingTrendRanges } from "../../../src/coachContext/trainingTrend.js";
+import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,17 @@ function shiftIsoDate(value: string, days: number): string {
   if (Number.isNaN(parsed.getTime())) return value;
   parsed.setUTCDate(parsed.getUTCDate() + days);
   return parsed.toISOString().slice(0, 10);
+}
+
+async function loadUserTimezone(db: any, userId: string) {
+  const result = await db
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .limit(1);
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data[0]?.timezone || null : null;
 }
 
 async function loadTrainingPeriod(db: any, userId: string, from: string, to: string) {
@@ -168,7 +180,19 @@ Deno.serve(async (req: Request) => {
     if (!message) return reply({ error: "message_required" }, 400);
     if (message.length > 4000) return reply({ error: "message_too_long" }, 400);
 
-    const requestDate = body.date || new Date().toISOString().slice(0, 10);
+    const profileTimezone = await loadUserTimezone(db, userId);
+    const calendar = resolveUserCalendar({
+      explicitDate: body.date || null,
+      explicitDateSource: body.date_source || null,
+      profileTimezone,
+      clientTimezone: body.client_timezone || null,
+      now: new Date(),
+    });
+    if (!calendar.ok || !calendar.date) {
+      return reply({ error: calendar.error || "invalid_calendar" }, 400);
+    }
+
+    const requestDate = calendar.date;
     const intents = detectCoachIntents(message);
     const contextDate = intents.yesterday && !intents.period
       ? shiftIsoDate(requestDate, -1)
@@ -189,6 +213,8 @@ Deno.serve(async (req: Request) => {
       ...(context.request || {}),
       date: contextDate,
       reference_date: requestDate,
+      calendar_timezone: calendar.timezone,
+      date_source: calendar.source,
     };
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
@@ -249,6 +275,9 @@ Deno.serve(async (req: Request) => {
         llm_used: false,
         context_version: contextVersion,
         usage: null,
+        request_date: requestDate,
+        calendar_timezone: calendar.timezone,
+        date_source: calendar.source,
       });
     }
 
