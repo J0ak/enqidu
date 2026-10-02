@@ -19,6 +19,7 @@ Never make production code depend on a field that exists only in a synthetic tes
 
 - A persisted plan is authoritative over an automatically calculated recommendation.
 - A calculated recommendation is not a saved plan unless the user explicitly accepts/persists it.
+- Relative calendar concepts (today, yesterday, current week) must use the athlete profile timezone, never the browser/device timezone when a profile timezone exists.
 - Saving a recommendation must be an explicit user action. The server must recalculate/validate the recommendation and re-check that no plan already exists before writing.
 - Do not grant general INSERT/UPDATE/DELETE on planning tables to the frontend merely to support Coach actions; use a narrow audited server-side action boundary.
 - A past planned session without explicit completion evidence must not be called missed, skipped or failed; report it as unlinked/unknown instead.

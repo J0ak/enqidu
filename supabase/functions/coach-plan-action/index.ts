@@ -5,6 +5,7 @@ import {
   normalizeCoachPlanLocation,
   toPlannedRecommendationPayload,
 } from "../../../src/coachContext/coachPlanAction.js";
+import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,17 @@ const headers = {
 
 const reply = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers });
+
+async function loadUserTimezone(db: any, userId: string) {
+  const result = await db
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .limit(1);
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data[0]?.timezone || null : null;
+}
 
 async function loadPlannedTraining(db: any, userId: string, date: string) {
   const result = await db
@@ -74,9 +86,28 @@ Deno.serve(async (req: Request) => {
       return reply({ ok: false, error: "unsupported_action" }, 400);
     }
 
-    const date = String(body.date || "");
+    const profileTimezone = await loadUserTimezone(userDb, userId);
+    const calendar = resolveUserCalendar({
+      profileTimezone,
+      clientTimezone: body.client_timezone || null,
+      now: new Date(),
+    });
+    if (!calendar.ok || !calendar.date) {
+      return reply({ ok: false, error: calendar.error || "invalid_calendar" }, 400);
+    }
+
+    const date = String(body.date || calendar.date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return reply({ ok: false, error: "invalid_date" }, 400);
+    }
+    if (date !== calendar.date) {
+      return reply({
+        ok: false,
+        error: "stale_recommendation_date",
+        message: "Esta recomendación ya no corresponde a hoy. Vuelve a preguntar qué entrenar hoy.",
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
     }
 
     const requestedLocationKey = body.location == null
@@ -183,6 +214,8 @@ Deno.serve(async (req: Request) => {
       response_mode: "deterministic_action",
       llm_used: false,
       usage: null,
+      request_date: calendar.date,
+      calendar_timezone: calendar.timezone,
     });
   } catch (error) {
     console.error("coach_plan_action_failed", error);

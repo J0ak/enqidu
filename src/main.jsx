@@ -4167,6 +4167,29 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         return;
       }
 
+      if (result.error === "stale_recommendation_date") {
+        setMessages((current) => current.map((message) => {
+          if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
+          return {
+            ...message,
+            cards: message.cards.map((card) => {
+              const matchesDate = card?.actions?.some((item) =>
+                item?.type === "save_recommendation_to_plan" && item?.date === resolved.date
+              );
+              return card?.id === "recommended_training_today" && matchesDate
+                ? {
+                    ...card,
+                    subtitle: "Recomendación caducada",
+                    actions: [],
+                  }
+                : card;
+            }),
+          };
+        }));
+        setMicNotice(result.message || "La recomendación ya no corresponde a hoy. Vuelve a preguntar qué entrenar hoy.");
+        return;
+      }
+
       if (result.error === "plan_already_exists") {
         setMessages((current) => current.map((message) => {
           if (message?.role !== "assistant" || !Array.isArray(message.cards)) return message;
