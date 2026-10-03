@@ -112,7 +112,7 @@ test("double click remains single-flight", async ({ page, request }) => {
 
 test("concurrent persisted plan resolves as plan_already_exists", async ({ page, request }) => {
   const user = await provision(request, "race"); await login(page, user); await ask(page, "¿Qué entreno hoy?"); await createPlan(request, user.id, "Plan de carrera concurrente");
-  await page.getByRole("button", { name: "Guardar en plan" }).click(); await expect(page.getByText("Ya existe un plan para hoy")).toBeVisible(); expect(await planRows(request, user.id)).toHaveLength(1);
+  await page.getByRole("button", { name: "Guardar en plan" }).click(); await expect(page.getByText("Ya existe un plan para hoy", { exact: true })).toBeVisible(); expect(await planRows(request, user.id)).toHaveLength(1);
 });
 
 test("a stale stored recommendation is rejected and becomes non-actionable", async ({ page, request }) => {
@@ -137,5 +137,5 @@ test("trend reports volume without claiming performance improvement", async ({ p
 
 test("Coach cards and primary navigation render without browser exceptions", async ({ page, request }) => {
   const user=await provision(request,"smoke"); await login(page,user); await ask(page,"¿Qué entreno hoy?"); await expect(page.locator("article.coachInlineCard")).toBeVisible();
-  await page.getByRole("button",{name:"Actividades"}).click(); await expect(page.getByRole("heading",{name:"ENQIDU"})).toBeVisible(); await page.getByRole("button",{name:"Perfil"}).click(); await expect(page.getByText(user.email)).toBeVisible();
+  await page.getByRole("button",{name:"Actividades"}).click(); await expect(page.getByRole("heading",{name:"ENQIDU"})).toBeVisible(); await page.getByRole("button",{name:"Perfil"}).click(); await expect(page.getByPlaceholder("email")).toHaveValue(user.email);
 });
