@@ -4,6 +4,7 @@ const normalize = (value = "") => String(value)
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "")
   .toLowerCase()
+  .replace(/['’]/g, "")
   .replace(/[¡!¿?.,;:]+/g, " ")
   .replace(/\s+/g, " ")
   .trim();
@@ -41,6 +42,23 @@ function detectMoveWeekday(text) {
   return null;
 }
 
+const UNAVAILABILITY_PATTERNS = Object.freeze([
+  { date_reference: "tomorrow", pattern: /^manana no puedo(?: entrenar)?$/ },
+  { date_reference: "tomorrow", pattern: /^no puedo(?: entrenar)? manana$/ },
+  { date_reference: "tomorrow", pattern: /^manana me es imposible(?: entrenar)?$/ },
+  { date_reference: "today", pattern: /^hoy no puedo(?: entrenar)?$/ },
+  { date_reference: "today", pattern: /^no puedo(?: entrenar)? hoy$/ },
+  { date_reference: "tomorrow", pattern: /^tomorrow i cant train$/ },
+  { date_reference: "tomorrow", pattern: /^i cant train tomorrow$/ },
+  { date_reference: "tomorrow", pattern: /^i am unavailable tomorrow$/ },
+  { date_reference: "today", pattern: /^i cant train today$/ },
+  { date_reference: "today", pattern: /^today i cant train$/ },
+]);
+
+function detectUnavailability(text) {
+  return UNAVAILABILITY_PATTERNS.find((item) => item.pattern.test(text))?.date_reference || null;
+}
+
 const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
   /^(?:si )?apuntamelo$/,
   /^(?:si )?guardalo(?: en (?:mi )?plan)?$/,
@@ -62,6 +80,19 @@ export function detectEnqiduFastPathCommand(message = "") {
     return {
       tool: definition.name,
       arguments: { target_weekday: targetWeekday },
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
+
+  const unavailableDateReference = detectUnavailability(text);
+  if (unavailableDateReference) {
+    const definition = getEnqiduTool("set_training_unavailability");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      arguments: { date_reference: unavailableDateReference },
       explicit_user_command: true,
       confidence: 1,
       source: "deterministic_fast_path",
