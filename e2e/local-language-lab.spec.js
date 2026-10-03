@@ -11,7 +11,7 @@ test("Local Language lab exposes canonical benchmark inputs without touching clo
     if (message.type() === "error") browserErrors.push(`console.error: ${message.text()}`);
   });
 
-  await page.goto("/labs/local-language-v0/");
+  await page.goto("/labs/local-language-v0/index.html");
 
   await expect(page.getByRole("heading", { name: "ENQIDU Local Language Layer V0" })).toBeVisible();
   await expect(page.locator("#dataset")).toHaveText("222 casos · core 136 · challenge 86 · ES + EN");
