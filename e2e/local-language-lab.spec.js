@@ -2,11 +2,14 @@ import { test, expect } from "@playwright/test";
 
 test("Local Language lab exposes canonical benchmark inputs without touching cloud LLM APIs", async ({ page }) => {
   let openAiCalls = 0;
-  const pageErrors = [];
+  const browserErrors = [];
   page.on("request", (request) => {
     if (/api\.openai\.com/i.test(request.url())) openAiCalls += 1;
   });
-  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("pageerror", (error) => browserErrors.push(`pageerror: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(`console.error: ${message.text()}`);
+  });
 
   await page.goto("/labs/local-language-v0/");
 
@@ -18,5 +21,5 @@ test("Local Language lab exposes canonical benchmark inputs without touching clo
   await expect(page.locator("#webgpu")).not.toHaveText("comprobando…");
 
   expect(openAiCalls).toBe(0);
-  expect(pageErrors).toEqual([]);
+  expect(browserErrors).toEqual([]);
 });
