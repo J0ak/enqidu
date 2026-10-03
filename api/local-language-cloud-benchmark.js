@@ -61,6 +61,14 @@ async function runCase(item, credential) {
         ],
         temperature: 0,
         max_tokens: 180,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "enqidu_local_language_v0",
+            strict: true,
+            schema: JSON.parse(SYSTEM_PROMPT.match(/Required JSON Schema: (.+)$/m)?.[1] || "{}"),
+          },
+        },
       }),
       signal: AbortSignal.timeout(20_000),
     });
