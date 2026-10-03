@@ -32,6 +32,19 @@ const percentile = (values, ratio) => {
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+const FATAL_RUNTIME_PATTERNS = [
+  /object has already been disposed/i,
+  /external instance reference no longer exists/i,
+  /gpu(?:buffer|device).*lost/i,
+  /device.*lost/i,
+  /mapasync.*gpubuffer/i,
+];
+
+export function isFatalLocalLanguageRuntimeError(error) {
+  const message = String(error?.message || error || "");
+  return FATAL_RUNTIME_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 export function validateStructuredParse(value) {
   if (!exactKeys(value, TOP_LEVEL_KEYS)) return false;
   if (value.version !== VERSION || !INTENT_SET.has(value.intent) || !LANGUAGE_SET.has(value.language)) return false;
@@ -130,7 +143,7 @@ export function summarizeBenchmarkResults({
     ? round(actionIntentMatches / actionRecords.length)
     : null;
 
-  const latencies = records.map((record) => Number(record.latencyMs)).filter(Number.isFinite);
+  const latencies = records.map((record) => record.latencyMs).filter(Number.isFinite);
   const p50 = round(percentile(latencies, 0.5), 0);
   const p95 = round(percentile(latencies, 0.95), 0);
   const mean = latencies.length
