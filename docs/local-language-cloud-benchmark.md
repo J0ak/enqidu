@@ -4,9 +4,11 @@ This benchmark is isolated from production Coach behavior. It tests whether a ho
 
 ## First candidate
 
-`amazon/nova-micro`
+`openai/gpt-4.1-nano`
 
-Nova Micro is deliberately pinned as the first stable low-cost candidate. The previous `inclusionai/ling-3.0-tiny-free` idea was dropped after verifying that its Vercel free promotion had already expired. The harness records token usage and estimates cost from the pinned catalog rates ($0.04/M input, $0.14/M output).
+The first production-relevant hypothesis is OpenAI behind Vercel AI Gateway, so the benchmark starts with OpenAI's low-cost nano model rather than a different provider. The previous free-model idea was dropped after verifying that its Vercel promotion had expired.
+
+The request uses strict JSON Schema structured output. The harness records token usage and estimates cost from the pinned Gateway catalog rates ($0.10/M input, $0.40/M output).
 
 The preview-only benchmark endpoint has a hard expiry and never falls through to another model.
 
