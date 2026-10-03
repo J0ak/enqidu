@@ -160,3 +160,18 @@ A completed task should report:
 - PR/commit reference.
 
 Only escalate to the product owner when a real product/behavior decision is required. Technical implementation choices should normally be resolved autonomously.
+
+
+## Target conversational architecture
+
+The authorized product direction is hybrid and channel-independent:
+
+- OpenAI/ChatGPT may understand language, select an allowed ENQIDU tool and explain results.
+- ENQIDU remains authoritative for canonical state, calculations, policies, validation, writes and persistence.
+- The first-party app and future ENQIDU MCP must share the same domain/action contracts; do not duplicate business logic per channel.
+- The app is conversation-first, not chat-only: preserve rich cards, charts, calendar and session-detail surfaces where they are a better interface than prose.
+- Simple high-confidence commands may use deterministic fast paths.
+- LLM output never grants write authority; every write remains explicit, narrow and server-validated.
+- OpenAI direct is the initial single-provider pilot. Keep provider transport behind an adapter so a gateway can be introduced later without changing domain logic.
+
+This target direction does not by itself enable OpenAI in production. Existing Phase-1 deterministic paths remain authoritative until a focused change is evaluated and shipped.
