@@ -37,11 +37,19 @@ begin
     hashtextextended(p_user_id::text || '|' || p_target_date::text, 0)
   );
 
-  select count(*), min(id)
-    into v_source_count, v_source_id
+  select count(*)
+    into v_source_count
   from public.planned_training_sessions
   where user_id = p_user_id
     and planned_date = p_source_date;
+
+  select id
+    into v_source_id
+  from public.planned_training_sessions
+  where user_id = p_user_id
+    and planned_date = p_source_date
+  order by created_at asc
+  limit 1;
 
   if v_source_count = 0 then
     return jsonb_build_object('ok', false, 'error', 'source_plan_not_found');
