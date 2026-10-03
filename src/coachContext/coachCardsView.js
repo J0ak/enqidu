@@ -78,3 +78,24 @@ export function resolveCoachCardAction(action, sessions = []) {
   const session = sessions.find((item) => String(item?.id || "") === action.session_id.trim());
   return session ? { type: "open_training_session", session } : null;
 }
+
+
+export function findLatestRecommendationSaveAction(messages = []) {
+  if (!Array.isArray(messages)) return null;
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== "assistant" || !Array.isArray(message.cards)) continue;
+
+    for (let cardIndex = message.cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
+      const actions = Array.isArray(message.cards[cardIndex]?.actions)
+        ? message.cards[cardIndex].actions
+        : [];
+      const action = actions.find((item) => item?.type === "save_recommendation_to_plan");
+      const resolved = resolveCoachCardAction(action);
+      if (resolved?.type === "save_recommendation_to_plan") return resolved;
+    }
+  }
+
+  return null;
+}
