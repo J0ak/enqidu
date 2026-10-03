@@ -11,3 +11,4 @@ supabase/.temp/
 .cache/
 .cert/
 .DS_Store
+public/labs/local-language-v0/dataset.json

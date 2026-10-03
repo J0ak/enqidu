@@ -17,7 +17,10 @@
     "coach:supabase:dev-preflight": "node scripts/coach-context/preflight-dev-apply.mjs",
     "coach:supabase:dev-verify-sql": "node scripts/coach-context/generate-dev-apply-verification-sql.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4174",
-    "test:coach-evals": "node --test tests/coach-contract-evals.test.mjs"
+    "test:coach-evals": "node --test tests/coach-contract-evals.test.mjs",
+    "prepare:local-language-lab": "node scripts/local-language/export-eval-dataset.mjs",
+    "predev": "npm run prepare:local-language-lab",
+    "prebuild": "npm run prepare:local-language-lab"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

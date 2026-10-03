@@ -7,8 +7,9 @@ import {
   normalizeLocalLanguageParse,
 } from "../src/localLanguage/contract.js";
 import { buildDeterministicLanguageParse } from "../src/localLanguage/deterministicFallback.js";
-import { buildLocalLanguageEvalDataset } from "../src/localLanguage/evalDataset.js";
+import { buildLocalLanguageChallengeDataset, buildLocalLanguageCoreEvalDataset, buildLocalLanguageEvalDataset } from "../src/localLanguage/evalDataset.js";
 import { routeLocalLanguage } from "../src/localLanguage/router.js";
+import { serializeLocalLanguageBrowserDataset } from "../scripts/local-language/export-eval-dataset.mjs";
 
 const validParse = (overrides = {}) => ({
   version: LOCAL_LANGUAGE_VERSION,
@@ -125,4 +126,34 @@ test("LOCAL LANGUAGE V0: local parser timeout fails closed", async () => {
   });
   assert.equal(result.source, "deterministic_fallback");
   assert.equal(result.fallback_reason, "local_language_timeout");
+});
+
+
+test("LOCAL LANGUAGE V0: deterministic fallback closes the two baseline equipment-query gaps", () => {
+  assert.equal(buildDeterministicLanguageParse("¿Con qué puedo entrenar?").intent, "equipment_query");
+  assert.equal(buildDeterministicLanguageParse("What can I train with?").intent, "equipment_query");
+});
+
+test("LOCAL LANGUAGE V0: challenge slice is distinct, bilingual and materially expands the eval", () => {
+  const core = buildLocalLanguageCoreEvalDataset();
+  const challenge = buildLocalLanguageChallengeDataset();
+  assert.ok(challenge.length >= 80, `expected >=80 challenge cases, got ${challenge.length}`);
+  assert.deepEqual(new Set(challenge.map((item) => item.kind)), new Set(["challenge"]));
+  assert.deepEqual(new Set(challenge.map((item) => item.language)), new Set(["es", "en"]));
+  assert.equal(buildLocalLanguageEvalDataset().length, core.length + challenge.length);
+});
+
+test("LOCAL LANGUAGE V0: browser benchmark dataset serializes from the canonical eval source", () => {
+  const expected = buildLocalLanguageEvalDataset();
+  const browserDataset = JSON.parse(serializeLocalLanguageBrowserDataset());
+  assert.deepEqual(browserDataset, expected);
+});
+
+
+test("LOCAL LANGUAGE V0: deterministic fallback remains perfect on the core semantic slice", () => {
+  for (const item of buildLocalLanguageCoreEvalDataset()) {
+    const parsed = buildDeterministicLanguageParse(item.text);
+    assert.equal(parsed.intent, item.expected.intent, `intent mismatch for: ${item.text}`);
+    assert.deepEqual(parsed.slots, item.expected.slots, `slot mismatch for: ${item.text}`);
+  }
 });
