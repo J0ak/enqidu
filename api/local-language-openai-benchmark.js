@@ -1,4 +1,5 @@
 import { localLanguageJsonSchema } from "../src/localLanguage/contract.js";
+import { requestOpenAiResponses } from "../src/llm/openAiResponsesProvider.js";
 import { buildLocalLanguageEvalDataset } from "../src/localLanguage/evalDataset.js";
 import {
   OPENAI_LANGUAGE_BENCHMARK_EXPIRES_AT,
@@ -11,7 +12,6 @@ import {
 
 export const maxDuration = 300;
 
-const OPENAI_URL = "https://api.openai.com/v1/responses";
 const SYSTEM_INSTRUCTIONS = buildOpenAiLanguageInstructions();
 
 function send(res, status, body) {
@@ -19,17 +19,6 @@ function send(res, status, body) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.json(body);
-}
-
-function responseText(payload) {
-  if (typeof payload?.output_text === "string") return payload.output_text;
-  const items = Array.isArray(payload?.output) ? payload.output : [];
-  return items
-    .flatMap((item) => Array.isArray(item?.content) ? item.content : [])
-    .map((part) => part?.text || "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
 }
 
 async function parseBody(req) {
@@ -58,58 +47,45 @@ async function runCase(item, apiKey) {
     error: null,
   };
 
-  const started = performance.now();
-  try {
-    const response = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+  const result = await requestOpenAiResponses({
+    apiKey,
+    model: OPENAI_LANGUAGE_BENCHMARK_MODEL,
+    reasoning: { effort: "none" },
+    instructions: SYSTEM_INSTRUCTIONS,
+    input: item.text,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "enqidu_local_language_v0",
+        strict: true,
+        schema: localLanguageJsonSchema,
       },
-      body: JSON.stringify({
-        model: OPENAI_LANGUAGE_BENCHMARK_MODEL,
-        reasoning: { effort: "none" },
-        instructions: SYSTEM_INSTRUCTIONS,
-        input: item.text,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "enqidu_local_language_v0",
-            strict: true,
-            schema: localLanguageJsonSchema,
-          },
-        },
-        max_output_tokens: 220,
-        store: false,
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
+    },
+    maxOutputTokens: 220,
+    store: false,
+    timeoutMs: 20_000,
+  });
 
-    record.latencyMs = performance.now() - started;
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      record.error = `openai_${response.status}: ${payload?.error?.message || "request_failed"}`;
-      return record;
-    }
-
-    record.raw = responseText(payload);
-    record.inputTokens = Number(payload?.usage?.input_tokens || 0);
-    record.outputTokens = Number(payload?.usage?.output_tokens || 0);
-    record.reasoningTokens = Number(payload?.usage?.output_tokens_details?.reasoning_tokens || 0);
-
-    const parsed = parseOpenAiLanguageOutput(record.raw);
-    record.jsonValid = parsed.jsonValid;
-    record.structuredValid = parsed.structuredValid;
-    record.actual = parsed.value;
-    if (parsed.error) record.error = parsed.error;
-    return record;
-  } catch (error) {
-    record.latencyMs = performance.now() - started;
-    record.error = String(error?.message || error);
+  record.latencyMs = result.latency_ms ?? null;
+  if (!result.ok) {
+    const status = result.status == null ? "transport" : result.status;
+    record.error = `openai_${status}: ${result.error || "request_failed"}`;
     return record;
   }
-}
 
+  const usage = result.raw_usage || {};
+  record.raw = result.text || "";
+  record.inputTokens = Number(usage.input_tokens || 0);
+  record.outputTokens = Number(usage.output_tokens || 0);
+  record.reasoningTokens = Number(usage.output_tokens_details?.reasoning_tokens || 0);
+
+  const parsed = parseOpenAiLanguageOutput(record.raw);
+  record.jsonValid = parsed.jsonValid;
+  record.structuredValid = parsed.structuredValid;
+  record.actual = parsed.value;
+  if (parsed.error) record.error = parsed.error;
+  return record;
+}
 async function mapConcurrent(items, concurrency, worker) {
   const output = new Array(items.length);
   let next = 0;
