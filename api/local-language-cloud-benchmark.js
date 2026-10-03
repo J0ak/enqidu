@@ -113,7 +113,9 @@ export default async function handler(req, res) {
     return send(res, 410, { error: "benchmark_expired", expires_at: CLOUD_BENCHMARK_EXPIRES_AT });
   }
 
-  const credential = process.env.VERCEL_OIDC_TOKEN;
+  const headerToken = req.headers?.["x-vercel-oidc-token"];
+  const credential = (Array.isArray(headerToken) ? headerToken[0] : headerToken)
+    || process.env.VERCEL_OIDC_TOKEN;
   if (!credential) return send(res, 503, { error: "vercel_oidc_unavailable" });
 
   const body = isGetSmoke ? {} : await parseBody(req);
