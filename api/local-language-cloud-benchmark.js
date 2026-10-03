@@ -106,7 +106,8 @@ async function mapConcurrent(items, concurrency, worker) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return send(res, 405, { error: "method_not_allowed" });
+  const isGetSmoke = req.method === "GET";
+  if (!isGetSmoke && req.method !== "POST") return send(res, 405, { error: "method_not_allowed" });
   if (process.env.VERCEL_ENV !== "preview") return send(res, 404, { error: "preview_only" });
   if (Date.now() >= Date.parse(CLOUD_BENCHMARK_EXPIRES_AT)) {
     return send(res, 410, { error: "benchmark_expired", expires_at: CLOUD_BENCHMARK_EXPIRES_AT });
@@ -115,8 +116,8 @@ export default async function handler(req, res) {
   const credential = process.env.VERCEL_OIDC_TOKEN;
   if (!credential) return send(res, 503, { error: "vercel_oidc_unavailable" });
 
-  const body = await parseBody(req);
-  const mode = body.mode === "full" ? "full" : "smoke";
+  const body = isGetSmoke ? {} : await parseBody(req);
+  const mode = !isGetSmoke && body.mode === "full" ? "full" : "smoke";
   const dataset = buildLocalLanguageEvalDataset();
   const sample = selectCloudBenchmarkCases(dataset, mode);
   const records = await mapConcurrent(sample, mode === "full" ? 4 : 2, (item) => runCase(item, credential));
