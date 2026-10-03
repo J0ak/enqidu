@@ -7,7 +7,8 @@ import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -4164,7 +4165,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMicNotice(refreshed === false
           ? "Entrenamiento guardado. Actualiza Actividades si no aparece todavía."
           : "Entrenamiento guardado en tu plan.");
-        return;
+        return result;
       }
 
       if (result.error === "stale_recommendation_date") {
@@ -4187,7 +4188,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
           };
         }));
         setMicNotice(result.message || "La recomendación ya no corresponde a hoy. Vuelve a preguntar qué entrenar hoy.");
-        return;
+        return result;
       }
 
       if (result.error === "plan_already_exists") {
@@ -4210,12 +4211,14 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
           };
         }));
         setMicNotice(result.message || "Ya existe un plan para hoy; no se ha creado otro.");
-        return;
+        return result;
       }
 
       setMicNotice(result.message || "No se ha podido guardar la recomendación.");
+      return result;
     } catch {
       setMicNotice("No se ha podido guardar la recomendación.");
+      return { ok: false, error: "coach_plan_action_failed" };
     } finally {
       setCardActionBusy(false);
     }
