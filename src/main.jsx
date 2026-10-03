@@ -4096,6 +4096,33 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
 
     try {
       setSending(true);
+
+      const fastPath = detectEnqiduFastPathCommand(text);
+      if (fastPath?.tool === "save_recommendation_today") {
+        const pendingSave = findLatestRecommendationSaveAction(messages);
+        if (!pendingSave) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una recomendación pendiente para guardar. Pregúntame primero qué entrenar hoy.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await handleCardAction(pendingSave);
+        const content = result?.ok && result?.saved
+          ? "He guardado la recomendación en tu plan."
+          : result?.message || (
+            result?.error === "stale_recommendation_date"
+              ? "La recomendación ya no corresponde a hoy. Vuelve a preguntarme qué entrenar hoy."
+              : result?.error === "plan_already_exists"
+                ? "Ya existe un plan para hoy; no he creado otro."
+                : "No he podido guardar la recomendación."
+          );
+        setMessages((current) => replaceLastAssistantMessage(current, content, []));
+        return;
+      }
+
       const result = await requestCoachReply({
         message: text,
         mode: "today_coach",
