@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ENQIDU Local Language Layer V0</title>
+  <style>
+    :root { font-family: Inter, system-ui, sans-serif; color-scheme: light dark; }
+    body { max-width: 980px; margin: 0 auto; padding: 24px; line-height: 1.45; }
+    h1 { margin-bottom: 4px; }
+    .muted { opacity: .72; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 18px 0; }
+    .card { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 12px; padding: 14px; }
+    label { display: block; font-weight: 650; margin-bottom: 6px; }
+    select, button { font: inherit; width: 100%; padding: 10px; border-radius: 9px; }
+    button { cursor: pointer; font-weight: 700; }
+    progress { width: 100%; }
+    pre { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 10px; background: color-mix(in srgb, currentColor 8%, transparent); }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); vertical-align: top; }
+    .good { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>ENQIDU Local Language Layer V0</h1>
+  <p class="muted">Laboratorio aislado: interpreta lenguaje → intent + slots. No decide entrenamientos, no escribe datos y no llama a ninguna API LLM cloud.</p>
+
+  <div class="grid">
+    <div class="card"><strong>WebGPU</strong><div id="webgpu">comprobando…</div></div>
+    <div class="card"><strong>Dispositivo</strong><div id="device">—</div></div>
+    <div class="card"><strong>Dataset</strong><div id="dataset">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <label for="model">Modelo</label>
+      <select id="model"></select>
+    </div>
+    <div>
+      <label for="caseCount">Casos</label>
+      <select id="caseCount">
+        <option value="24">24 · smoke</option>
+        <option value="60" selected>60 · balanced</option>
+        <option value="all">todos</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="run">Cargar modelo y ejecutar benchmark</button>
+  <p id="status" class="muted">Sin ejecutar.</p>
+  <progress id="progress" max="1" value="0"></progress>
+
+  <h2>Resultado</h2>
+  <pre id="summary">—</pre>
+
+  <h2>Errores de clasificación / slots</h2>
+  <table>
+    <thead><tr><th>Texto</th><th>Esperado</th><th>Obtenido</th><th>Motivo</th></tr></thead>
+    <tbody id="failures"><tr><td colspan="4" class="muted">—</td></tr></tbody>
+  </table>
+
+  <script type="module" src="./lab.js"></script>
+</body>
+</html>
