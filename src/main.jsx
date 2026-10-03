@@ -5,9 +5,9 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
+import { moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
@@ -4098,6 +4098,49 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
       setSending(true);
 
       const fastPath = detectEnqiduFastPathCommand(text);
+      if (fastPath?.tool === "move_planned_session") {
+        const plannedContext = findLatestPlannedTrainingContext(messages);
+        if (!plannedContext) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await moveCoachPlannedSession({
+          sourceDate: plannedContext.date,
+          targetWeekday: fastPath.arguments?.target_weekday,
+        });
+        if (result.ok && result.moved && result.targetDate) {
+          const targetLabel = formatCoachCardDate(result.targetDate) || result.targetDate;
+          const content = result.title
+            ? `He movido ${result.title} al ${targetLabel}.`
+            : `He movido el entrenamiento al ${targetLabel}.`;
+          setMessages((current) => replaceLastAssistantMessage(
+            markLatestPlannedTrainingMoved(current, {
+              sourceDate: result.sourceDate || plannedContext.date,
+              targetDate: result.targetDate,
+            }),
+            content,
+            [],
+          ));
+          const refreshed = await onPlanSaved?.();
+          setMicNotice(refreshed === false
+            ? "Plan reprogramado. Actualiza Actividades si no aparece todavía."
+            : "Plan reprogramado.");
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido mover ese entrenamiento.",
+          [],
+        ));
+        return;
+      }
+
       if (fastPath?.tool === "save_recommendation_today") {
         const pendingSave = findLatestRecommendationSaveAction(messages);
         if (!pendingSave) {
