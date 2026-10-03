@@ -99,3 +99,68 @@ export function findLatestRecommendationSaveAction(messages = []) {
 
   return null;
 }
+
+
+const coachCardCalendarDate = (card) => {
+  const candidates = [card?.date, card?.subtitle];
+  return candidates.find((value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()))?.trim() || null;
+};
+
+export function findLatestPlannedTrainingContext(messages = []) {
+  if (!Array.isArray(messages)) return null;
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== "assistant" || !Array.isArray(message.cards)) continue;
+
+    for (let cardIndex = message.cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
+      const card = message.cards[cardIndex];
+      if (card?.id !== "planned_training_today") continue;
+      const date = coachCardCalendarDate(card);
+      if (!date) continue;
+      return {
+        date,
+        title: typeof card.title === "string" && card.title.trim() ? card.title.trim() : null,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function markLatestPlannedTrainingMoved(messages = [], { sourceDate, targetDate } = {}) {
+  if (!Array.isArray(messages) || !/^\d{4}-\d{2}-\d{2}$/.test(String(sourceDate || ""))
+    || !/^\d{4}-\d{2}-\d{2}$/.test(String(targetDate || ""))) {
+    return messages;
+  }
+
+  let targetMessageIndex = -1;
+  let targetCardIndex = -1;
+  for (let messageIndex = messages.length - 1; messageIndex >= 0 && targetMessageIndex < 0; messageIndex -= 1) {
+    const cards = Array.isArray(messages[messageIndex]?.cards) ? messages[messageIndex].cards : [];
+    for (let cardIndex = cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
+      const card = cards[cardIndex];
+      if (card?.id === "planned_training_today" && coachCardCalendarDate(card) === sourceDate) {
+        targetMessageIndex = messageIndex;
+        targetCardIndex = cardIndex;
+        break;
+      }
+    }
+  }
+  if (targetMessageIndex < 0) return messages;
+
+  return messages.map((message, messageIndex) => {
+    if (messageIndex !== targetMessageIndex) return message;
+    return {
+      ...message,
+      cards: message.cards.map((card, cardIndex) => cardIndex === targetCardIndex
+        ? {
+            ...card,
+            date: targetDate,
+            subtitle: targetDate,
+            badge: "Reprogramada",
+          }
+        : card),
+    };
+  });
+}

@@ -19,6 +19,23 @@ const madridDate = (offset = 0) => {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 };
 
+const weekdayIndex = Object.freeze({
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+});
+
+const nextWeekdayDate = (sourceDate, weekday) => {
+  const date = new Date(`${sourceDate}T12:00:00Z`);
+  const delta = ((weekdayIndex[weekday] - date.getUTCDay() + 7) % 7) || 7;
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().slice(0, 10);
+};
+
 async function provision(request, label) {
   expect(serviceKey, "SUPABASE_SERVICE_ROLE_KEY is required only in the Node test process").toBeTruthy();
   const email = `playwright-${label}-${Date.now()}@enqidu.local`;
@@ -65,6 +82,16 @@ async function planRows(request, userId) {
   expect(response.ok(), await response.text()).toBeTruthy();
   return response.json();
 }
+
+async function planRowsOnDate(request, userId, date) {
+  const response = await request.get(
+    `${supabaseUrl}/rest/v1/planned_training_sessions?user_id=eq.${userId}&planned_date=eq.${date}&select=id,title,status,planned_date`,
+    { headers: headers() },
+  );
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return response.json();
+}
+
 
 test("uses the profile timezone and deterministic LLM-free reply", async ({ page, request }) => {
   const user = await provision(request, "timezone");
@@ -121,6 +148,52 @@ test("a stale stored recommendation is rejected and becomes non-actionable", asy
   await page.addInitScript(({ oldDate }) => localStorage.setItem("enqidu.messages", JSON.stringify([{ role:"assistant", content:"Recomendación anterior", cards:[{ id:"recommended_training_today", title:"Sesión anterior", subtitle:"Recomendación calculada · no guardada", actions:[{ type:"save_recommendation_to_plan", label:"Guardar en plan", date:oldDate, location:"home" }] }] }])) , { oldDate });
   await login(page, user); await page.getByRole("button", { name: "Guardar en plan" }).click();
   await expect(page.getByText("Recomendación caducada")).toBeVisible(); await expect(page.getByRole("button", { name: "Guardar en plan" })).toHaveCount(0); expect(await planRows(request,user.id)).toHaveLength(0);
+});
+
+test("explicit conversational move reprograms the persisted plan without Coach LLM", async ({ page, request }) => {
+  const user = await provision(request, "move");
+  await createPlan(request, user.id, "Fuerza para mover");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const moveResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Muévelo al viernes");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const moveResponse = await moveResponsePromise;
+  expect(moveResponse.status()).toBe(200);
+  const body = await moveResponse.json();
+  const targetDate = nextWeekdayDate(madridDate(), "friday");
+  expect(body).toMatchObject({
+    ok: true,
+    action: "move_planned_session",
+    moved: true,
+    source_date: madridDate(),
+    target_date: targetDate,
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+  });
+  expect(coachReplyCalls).toBe(0);
+
+  expect(await planRowsOnDate(request, user.id, madridDate())).toHaveLength(0);
+  const movedRows = await planRowsOnDate(request, user.id, targetDate);
+  expect(movedRows).toHaveLength(1);
+  expect(movedRows[0]).toMatchObject({
+    title: "Fuerza para mover",
+    status: "rescheduled",
+    planned_date: targetDate,
+  });
+  await expect(page.getByText(/He movido Fuerza para mover al/)).toBeVisible();
 });
 
 test("week without plan does not fabricate sessions", async ({ page, request }) => {

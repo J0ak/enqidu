@@ -116,7 +116,8 @@ test("frontend service sends only action metadata to the write endpoint", async 
   const source = await readFile(new URL("../src/services/aiCoachContextService.js", import.meta.url), "utf8");
   const start = source.indexOf("export async function saveCoachRecommendationToPlan");
   assert.ok(start >= 0);
-  const block = source.slice(start);
+  const nextExport = source.indexOf("export async function ", start + 1);
+  const block = source.slice(start, nextExport >= 0 ? nextExport : undefined);
   assert.match(block, /functions\.invoke\("coach-plan-action"/);
   assert.match(block, /action: "save_recommendation_today"/);
   assert.match(block, /date: date \|\| null/);

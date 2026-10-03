@@ -5,6 +5,10 @@ import {
   normalizeCoachPlanLocation,
   toPlannedRecommendationPayload,
 } from "../../../src/coachContext/coachPlanAction.js";
+import {
+  isPlanDateOnOrAfter,
+  resolveNextWeekdayDate,
+} from "../../../src/coachTools/planActions.js";
 import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
@@ -16,6 +20,11 @@ const headers = {
 
 const reply = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers });
+
+const supportedActions = new Set([
+  "save_recommendation_today",
+  "move_planned_session",
+]);
 
 async function loadUserTimezone(db: any, userId: string) {
   const result = await db
@@ -56,6 +65,19 @@ async function loadRecommendationConstraints(db: any, userId: string) {
   return Array.isArray(result.data) ? result.data : [];
 }
 
+function moveErrorMessage(error: string | null) {
+  if (error === "source_plan_not_found") {
+    return "No encuentro ese entrenamiento planificado; vuelve a consultar tu plan antes de moverlo.";
+  }
+  if (error === "source_plan_ambiguous") {
+    return "Hay más de una sesión en ese día. Necesito que abras o identifiques una sesión concreta antes de moverla.";
+  }
+  if (error === "target_plan_already_exists") {
+    return "Ya hay un entrenamiento planificado en el día de destino. No he movido nada.";
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ ok: false, error: "method_not_allowed" }, 405);
@@ -82,7 +104,8 @@ Deno.serve(async (req: Request) => {
     if (!userId) return reply({ ok: false, error: "invalid_user" }, 401);
 
     const body = await req.json().catch(() => ({}));
-    if (body.action !== "save_recommendation_today") {
+    const action = String(body.action || "");
+    if (!supportedActions.has(action)) {
       return reply({ ok: false, error: "unsupported_action" }, 400);
     }
 
@@ -94,6 +117,66 @@ Deno.serve(async (req: Request) => {
     });
     if (!calendar.ok || !calendar.date) {
       return reply({ ok: false, error: calendar.error || "invalid_calendar" }, 400);
+    }
+
+    // Keep the admin client isolated from userDb. The browser never receives
+    // service-role credentials; this client only calls narrow service-only RPCs.
+    const adminDb = createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+
+    if (action === "move_planned_session") {
+      const sourceDate = String(body.source_date || "");
+      const targetWeekday = String(body.target_weekday || "");
+      if (!isPlanDateOnOrAfter(sourceDate, calendar.date)) {
+        return reply({
+          ok: false,
+          error: "stale_plan_source_date",
+          message: "Ese plan ya no corresponde a hoy o a una fecha futura. Vuelve a consultar el plan antes de moverlo.",
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        }, 400);
+      }
+
+      const targetDate = resolveNextWeekdayDate(sourceDate, targetWeekday);
+      if (!targetDate) {
+        return reply({ ok: false, error: "invalid_target_weekday" }, 400);
+      }
+
+      const moveResult = await adminDb.rpc("move_coach_planned_session", {
+        p_user_id: userId,
+        p_source_date: sourceDate,
+        p_target_date: targetDate,
+      });
+      if (moveResult.error) throw moveResult.error;
+
+      const moved = moveResult.data || {};
+      if (!moved.ok) {
+        return reply({
+          ok: false,
+          error: moved.error || "plan_move_rejected",
+          message: moveErrorMessage(moved.error || null),
+          source_date: sourceDate,
+          target_date: targetDate,
+        });
+      }
+
+      return reply({
+        ok: true,
+        action,
+        moved: true,
+        planned_session_id: moved.planned_session_id || null,
+        title: moved.title || null,
+        source_date: sourceDate,
+        target_date: targetDate,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
     }
 
     const date = String(body.date || calendar.date);
@@ -170,15 +253,6 @@ Deno.serve(async (req: Request) => {
     if (!storageRecommendation) {
       return reply({ ok: false, error: "unsupported_recommendation_type" });
     }
-
-    // Important: keep this admin client separate from userDb. Do not attach the
-    // user's Authorization header; the service role is used only for the narrow
-    // service-only writer below.
-    const adminDb = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
 
     const saveResult = await adminDb.rpc("save_coach_recommendation_plan", {
       p_user_id: userId,

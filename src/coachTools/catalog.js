@@ -88,6 +88,25 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
+    name: "move_planned_session",
+    description: "Move one explicitly referenced planned session to the next occurrence of an explicit weekday. ENQIDU validates source ownership, ambiguity, date freshness and target conflicts before writing.",
+    access: "write",
+    implementation: "coach_plan_action.move_planned_session",
+    explicitUserCommand: true,
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        source_date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        target_weekday: {
+          type: "string",
+          enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+        },
+      },
+      required: ["source_date", "target_weekday"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -114,7 +133,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
-  "move_planned_session",
   "set_training_unavailability",
   "adapt_session_environment",
   "adapt_session_duration",

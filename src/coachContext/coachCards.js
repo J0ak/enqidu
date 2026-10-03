@@ -346,6 +346,7 @@ function buildPlannedTrainingCard(plannedTraining = {}) {
   return {
     id: "planned_training_today",
     type: "planned_session_summary",
+    date: plannedTraining.date || primary.planned_date || null,
     title: sessions.length === 1
       ? (primary.title || "Entrenamiento de hoy")
       : `Plan de hoy · ${sessions.length} sesiones`,
