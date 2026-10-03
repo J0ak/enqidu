@@ -36,7 +36,7 @@ function generatedRecommendations() {
       const [intensity, esIntensity, enIntensity] = intensities[(i * 2) % intensities.length];
       const text = language === "es"
         ? `${i % 2 ? "Hazme" : "Dame"} un entreno ${esIntensity} ${esEnvironment}, tengo ${duration} minutos`
-        : `${i % 2 ? "Build me" : "Give me"} an ${enIntensity} workout ${enEnvironment}, I have ${duration} minutes`;
+        : `${i % 2 ? "Build me" : "Give me"} a ${enIntensity} workout ${enEnvironment}, I have ${duration} minutes`;
       rows.push(example(
         `recommend-${language}-${i}`,
         language,
@@ -51,18 +51,26 @@ function generatedRecommendations() {
 
 function currentIntentFamilies() {
   const families = [
-    ["greeting", ["Hola", "Buenas", "Hey"], ["Hello", "Hi", "Hey"]],
-    ["recommend_today", ["¿Qué entreno hoy?", "¿Qué me toca hoy?", "Recomiéndame para hoy"], ["What should I train today?", "What is my workout today?", "Recommend something for today"]],
-    ["plan_week", ["¿Qué tengo esta semana?", "¿Qué me queda por entrenar esta semana?", "Enséñame el plan semanal"], ["What do I have this week?", "What is left in my weekly plan?", "Show my plan this week"]],
-    ["training_trend", ["¿Estoy mejorando?", "¿Cómo va mi tendencia?", "Compárame con la semana anterior"], ["Am I improving?", "What is my training trend?", "Compare me with last week"]],
-    ["recovery_status", ["¿Cómo estoy de recuperación?", "¿Cómo está mi HRV?", "¿He dormido bien?"], ["How is my recovery?", "How is my HRV?", "Did I sleep well?"]],
-    ["equipment_query", ["¿Qué material tengo?", "¿Qué equipamiento hay en casa?", "¿Con qué puedo entrenar?"], ["What equipment do I have?", "What gear do I have at home?", "What can I train with?"]],
-    ["session_lookup", ["¿Qué hice ayer?", "Enséñame mi última sesión", "¿Cómo fue mi entreno de ayer?"], ["What did I do yesterday?", "Show my last session", "How was yesterday's workout?"]],
+    ["greeting", [["Hola", {}], ["Buenas", {}], ["Hey", {}]], [["Hello", {}], ["Hi", {}], ["Hey", {}]]],
+    ["recommend_today",
+      [["¿Qué entreno hoy?", { date_reference: "today" }], ["¿Qué me toca hoy?", { date_reference: "today" }], ["Recomiéndame para hoy", { date_reference: "today" }]],
+      [["What should I train today?", { date_reference: "today" }], ["What is my workout today?", { date_reference: "today" }], ["Recommend something for today", { date_reference: "today" }]]],
+    ["plan_week",
+      [["¿Qué tengo esta semana?", { date_reference: "this_week" }], ["¿Qué me queda por entrenar esta semana?", { date_reference: "this_week" }], ["Enséñame el plan semanal", {}]],
+      [["What do I have this week?", { date_reference: "this_week" }], ["What is left in my weekly plan?", {}], ["Show my plan this week", { date_reference: "this_week" }]]],
+    ["training_trend", [["¿Estoy mejorando?", {}], ["¿Cómo va mi tendencia?", {}], ["Compárame con la semana anterior", {}]], [["Am I improving?", {}], ["What is my training trend?", {}], ["Compare me with last week", {}]]],
+    ["recovery_status", [["¿Cómo estoy de recuperación?", {}], ["¿Cómo está mi HRV?", {}], ["¿He dormido bien?", {}]], [["How is my recovery?", {}], ["How is my HRV?", {}], ["Did I sleep well?", {}]]],
+    ["equipment_query",
+      [["¿Qué material tengo?", {}], ["¿Qué equipamiento hay en casa?", { environment: "home" }], ["¿Con qué puedo entrenar?", {}]],
+      [["What equipment do I have?", {}], ["What gear do I have at home?", { environment: "home" }], ["What can I train with?", {}]]],
+    ["session_lookup",
+      [["¿Qué hice ayer?", { date_reference: "yesterday" }], ["Enséñame mi última sesión", {}], ["¿Cómo fue mi entreno de ayer?", { date_reference: "yesterday" }]],
+      [["What did I do yesterday?", { date_reference: "yesterday" }], ["Show my last session", {}], ["How was yesterday's workout?", { date_reference: "yesterday" }]]],
   ];
   const rows = [];
   for (const [intent, es, en] of families) {
-    es.forEach((text, i) => rows.push(example(`core-${intent}-es-${i}`, "es", text, intent)));
-    en.forEach((text, i) => rows.push(example(`core-${intent}-en-${i}`, "en", text, intent)));
+    es.forEach(([text, expectedSlots], i) => rows.push(example(`core-${intent}-es-${i}`, "es", text, intent, expectedSlots)));
+    en.forEach(([text, expectedSlots], i) => rows.push(example(`core-${intent}-en-${i}`, "en", text, intent, expectedSlots)));
   }
   return rows;
 }

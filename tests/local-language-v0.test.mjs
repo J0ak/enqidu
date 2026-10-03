@@ -35,6 +35,15 @@ test("LOCAL LANGUAGE V0: eval dataset is systematic, bilingual and covers the se
   for (const intent of LOCAL_LANGUAGE_INTENTS) assert.ok(intents.has(intent), `missing intent: ${intent}`);
 });
 
+test("LOCAL LANGUAGE V0: eval expectations preserve slots that are explicit in the utterance", () => {
+  const dataset = buildLocalLanguageEvalDataset();
+  const byText = new Map(dataset.map((item) => [item.text, item.expected.slots]));
+  assert.equal(byText.get("¿Qué entreno hoy?")?.date_reference, "today");
+  assert.equal(byText.get("What do I have this week?")?.date_reference, "this_week");
+  assert.equal(byText.get("¿Qué equipamiento hay en casa?")?.environment, "home");
+  assert.equal(byText.get("How was yesterday's workout?")?.date_reference, "yesterday");
+});
+
 test("LOCAL LANGUAGE V0: target free-language example becomes intent plus slots without a sports decision", () => {
   const parsed = buildDeterministicLanguageParse("Hazme algo suave en casa, tengo 40 minutos");
   assert.equal(parsed.intent, "recommend_today");
