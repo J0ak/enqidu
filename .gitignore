@@ -12,3 +12,9 @@ supabase/.temp/
 .cert/
 .DS_Store
 public/labs/local-language-v0/dataset.json
+
+# Playwright output and local E2E function environment
+/test-results/
+/playwright-report/
+/blob-report/
+supabase/.env.e2e

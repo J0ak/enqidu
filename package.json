@@ -20,7 +20,9 @@
     "test:coach-evals": "node --test tests/coach-contract-evals.test.mjs",
     "prepare:local-language-lab": "node scripts/local-language/export-eval-dataset.mjs",
     "predev": "npm run prepare:local-language-lab",
-    "prebuild": "npm run prepare:local-language-lab"
+    "prebuild": "npm run prepare:local-language-lab",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
@@ -31,5 +33,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
