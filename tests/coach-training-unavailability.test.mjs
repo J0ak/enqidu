@@ -184,3 +184,12 @@ test("COACH UNAVAILABILITY: migration keeps browser writes closed", async () => 
   assert.match(sql, /security invoker/i);
   assert.doesNotMatch(sql, /security definer/i);
 });
+
+
+test("COACH UNAVAILABILITY: Coach reads only the authenticated athlete override for the requested date", async () => {
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  assert.match(source, /from\("training_availability_overrides"\)/);
+  assert.match(source, /\.eq\("user_id", userId\)/);
+  assert.match(source, /\.eq\("calendar_date", date\)/);
+  assert.match(source, /context\.training_availability = intents\.planToday[\s\S]*loadTrainingAvailability\(db, userId, contextDate\)/);
+});
