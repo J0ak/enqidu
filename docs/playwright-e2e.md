@@ -15,7 +15,7 @@ Docker and the Supabase CLI are required.
 ```bash
 rm -rf e2e-local/supabase/functions e2e-local/src
 cp -R supabase/functions e2e-local/supabase/functions
-ln -s ../src e2e-local/src
+cp -R src e2e-local/src
 
 supabase --workdir e2e-local start
 supabase --workdir e2e-local db reset
