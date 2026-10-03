@@ -81,9 +81,9 @@ test("CLOUD LANGUAGE BENCHMARK: summary applies the safety gates and ignores mis
   assert.equal(summary.inference_ms.p50, 120);
   assert.equal(summary.action_intents.intent_accuracy, 0.5);
   assert.equal(summary.gates.passes_measured_gates, false);
-  assert.equal(summary.pricing_usd_per_million_tokens.input, 0.04);
-  assert.equal(summary.pricing_usd_per_million_tokens.output, 0.14);
-  assert.equal(summary.estimated_cost_usd, 0.000005);
+  assert.equal(summary.pricing_usd_per_million_tokens.input, 0.10);
+  assert.equal(summary.pricing_usd_per_million_tokens.output, 0.40);
+  assert.equal(summary.estimated_cost_usd, 0.000014);
 });
 
 
