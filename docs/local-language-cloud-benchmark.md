@@ -27,3 +27,8 @@ Quality gates:
 - exact slots >= 92%
 
 The endpoint exists only on Vercel Preview deployments and expires at `2026-10-05T00:00:00Z`.
+
+
+## Invocation
+
+A preview deployment accepts `GET /api/local-language-cloud-benchmark` for the fixed 30-case smoke run. Full 222-case evaluation requires an explicit POST body `{"mode":"full"}`. GET can never trigger the full run.
