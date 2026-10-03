@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { VERSION } from "../public/labs/local-language-v0/config.js";
+import { HARNESS_REVISION, VERSION } from "../public/labs/local-language-v0/config.js";
 import {
   buildRuntimeFailureArtifact,
   isFatalLocalLanguageRuntimeError,
@@ -99,6 +99,7 @@ test("LOCAL LANGUAGE BENCHMARK: invalid outputs count as failures and action int
     completionTokens: 10,
   });
 
+  assert.equal(summary.harness_revision, HARNESS_REVISION);
   assert.equal(summary.structured_valid_rate, 0.5);
   assert.equal(summary.intent_accuracy, 0.5);
   assert.equal(summary.action_intents.intent_accuracy, 0.5);
@@ -152,6 +153,7 @@ test("LOCAL LANGUAGE BENCHMARK: runtime failures are portable artifacts and do n
     generatedAt: "2026-10-03T14:00:00.000Z",
   });
 
+  assert.equal(artifact.summary.harness_revision, HARNESS_REVISION);
   assert.equal(artifact.summary.artifact_type, "runtime_failure");
   assert.equal(artifact.summary.runtime_status, "failed");
   assert.equal(artifact.summary.stage, "model_init");

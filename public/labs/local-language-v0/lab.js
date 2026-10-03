@@ -1,5 +1,5 @@
-import { WEBLLM, VERSION, DATASET_URL, MODELS, schema, prompt } from "./config.js";
-import { buildRuntimeFailureArtifact, isFatalLocalLanguageRuntimeError, parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js";
+import { WEBLLM, VERSION, DATASET_URL, MODELS, schema, prompt } from "./config.js?rev=20261003-r4";
+import { buildRuntimeFailureArtifact, isFatalLocalLanguageRuntimeError, parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js?rev=20261003-r4";
 
 const data = await fetch(DATASET_URL).then(async (response) => {
   if (!response.ok) throw new Error(`dataset_load_failed_${response.status}`);

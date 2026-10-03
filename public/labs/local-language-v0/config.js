@@ -1,6 +1,7 @@
 const WEBLLM = "https://esm.run/@mlc-ai/web-llm@0.2.85";
 const VERSION = "local_language_v0";
-const DATASET_URL = "./dataset.json";
+const HARNESS_REVISION = "20261003-r4";
+const DATASET_URL = "./dataset.json?rev=20261003-r4";
 
 const MODELS = [
   ["Llama-3.2-1B-Instruct-q4f16_1-MLC", "1B", 879.04, "Llama 3.2 Community", "Spanish supported"],
@@ -80,6 +81,7 @@ const prompt = "You are ENQIDU's language parser, not a sports coach. Return onl
 export {
   WEBLLM,
   VERSION,
+  HARNESS_REVISION,
   DATASET_URL,
   MODELS,
   INTENTS,

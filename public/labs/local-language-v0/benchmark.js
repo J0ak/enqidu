@@ -1,12 +1,13 @@
 import {
   VERSION,
+  HARNESS_REVISION,
   INTENTS,
   ACTION_INTENTS,
   ENVS,
   DATES,
   DAYS,
   QUALITY_GATES,
-} from "./config.js";
+} from "./config.js?rev=20261003-r4";
 
 const INTENT_SET = new Set(INTENTS);
 const ACTION_INTENT_SET = new Set(ACTION_INTENTS);
@@ -170,6 +171,7 @@ export function summarizeBenchmarkResults({
 
   return {
     version: VERSION,
+    harness_revision: HARNESS_REVISION,
     model,
     device,
     cases: records.length,
@@ -225,6 +227,7 @@ export function buildRuntimeFailureArtifact({
   return {
     summary: {
       version: VERSION,
+      harness_revision: HARNESS_REVISION,
       artifact_type: "runtime_failure",
       runtime_status: "failed",
       model,
