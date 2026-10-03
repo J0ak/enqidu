@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { VERSION } from "../public/labs/local-language-v0/config.js";
 import {
+  buildRuntimeFailureArtifact,
   parseModelPayload,
   summarizeBenchmarkResults,
   validateStructuredParse,
@@ -130,4 +131,33 @@ test("LOCAL LANGUAGE BENCHMARK: partial samples never masquerade as a gate decis
   assert.equal(summary.full_dataset, false);
   assert.equal(summary.gates.evaluation, "sample_only");
   assert.equal(summary.gates.passes_measured_gates, null);
+});
+
+
+test("LOCAL LANGUAGE BENCHMARK: runtime failures are portable artifacts and do not masquerade as quality scores", () => {
+  const artifact = buildRuntimeFailureArtifact({
+    model: { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", vramMb: 879.04 },
+    device: {
+      userAgent: "Windows Chrome Intel",
+      deviceMemoryGb: 16,
+      gpu: { available: true, info: { vendor: "intel" } },
+    },
+    datasetSize: 222,
+    requestedCases: "all",
+    stage: "model_init",
+    error: new Error("Invalid ShaderModule"),
+    cloudLlmApiCalls: 0,
+    cacheState: "first_observed_load_in_this_browser",
+    generatedAt: "2026-10-03T14:00:00.000Z",
+  });
+
+  assert.equal(artifact.summary.artifact_type, "runtime_failure");
+  assert.equal(artifact.summary.runtime_status, "failed");
+  assert.equal(artifact.summary.stage, "model_init");
+  assert.equal(artifact.summary.error, "Invalid ShaderModule");
+  assert.equal(artifact.summary.fallback, "deterministic");
+  assert.equal(artifact.summary.quality_gates_evaluated, false);
+  assert.equal(artifact.summary.eligible_on_this_device, false);
+  assert.equal(artifact.summary.cloud_llm_api_calls, 0);
+  assert.deepEqual(artifact.failures, []);
 });

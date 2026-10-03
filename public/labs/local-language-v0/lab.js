@@ -1,5 +1,5 @@
 import { WEBLLM, VERSION, DATASET_URL, MODELS, schema, prompt } from "./config.js";
-import { parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js";
+import { buildRuntimeFailureArtifact, parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js";
 
 const data = await fetch(DATASET_URL).then(async (response) => {
   if (!response.ok) throw new Error(`dataset_load_failed_${response.status}`);
@@ -151,9 +151,28 @@ $("copy").onclick = async () => {
 };
 
 $("run").onclick = async () => {
+  const model = MODELS.find((item) => item.id === select.value);
+  const requestedCases = $("caseCount").value;
+  const device = {
+    userAgent: navigator.userAgent,
+    deviceMemoryGb: navigator.deviceMemory || null,
+    gpu,
+  };
+
   if (!gpu.available) {
+    const artifact = buildRuntimeFailureArtifact({
+      model,
+      device,
+      datasetSize: data.length,
+      requestedCases,
+      stage: "webgpu_unavailable",
+      error: gpu.error || "webgpu_unavailable",
+      cloudLlmApiCalls: cloudLlmApiCalls(),
+    });
+    setArtifact(artifact);
     $("status").textContent = "WebGPU no disponible: usar fallback determinista.";
     $("gateStatus").textContent = "Sin benchmark de modelo: WebGPU no disponible.";
+    $("summary").textContent = JSON.stringify(artifact.summary, null, 2);
     return;
   }
 
@@ -164,14 +183,15 @@ $("run").onclick = async () => {
   $("failures").innerHTML = "";
   $("summary").textContent = "—";
 
-  const model = MODELS.find((item) => item.id === select.value);
-  const sample = cases($("caseCount").value);
+  const sample = cases(requestedCases);
   const seenKey = `enqidu.localLanguage.seen.${model.id}`;
   const seenBefore = localStorage.getItem(seenKey) === "1";
+  let stage = "import_webllm";
 
   try {
     $("status").textContent = "Importando WebLLM…";
     const webllm = await import(WEBLLM);
+    stage = "model_init";
     const beforeStorage = await storageUsage();
     const initStarted = performance.now();
     const engine = await webllm.CreateMLCEngine(model.id, {
@@ -184,11 +204,13 @@ $("run").onclick = async () => {
     const afterStorage = await storageUsage();
     localStorage.setItem(seenKey, "1");
 
+    stage = "warmup";
     $("status").textContent = "Calentando inferencia…";
     const warmupStarted = performance.now();
     await completion(engine, "Hola");
     const warmupMs = performance.now() - warmupStarted;
 
+    stage = "inference";
     const records = [];
     let completionTokens = 0;
 
@@ -232,11 +254,7 @@ $("run").onclick = async () => {
       records,
       datasetSize: data.length,
       model,
-      device: {
-        userAgent: navigator.userAgent,
-        deviceMemoryGb: navigator.deviceMemory || null,
-        gpu,
-      },
+      device,
       initMs,
       warmupMs,
       cacheState: seenBefore ? "previously_loaded_in_this_browser" : "first_observed_load_in_this_browser",
@@ -273,13 +291,20 @@ $("run").onclick = async () => {
       $("gateStatus").textContent = "Dataset completo: este dispositivo/modelo NO supera todos los gates medidos.";
     }
   } catch (error) {
+    const artifact = buildRuntimeFailureArtifact({
+      model,
+      device,
+      datasetSize: data.length,
+      requestedCases,
+      stage,
+      error,
+      cloudLlmApiCalls: cloudLlmApiCalls(),
+      cacheState: seenBefore ? "previously_loaded_in_this_browser" : "first_observed_load_in_this_browser",
+    });
+    setArtifact(artifact);
     $("status").textContent = `Fallo limpio: ${String(error?.message || error)}. Producción no afectada.`;
     $("gateStatus").textContent = "Fallback determinista requerido.";
-    $("summary").textContent = JSON.stringify({
-      version: VERSION,
-      error: String(error?.message || error),
-      fallback: "deterministic",
-    }, null, 2);
+    $("summary").textContent = JSON.stringify(artifact.summary, null, 2);
   } finally {
     $("run").disabled = false;
   }
