@@ -101,7 +101,9 @@ test("COACH MOVE: client sends only source date, weekday and client timezone", a
   const source = await readFile(new URL("../src/services/aiCoachContextService.js", import.meta.url), "utf8");
   const start = source.indexOf("export async function moveCoachPlannedSession");
   assert.ok(start >= 0);
-  const block = source.slice(start);
+  const payloadStart = source.indexOf("const payload = {", start);
+  const invokeStart = source.indexOf('supabase.functions.invoke("coach-plan-action"', payloadStart);
+  const block = source.slice(payloadStart, invokeStart);
   assert.match(block, /action: "move_planned_session"/);
   assert.match(block, /source_date: sourceDate \|\| null/);
   assert.match(block, /target_weekday: targetWeekday \|\| null/);
