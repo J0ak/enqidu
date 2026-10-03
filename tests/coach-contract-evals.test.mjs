@@ -74,7 +74,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
   const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
-  const openAiCall = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  const openAiCall = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
   assert.match(source.slice(deterministicGate, openAiCall), /usage: null/);
@@ -231,7 +231,7 @@ test("EVAL: trend comparison never turns higher volume into a performance verdic
 test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
   const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
-  const openAi = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  const openAi = source.indexOf("requestOpenAiResponses({");
   assert.ok(gate >= 0);
   assert.ok(openAi > gate);
   assert.match(source.slice(gate, openAi), /response_mode: "deterministic"/);
