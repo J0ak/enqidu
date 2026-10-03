@@ -195,3 +195,38 @@ export function summarizeBenchmarkResults({
     generated_at: generatedAt,
   };
 }
+
+
+export function buildRuntimeFailureArtifact({
+  model,
+  device,
+  datasetSize,
+  requestedCases,
+  stage,
+  error,
+  cloudLlmApiCalls = 0,
+  cacheState = null,
+  generatedAt = new Date().toISOString(),
+}) {
+  const message = String(error?.message || error || "unknown_runtime_failure");
+  return {
+    summary: {
+      version: VERSION,
+      artifact_type: "runtime_failure",
+      runtime_status: "failed",
+      model,
+      device,
+      dataset_size: datasetSize,
+      requested_cases: requestedCases,
+      stage,
+      error: message,
+      fallback: "deterministic",
+      cloud_llm_api_calls: cloudLlmApiCalls,
+      cache_state_hint: cacheState,
+      quality_gates_evaluated: false,
+      eligible_on_this_device: false,
+      generated_at: generatedAt,
+    },
+    failures: [],
+  };
+}
