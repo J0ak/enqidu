@@ -11,16 +11,17 @@ test("coach-reply uses deterministic ENQIDU responses by default and gates the L
   assert.match(source, /response_mode: "llm"[\s\S]*llm_used: true/);
 
   const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
-  const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  const openAiFetchIndex = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
-  assert.equal((source.match(/api\.openai\.com\/v1\/responses/g) || []).length, 1);
+  assert.equal((source.match(/api\.openai\.com\/v1\/responses/g) || []).length, 0);
+  assert.match(source, /requestOpenAiResponses/);
 });
 
 test("today's training intent returns before the OpenAI call even when its optional flag is on", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
   const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
-  const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  const openAiFetchIndex = source.indexOf("requestOpenAiResponses({");
 
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
@@ -94,7 +95,7 @@ test("coach-reply uses elapsed trend ranges and loads only comparable periods", 
 test("trend intent returns before the optional OpenAI call", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
   const deterministicGateIndex = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
-  const openAiFetchIndex = source.indexOf('fetch("https://api.openai.com/v1/responses"');
+  const openAiFetchIndex = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGateIndex >= 0);
   assert.ok(openAiFetchIndex > deterministicGateIndex);
   assert.match(source.slice(deterministicGateIndex, openAiFetchIndex), /response_mode: "deterministic"/);
