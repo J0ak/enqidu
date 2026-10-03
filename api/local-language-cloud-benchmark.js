@@ -1,3 +1,4 @@
+import { localLanguageJsonSchema } from "../src/localLanguage/contract.js";
 import { buildLocalLanguageEvalDataset } from "../src/localLanguage/evalDataset.js";
 import {
   CLOUD_BENCHMARK_EXPIRES_AT,
@@ -66,7 +67,7 @@ async function runCase(item, credential) {
           json_schema: {
             name: "enqidu_local_language_v0",
             strict: true,
-            schema: JSON.parse(SYSTEM_PROMPT.match(/Required JSON Schema: (.+)$/m)?.[1] || "{}"),
+            schema: localLanguageJsonSchema,
           },
         },
       }),
