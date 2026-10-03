@@ -96,3 +96,51 @@ export async function saveCoachRecommendationToPlan({ date, location } = {}) {
     usage: data.usage || null,
   };
 }
+
+
+export async function moveCoachPlannedSession({ sourceDate, targetWeekday } = {}) {
+  if (!supabase) {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const payload = {
+    action: "move_planned_session",
+    source_date: sourceDate || null,
+    target_weekday: targetWeekday || null,
+    client_timezone: getClientCalendarTimezone(),
+  };
+
+  const { data, error } = await supabase.functions.invoke("coach-plan-action", {
+    body: payload,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: data?.error || error.message || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: data?.error || "coach_plan_action_failed",
+      message: data?.message || null,
+      sourceDate: data?.source_date || null,
+      targetDate: data?.target_date || null,
+    };
+  }
+
+  return {
+    ok: true,
+    moved: Boolean(data.moved),
+    plannedSessionId: data.planned_session_id || null,
+    title: data.title || null,
+    sourceDate: data.source_date || null,
+    targetDate: data.target_date || null,
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
+    usage: data.usage || null,
+  };
+}
