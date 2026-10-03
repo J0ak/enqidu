@@ -4,9 +4,11 @@ This benchmark is isolated from production Coach behavior. It tests whether a ho
 
 ## First candidate
 
-`inclusionai/ling-3.0-tiny-free`
+`amazon/nova-micro`
 
-The model identifier is deliberately pinned to Vercel AI Gateway's free listing. The preview-only benchmark endpoint also has a hard expiry. It must never silently fall through to a paid model.
+Nova Micro is deliberately pinned as the first stable low-cost candidate. The previous `inclusionai/ling-3.0-tiny-free` idea was dropped after verifying that its Vercel free promotion had already expired. The harness records token usage and estimates cost from the pinned catalog rates ($0.04/M input, $0.14/M output).
+
+The preview-only benchmark endpoint has a hard expiry and never falls through to another model.
 
 ## Safety
 
