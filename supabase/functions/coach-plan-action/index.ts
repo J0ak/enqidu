@@ -8,6 +8,7 @@ import {
 import {
   isPlanDateOnOrAfter,
   resolveNextWeekdayDate,
+  shiftPlanCalendarDate,
 } from "../../../src/coachTools/planActions.js";
 import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
@@ -24,6 +25,7 @@ const reply = (data: unknown, status = 200) =>
 const supportedActions = new Set([
   "save_recommendation_today",
   "move_planned_session",
+  "set_training_unavailability",
 ]);
 
 async function loadUserTimezone(db: any, userId: string) {
@@ -126,6 +128,54 @@ Deno.serve(async (req: Request) => {
       serviceRoleKey,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+
+    if (action === "set_training_unavailability") {
+      const dateReference = String(body.date_reference || "");
+      if (!["today", "tomorrow"].includes(dateReference)) {
+        return reply({ ok: false, error: "invalid_date_reference" }, 400);
+      }
+
+      const targetDate = dateReference === "today"
+        ? calendar.date
+        : shiftPlanCalendarDate(calendar.date, 1);
+      if (!targetDate) {
+        return reply({ ok: false, error: "invalid_calendar" }, 400);
+      }
+
+      const availabilityResult = await adminDb.rpc("set_coach_training_unavailability", {
+        p_user_id: userId,
+        p_date: targetDate,
+      });
+      if (availabilityResult.error) throw availabilityResult.error;
+
+      const availability = availabilityResult.data || {};
+      if (!availability.ok) {
+        return reply({
+          ok: false,
+          error: availability.error || "training_unavailability_rejected",
+        });
+      }
+
+      const planned = await loadPlannedTraining(userDb, userId, targetDate);
+      const plannedTitles = planned.sessions
+        .map((session: any) => session?.title || null)
+        .filter(Boolean);
+
+      return reply({
+        ok: true,
+        action,
+        marked_unavailable: true,
+        date_reference: dateReference,
+        date: targetDate,
+        planned_conflict: planned.sessions.length > 0,
+        planned_titles: plannedTitles,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
+    }
 
     if (action === "move_planned_session") {
       const sourceDate = String(body.source_date || "");

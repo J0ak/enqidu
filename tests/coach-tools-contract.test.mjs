@@ -99,3 +99,15 @@ test("ENQIDU TOOLS: move action is enabled for both App/OpenAI and future MCP pr
   assert.deepEqual(openai.parameters.required, ["source_date", "target_weekday"]);
 });
 
+
+
+test("ENQIDU TOOLS: unavailability action projects identically to OpenAI and future MCP", () => {
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "set_training_unavailability");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "set_training_unavailability");
+  assert.ok(openai);
+  assert.ok(mcp);
+  assert.deepEqual(openai.parameters, mcp.inputSchema);
+  assert.deepEqual(openai.parameters.required, ["date_reference"]);
+  assert.deepEqual(openai.parameters.properties.date_reference.enum, ["today", "tomorrow"]);
+  assert.equal(openai.parameters.additionalProperties, false);
+});

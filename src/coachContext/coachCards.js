@@ -362,6 +362,21 @@ function buildPlannedTrainingCard(plannedTraining = {}) {
   };
 }
 
+function buildTrainingAvailabilityCard(availability = {}) {
+  if (availability?.status !== "unavailable") return null;
+  return {
+    id: "training_availability",
+    type: "availability_status",
+    title: "No disponible para entrenar",
+    subtitle: availability.date || null,
+    badge: "Disponibilidad",
+    metrics: [],
+    breakdown: [],
+    actions: [],
+    provenance: "enkidu_context",
+  };
+}
+
 function buildRecommendedTrainingCard(recommendation, date = null) {
   if (!recommendation || recommendation.insufficient) return null;
   return {
@@ -440,11 +455,17 @@ export function buildCoachCards({
   const cards = [];
 
   if (intents.planToday) {
+    const availabilityCard = buildTrainingAvailabilityCard(context?.training_availability || {});
     const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
-    cards.push(plannedCard || buildRecommendedTrainingCard(
-      recommendation,
-      context?.request?.date || context?.planned_training?.date || null,
-    ));
+    if (availabilityCard) {
+      cards.push(availabilityCard);
+      if (plannedCard) cards.push(plannedCard);
+    } else {
+      cards.push(plannedCard || buildRecommendedTrainingCard(
+        recommendation,
+        context?.request?.date || context?.planned_training?.date || null,
+      ));
+    }
   }
   if (intents.weekPlan) {
     cards.push(buildWeeklyPlanProgressCard(

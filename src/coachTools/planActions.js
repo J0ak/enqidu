@@ -18,6 +18,15 @@ export function isValidPlanCalendarDate(value) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+export function shiftPlanCalendarDate(sourceDate, days) {
+  if (!isValidPlanCalendarDate(sourceDate)) return null;
+  const delta = Number(days);
+  if (!Number.isInteger(delta)) return null;
+  const parsed = new Date(`${sourceDate}T12:00:00Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + delta);
+  return parsed.toISOString().slice(0, 10);
+}
+
 export function resolveNextWeekdayDate(sourceDate, targetWeekday) {
   if (!isValidPlanCalendarDate(sourceDate)) return null;
   const targetIndex = WEEKDAY_INDEX.get(String(targetWeekday || ""));

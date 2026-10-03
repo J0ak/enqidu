@@ -135,6 +135,25 @@ async function loadWeeklyPlanning(
   };
 }
 
+async function loadTrainingAvailability(db: any, userId: string, date: string) {
+  const result = await db
+    .from("training_availability_overrides")
+    .select("calendar_date, availability_status, source")
+    .eq("user_id", userId)
+    .eq("calendar_date", date)
+    .limit(1);
+
+  if (result.error) throw result.error;
+  const row = Array.isArray(result.data) ? result.data[0] : null;
+  return row
+    ? {
+        date: row.calendar_date || date,
+        status: row.availability_status || null,
+        source: row.source || null,
+      }
+    : null;
+}
+
 async function loadRecommendationConstraints(db: any, userId: string) {
   const result = await db
     .from("coach_athlete_constraints")
@@ -208,6 +227,9 @@ Deno.serve(async (req: Request) => {
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };
+    context.training_availability = intents.planToday
+      ? await loadTrainingAvailability(db, userId, contextDate)
+      : null;
     context.recommendation_context = {
       constraints: intents.planToday
         ? await loadRecommendationConstraints(db, userId)
