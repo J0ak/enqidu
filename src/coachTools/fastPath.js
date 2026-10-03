@@ -71,20 +71,7 @@ const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
 
 export function detectEnqiduFastPathCommand(message = "") {
   const text = normalize(message);
-  if (!text || text.startsWith("no ")) return null;
-
-  const targetWeekday = detectMoveWeekday(text);
-  if (targetWeekday) {
-    const definition = getEnqiduTool("move_planned_session");
-    if (!definition?.enabled || definition.access !== "write") return null;
-    return {
-      tool: definition.name,
-      arguments: { target_weekday: targetWeekday },
-      explicit_user_command: true,
-      confidence: 1,
-      source: "deterministic_fast_path",
-    };
-  }
+  if (!text) return null;
 
   const unavailableDateReference = detectUnavailability(text);
   if (unavailableDateReference) {
@@ -93,6 +80,23 @@ export function detectEnqiduFastPathCommand(message = "") {
     return {
       tool: definition.name,
       arguments: { date_reference: unavailableDateReference },
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
+
+  // Keep generic negative commands fail-closed. The exact unavailability
+  // whitelist above is the only write path intentionally allowed to begin "no".
+  if (text.startsWith("no ")) return null;
+
+  const targetWeekday = detectMoveWeekday(text);
+  if (targetWeekday) {
+    const definition = getEnqiduTool("move_planned_session");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      arguments: { target_weekday: targetWeekday },
       explicit_user_command: true,
       confidence: 1,
       source: "deterministic_fast_path",
