@@ -5,7 +5,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
+import { moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -4098,6 +4098,29 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
       setSending(true);
 
       const fastPath = detectEnqiduFastPathCommand(text);
+      if (fastPath?.tool === "set_training_unavailability") {
+        const result = await setCoachTrainingUnavailability({
+          dateReference: fastPath.arguments?.date_reference,
+        });
+        if (result.ok && result.markedUnavailable && result.date) {
+          const dateLabel = formatCoachCardDate(result.date) || result.date;
+          const conflictTitle = result.plannedTitles?.[0] || null;
+          const content = result.plannedConflict
+            ? `He marcado el ${dateLabel} como no disponible para entrenar. Tienes ${conflictTitle ? `“${conflictTitle}” ` : "una sesión "}planificada ese día; no la he movido ni cancelado.`
+            : `He marcado el ${dateLabel} como no disponible para entrenar.`;
+          setMessages((current) => replaceLastAssistantMessage(current, content, []));
+          setMicNotice("Disponibilidad actualizada.");
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido actualizar tu disponibilidad.",
+          [],
+        ));
+        return;
+      }
+
       if (fastPath?.tool === "move_planned_session") {
         const plannedContext = findLatestPlannedTrainingContext(messages);
         if (!plannedContext) {
