@@ -83,3 +83,29 @@ test("CLOUD LANGUAGE BENCHMARK: summary applies the safety gates and ignores mis
   assert.equal(summary.gates.passes_measured_gates, false);
   assert.equal(summary.catalog_cost_usd, 0);
 });
+
+
+test("CLOUD LANGUAGE BENCHMARK: gateway-only failures do not masquerade as model quality", () => {
+  const records = Array.from({ length: 2 }, (_, index) => ({
+    expected: { intent: index ? "plan_week" : "greeting", slots: valid.slots },
+    actual: null,
+    kind: "core",
+    language: index ? "en" : "es",
+    jsonValid: false,
+    structuredValid: false,
+    latencyMs: 80 + index,
+    raw: null,
+    error: "gateway_403: billing_required",
+  }));
+
+  const summary = summarizeCloudBenchmark({
+    records,
+    datasetSize: 222,
+    mode: "smoke",
+  });
+
+  assert.equal(summary.successful_model_responses, 0);
+  assert.equal(summary.quality_gates_evaluated, false);
+  assert.equal(summary.gates.quality, null);
+  assert.equal(summary.gates.passes_measured_gates, null);
+});
