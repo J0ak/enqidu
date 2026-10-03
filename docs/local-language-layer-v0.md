@@ -145,3 +145,21 @@ Measured against the canonical 222-case dataset before any local model is allowe
 | Combined | 222 | 67.6% | 100% |
 
 This is the useful baseline: the existing rules extract explicit slots very well but do not generalize across semantically equivalent wording. A local model only earns its complexity if it closes that intent gap while preserving core safety and exact slots.
+
+
+## Benchmark correctness hardening
+
+The browser harness now treats JSON syntax and the ENQIDU structured contract as separate measurements. A parseable object with missing, extra or invalid fields is a structured-output failure and counts against intent/slot accuracy; it cannot accidentally receive credit because one field happens to match.
+
+The full-run report also includes:
+- dedicated write/action intent accuracy for `save_recommendation`, move/unavailability/adaptation/cancel semantics;
+- ES and EN slices in addition to core/challenge;
+- one discarded warm-up inference before latency sampling, so reported p50/p95 describe warm inference rather than first-token/model warm-up effects;
+- an explicit cache-state hint (first observed load vs previously loaded in the same browser profile);
+- automatic gate evaluation only when all 222 canonical cases are run;
+- Android p50/p95 gate evaluation only on Android user agents;
+- downloadable/copyable JSON artifacts containing the summary and concrete failures.
+
+A 24/60-case run is deliberately marked `sample_only`; it may be useful for smoke/debugging but can never qualify a model.
+
+Playwright also smoke-tests the lab route, canonical 222-case dataset and candidate matrix without downloading any model. Real model quality/latency still requires a browser/device with actual WebGPU.
