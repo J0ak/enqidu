@@ -7,7 +7,8 @@ import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -4095,6 +4096,33 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
 
     try {
       setSending(true);
+
+      const fastPath = detectEnqiduFastPathCommand(text);
+      if (fastPath?.tool === "save_recommendation_today") {
+        const pendingSave = findLatestRecommendationSaveAction(messages);
+        if (!pendingSave) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una recomendación pendiente para guardar. Pregúntame primero qué entrenar hoy.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await handleCardAction(pendingSave);
+        const content = result?.ok && result?.saved
+          ? "He guardado la recomendación en tu plan."
+          : result?.message || (
+            result?.error === "stale_recommendation_date"
+              ? "La recomendación ya no corresponde a hoy. Vuelve a preguntarme qué entrenar hoy."
+              : result?.error === "plan_already_exists"
+                ? "Ya existe un plan para hoy; no he creado otro."
+                : "No he podido guardar la recomendación."
+          );
+        setMessages((current) => replaceLastAssistantMessage(current, content, []));
+        return;
+      }
+
       const result = await requestCoachReply({
         message: text,
         mode: "today_coach",
@@ -4164,7 +4192,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMicNotice(refreshed === false
           ? "Entrenamiento guardado. Actualiza Actividades si no aparece todavía."
           : "Entrenamiento guardado en tu plan.");
-        return;
+        return result;
       }
 
       if (result.error === "stale_recommendation_date") {
@@ -4187,7 +4215,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
           };
         }));
         setMicNotice(result.message || "La recomendación ya no corresponde a hoy. Vuelve a preguntar qué entrenar hoy.");
-        return;
+        return result;
       }
 
       if (result.error === "plan_already_exists") {
@@ -4210,12 +4238,14 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
           };
         }));
         setMicNotice(result.message || "Ya existe un plan para hoy; no se ha creado otro.");
-        return;
+        return result;
       }
 
       setMicNotice(result.message || "No se ha podido guardar la recomendación.");
+      return result;
     } catch {
       setMicNotice("No se ha podido guardar la recomendación.");
+      return { ok: false, error: "coach_plan_action_failed" };
     } finally {
       setCardActionBusy(false);
     }
