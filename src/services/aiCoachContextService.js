@@ -144,3 +144,48 @@ export async function moveCoachPlannedSession({ sourceDate, targetWeekday } = {}
     usage: data.usage || null,
   };
 }
+
+
+export async function setCoachTrainingUnavailability({ dateReference } = {}) {
+  if (!supabase) {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const payload = {
+    action: "set_training_unavailability",
+    date_reference: dateReference || null,
+    client_timezone: getClientCalendarTimezone(),
+  };
+
+  const { data, error } = await supabase.functions.invoke("coach-plan-action", {
+    body: payload,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: data?.error || error.message || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: data?.error || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  return {
+    ok: true,
+    markedUnavailable: Boolean(data.marked_unavailable),
+    dateReference: data.date_reference || null,
+    date: data.date || null,
+    plannedConflict: Boolean(data.planned_conflict),
+    plannedTitles: Array.isArray(data.planned_titles) ? data.planned_titles : [],
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
+    usage: data.usage || null,
+  };
+}
