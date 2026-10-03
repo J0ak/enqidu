@@ -155,6 +155,7 @@ export function summarizeCloudBenchmark({
   outputTokens = 0,
   generatedAt = new Date().toISOString(),
 }) {
+  const successfulModelResponses = records.filter((record) => !record.error && record.raw !== null).length;
   const overall = aggregate(records);
   const actionRecords = records.filter((record) => ACTION_SET.has(record.expected?.intent));
   const actionMatches = actionRecords.filter((record) =>
@@ -197,14 +198,18 @@ export function summarizeCloudBenchmark({
       intent_accuracy: actionIntentAccuracy,
     },
     inference_ms: { p50, p95, mean },
+    successful_model_responses: successfulModelResponses,
+    quality_gates_evaluated: successfulModelResponses > 0,
     failures: records.filter((record) =>
       !record.structuredValid
       || record.actual?.intent !== record.expected?.intent
       || !same(record.actual?.slots, record.expected?.slots)
     ).length,
     gates: {
-      quality,
-      passes_measured_gates: Object.values(quality).every((item) => item.pass),
+      quality: successfulModelResponses > 0 ? quality : null,
+      passes_measured_gates: successfulModelResponses > 0
+        ? Object.values(quality).every((item) => item.pass)
+        : null,
     },
     generated_at: generatedAt,
   };
