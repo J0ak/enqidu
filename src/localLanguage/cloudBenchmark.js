@@ -9,7 +9,11 @@ import {
   normalizeLocalLanguageParse,
 } from "./contract.js";
 
-export const CLOUD_BENCHMARK_MODEL = "inclusionai/ling-3.0-tiny-free";
+export const CLOUD_BENCHMARK_MODEL = "amazon/nova-micro";
+export const CLOUD_BENCHMARK_PRICING_USD_PER_MILLION = Object.freeze({
+  input: 0.04,
+  output: 0.14,
+});
 export const CLOUD_BENCHMARK_EXPIRES_AT = "2026-10-05T00:00:00.000Z";
 
 export const CLOUD_ACTION_INTENTS = Object.freeze([
@@ -184,11 +188,16 @@ export function summarizeCloudBenchmark({
     cases: records.length,
     dataset_size: datasetSize,
     full_dataset: mode === "full" && records.length === datasetSize,
-    catalog_cost_usd: 0,
+    pricing_usd_per_million_tokens: CLOUD_BENCHMARK_PRICING_USD_PER_MILLION,
     usage: {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
     },
+    estimated_cost_usd: round(
+      (inputTokens / 1_000_000) * CLOUD_BENCHMARK_PRICING_USD_PER_MILLION.input
+      + (outputTokens / 1_000_000) * CLOUD_BENCHMARK_PRICING_USD_PER_MILLION.output,
+      6,
+    ),
     json_parse_valid_rate: overall.json_parse_valid_rate,
     structured_valid_rate: overall.structured_valid_rate,
     intent_accuracy: overall.intent_accuracy,
