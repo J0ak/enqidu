@@ -9,10 +9,10 @@ import {
   normalizeLocalLanguageParse,
 } from "./contract.js";
 
-export const CLOUD_BENCHMARK_MODEL = "amazon/nova-micro";
+export const CLOUD_BENCHMARK_MODEL = "openai/gpt-4.1-nano";
 export const CLOUD_BENCHMARK_PRICING_USD_PER_MILLION = Object.freeze({
-  input: 0.04,
-  output: 0.14,
+  input: 0.10,
+  output: 0.40,
 });
 export const CLOUD_BENCHMARK_EXPIRES_AT = "2026-10-05T00:00:00.000Z";
 
