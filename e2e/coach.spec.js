@@ -137,5 +137,5 @@ test("trend reports volume without claiming performance improvement", async ({ p
 
 test("Coach cards and primary navigation render without browser exceptions", async ({ page, request }) => {
   const user=await provision(request,"smoke"); await login(page,user); await ask(page,"¿Qué entreno hoy?"); await expect(page.locator("article.coachInlineCard")).toBeVisible();
-  await page.getByRole("button",{name:"Actividades"}).click(); await expect(page.getByRole("heading",{name:"ENQIDU"})).toBeVisible(); await page.getByRole("button",{name:"Perfil"}).click(); await expect(page.getByPlaceholder("email")).toHaveValue(user.email);
+  await page.getByRole("button",{name:"Actividades"}).click(); await expect(page.getByRole("heading",{name:"ENQIDU"})).toBeVisible(); await page.getByRole("button",{name:"Perfil"}).click(); await expect(page.getByText("Cuenta e ingesta", { exact: true })).toBeVisible(); await expect(page.getByText(user.email, { exact: true }).first()).toBeVisible();
 });
