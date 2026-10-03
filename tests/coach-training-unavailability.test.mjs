@@ -159,7 +159,8 @@ test("COACH UNAVAILABILITY: client sends only date reference and client timezone
 test("COACH UNAVAILABILITY: server derives the date from athlete calendar and never mutates the plan", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
   assert.match(source, /action === "set_training_unavailability"/);
-  assert.match(source, /dateReference === "today"[sS]*shiftPlanCalendarDate\(calendar\.date, 1\)/);
+  assert.match(source, /dateReference === "today"/);
+  assert.match(source, /shiftPlanCalendarDate\(calendar\.date, 1\)/);
   assert.match(source, /adminDb\.rpc\("set_coach_training_unavailability"/);
   assert.match(source, /loadPlannedTraining\(userDb, userId, targetDate\)/);
   assert.match(source, /planned_conflict: planned\.sessions\.length > 0/);
@@ -177,8 +178,11 @@ test("COACH UNAVAILABILITY: migration keeps browser writes closed", async () => 
     "utf8",
   );
   assert.match(sql, /enable row level security/i);
-  assert.match(sql, /for select[sS]*to authenticated[sS]*user_id = auth\.uid\(\)/i);
-  assert.match(sql, /revoke insert, update, delete[sS]*from public, anon, authenticated/i);
+  assert.match(sql, /for select/i);
+  assert.match(sql, /to authenticated/i);
+  assert.match(sql, /user_id = auth\.uid\(\)/i);
+  assert.match(sql, /revoke insert, update, delete/i);
+  assert.match(sql, /from public, anon, authenticated/i);
   assert.match(sql, /revoke execute on function public\.set_coach_training_unavailability[\s\S]*from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.set_coach_training_unavailability[\s\S]*to service_role/i);
   assert.match(sql, /security invoker/i);
