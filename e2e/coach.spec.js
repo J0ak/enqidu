@@ -71,8 +71,8 @@ async function ask(page, text) {
   return response.json();
 }
 
-async function createPlan(request, userId, title = "Plan persistido E2E") {
-  const response = await request.post(`${supabaseUrl}/rest/v1/rpc/save_coach_recommendation_plan`, { headers: headers(), data: { p_user_id: userId, p_planned_date: madridDate(), p_session: { title, session_type: "strength", duration_minutes: 35, intensity: "moderada", environment: "home", blocks: [{ title: "Bloque sintético", duration_minutes: 35 }] } } });
+async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate()) {
+  const response = await request.post(`${supabaseUrl}/rest/v1/rpc/save_coach_recommendation_plan`, { headers: headers(), data: { p_user_id: userId, p_planned_date: plannedDate, p_session: { title, session_type: "strength", duration_minutes: 35, intensity: "moderada", environment: "home", blocks: [{ title: "Bloque sintético", duration_minutes: 35 }] } } });
   expect(response.ok(), await response.text()).toBeTruthy();
   return response.json();
 }
@@ -194,6 +194,64 @@ test("explicit conversational move reprograms the persisted plan without Coach L
     planned_date: targetDate,
   });
   await expect(page.getByText(/He movido Fuerza para mover al/)).toBeVisible();
+});
+
+test("explicit tomorrow unavailability persists without moving or cancelling a conflicting plan", async ({ page, request }) => {
+  const user = await provision(request, "unavailable");
+  const targetDate = madridDate(1);
+  await createPlan(request, user.id, "Plan de mañana intacto", targetDate);
+  await login(page, user);
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const actionResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Mañana no puedo");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const actionResponse = await actionResponsePromise;
+  expect(actionResponse.status()).toBe(200);
+  const body = await actionResponse.json();
+  expect(body).toMatchObject({
+    ok: true,
+    action: "set_training_unavailability",
+    marked_unavailable: true,
+    date_reference: "tomorrow",
+    date: targetDate,
+    planned_conflict: true,
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+  });
+  expect(body.planned_titles).toContain("Plan de mañana intacto");
+  expect(coachReplyCalls).toBe(0);
+
+  const availability = await request.get(
+    `${supabaseUrl}/rest/v1/training_availability_overrides?user_id=eq.${user.id}&calendar_date=eq.${targetDate}&select=calendar_date,availability_status,source`,
+    { headers: headers() },
+  );
+  expect(availability.ok(), await availability.text()).toBeTruthy();
+  expect(await availability.json()).toEqual([{
+    calendar_date: targetDate,
+    availability_status: "unavailable",
+    source: "coach_explicit",
+  }]);
+
+  const plan = await planRowsOnDate(request, user.id, targetDate);
+  expect(plan).toHaveLength(1);
+  expect(plan[0]).toMatchObject({
+    title: "Plan de mañana intacto",
+    status: "planned",
+    planned_date: targetDate,
+  });
+
+  await expect(page.getByText(/no la he movido ni cancelado/i)).toBeVisible();
 });
 
 test("week without plan does not fabricate sessions", async ({ page, request }) => {
