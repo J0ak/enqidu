@@ -157,6 +157,13 @@ function recommendation({ type, title, objective, duration, intensity, environme
 
 export function buildTrainingRecommendation(context = {}, { requestedLocation = null } = {}) {
   if (list(context?.planned_training?.sessions).length) return null;
+  if (normalizeText(context?.training_availability?.status) === "unavailable") {
+    return {
+      insufficient: true,
+      reason: "athlete_unavailable",
+      date: context?.training_availability?.date || context?.request?.date || null,
+    };
+  }
 
   const equipment = availableEquipment(context);
   const constraints = activeConstraints(context);
@@ -324,6 +331,9 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
 
 export function explainTrainingRecommendation(result) {
   if (!result || result.insufficient) {
+    if (result?.reason === "athlete_unavailable") {
+      return `Tienes ${result.date ? `el ${result.date} ` : ""}marcado como no disponible para entrenar. No genero una sesión para ese día.`;
+    }
     if (result?.reason === "coach_led_environment") {
       return `Ese entorno está registrado en ENQIDU como sesión guiada${result.environment ? ` (${result.environment})` : ""}. No genero una prescripción autónoma para ese entorno; sigue la sesión del monitor o indícame otro lugar de entrenamiento.`;
     }
