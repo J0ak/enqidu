@@ -88,3 +88,14 @@ test("ENQIDU TOOLS: read-only projection removes all write tools", () => {
   assert.equal(names.includes("save_recommendation_today"), false);
   assert.equal(names.includes("get_today_plan"), true);
 });
+
+test("ENQIDU TOOLS: move action is enabled for both App/OpenAI and future MCP projections", () => {
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "move_planned_session");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "move_planned_session");
+  assert.ok(openai);
+  assert.ok(mcp);
+  assert.deepEqual(openai.parameters, mcp.inputSchema);
+  assert.equal(openai.parameters.additionalProperties, false);
+  assert.deepEqual(openai.parameters.required, ["source_date", "target_weekday"]);
+});
+
