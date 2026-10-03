@@ -159,6 +159,20 @@ function buildPlannedTrainingAnswer(plannedTraining = {}) {
   return answer;
 }
 
+function buildUnavailablePlanAnswer(availability = {}, plannedTraining = {}) {
+  const sessions = Array.isArray(plannedTraining?.sessions) ? plannedTraining.sessions : [];
+  const date = availability?.date || plannedTraining?.date || null;
+  if (!sessions.length) {
+    return `Tienes ${date ? `el ${date} ` : ""}marcado como no disponible para entrenar. No genero una sesión para ese día.`;
+  }
+
+  const names = sessions
+    .map((session) => session?.title || session?.session_type)
+    .filter(Boolean);
+  const planned = names.length ? joinNatural(names) : "una sesión";
+  return `Tienes ${date ? `el ${date} ` : ""}marcado como no disponible para entrenar, pero sigue planificado ${planned}. No he movido ni cancelado esa sesión sin una orden explícita.`;
+}
+
 function buildEquipmentAnswer(equipment = [], requestedLocation = null) {
   const filtered = filterAvailableEquipment(equipment, requestedLocation);
   const label = requestedLocation?.label ? ` en ${requestedLocation.label.toLowerCase()}` : "";
@@ -195,6 +209,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   const plannedSessions = Array.isArray(context?.planned_training?.sessions)
     ? context.planned_training.sessions
     : [];
+  const unavailable = context?.training_availability?.status === "unavailable";
   const recommendation = intents.planToday && !plannedSessions.length
     ? buildTrainingRecommendation(context, { requestedLocation: intents.equipmentLocation })
     : null;
@@ -209,9 +224,14 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     answers.push(buildGreetingAnswer());
   }
   if (intents.planToday) {
-    answers.push(plannedSessions.length
-      ? buildPlannedTrainingAnswer(context?.planned_training || {})
-      : explainTrainingRecommendation(recommendation));
+    answers.push(unavailable
+      ? buildUnavailablePlanAnswer(
+          context?.training_availability || {},
+          context?.planned_training || {},
+        )
+      : plannedSessions.length
+        ? buildPlannedTrainingAnswer(context?.planned_training || {})
+        : explainTrainingRecommendation(recommendation));
   }
   if (intents.weekPlan) {
     answers.push(explainWeekPlanProgress(weekPlanProgress));
