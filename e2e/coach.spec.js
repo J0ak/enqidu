@@ -4,7 +4,7 @@ const test = base.extend({
   page: async ({ page }, use) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-    page.on("console", (message) => { if (message.type() === "error") errors.push(`console.error: ${message.text()}`); });
+    page.on("console", (message) => { if (message.type() === "error") errors.push(`console.error: ${message.text()} @ ${message.location().url || "unknown"}`); });
     await use(page);
     expect(errors, errors.join("\n")).toEqual([]);
   },
@@ -36,13 +36,13 @@ async function provision(request, label) {
 }
 
 async function login(page, user) {
-  await page.goto("/");
+  await page.goto("/#/profile");
   await page.getByRole("button", { name: "Perfil" }).click();
   await page.getByPlaceholder("email").fill(user.email);
   await page.getByPlaceholder("password").fill(password);
   await page.getByRole("button", { name: "Conectar" }).click();
   await expect(page.getByText("Sesión iniciada.")).toBeVisible();
-  await page.getByRole("button", { name: "Coach", exact: true }).click();
+  await page.locator("aside.rail").getByRole("button", { name: "Coach", exact: true }).click();
 }
 
 async function ask(page, text) {
@@ -101,7 +101,7 @@ test("explicit save persists coherent blocks and refreshes Activities", async ({
   const blocks = await request.get(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${rows[0].id}&select=*`, { headers: headers() });
   expect((await blocks.json()).length).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Actividades" }).click(); await expect(page.getByText(rows[0].title)).toBeVisible();
-  await page.getByRole("button", { name: "Coach", exact: true }).click(); const body = await ask(page, "¿Qué entreno hoy?"); expect(body.answer).toContain(rows[0].title);
+  await page.locator("aside.rail").getByRole("button", { name: "Coach", exact: true }).click(); const body = await ask(page, "¿Qué entreno hoy?"); expect(body.answer).toContain(rows[0].title);
 });
 
 test("double click remains single-flight", async ({ page, request }) => {
@@ -130,8 +130,9 @@ test("week without plan does not fabricate sessions", async ({ page, request }) 
 
 test("trend reports volume without claiming performance improvement", async ({ page, request }) => {
   const user=await provision(request,"trend");
+  await login(page,user);
   for (const [offset,duration] of [[-8,1200],[-1,3600]]) await request.post(`${supabaseUrl}/rest/v1/training_sessions`,{headers:headers(),data:{user_id:user.id,local_date:madridDate(offset),title:`Carga ${offset}`,sport:"strength",activity_type:"strength",duration_seconds:duration,session_status:"completed"}});
-  await login(page,user); const body=await ask(page,"¿Estoy mejorando?"); expect(body.response_mode).toBe("deterministic"); expect(body.llm_used).toBe(false); expect(body.answer).toContain("no puedo afirmar una mejora de rendimiento"); expect(body.answer.toLowerCase()).not.toMatch(/sí, estás mejorando|estas mejorando/);
+  const body=await ask(page,"¿Estoy mejorando?"); expect(body.response_mode).toBe("deterministic"); expect(body.llm_used).toBe(false); expect(body.answer).toContain("no puedo afirmar una mejora de rendimiento"); expect(body.answer.toLowerCase()).not.toMatch(/sí, estás mejorando|estas mejorando/);
 });
 
 test("Coach cards and primary navigation render without browser exceptions", async ({ page, request }) => {
