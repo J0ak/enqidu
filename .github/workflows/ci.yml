@@ -48,7 +48,7 @@ jobs:
         run: |
           rm -rf e2e-local/supabase/functions e2e-local/src
           cp -R supabase/functions e2e-local/supabase/functions
-          ln -s ../src e2e-local/src
+          cp -R src e2e-local/src
       - name: Start and rebuild isolated local Supabase
         run: |
           supabase --workdir e2e-local start
