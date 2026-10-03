@@ -93,7 +93,10 @@ function detectCurrentCoachIntent(message, text) {
   if (current.weekPlan || /\b(this week|weekly plan)\b/.test(text)) return "plan_week";
   if (current.trend || /\b(improving|training trend|compared? with last week|compare .*last week)\b/.test(text)) return "training_trend";
   if (current.recovery || /\b(recovery|readiness|sleep|hrv|body battery|fatigue)\b/.test(text)) return "recovery_status";
-  if (current.equipment || /\b(equipment|gear)\b/.test(text)) return "equipment_query";
+  if (current.equipment
+    || /\b(equipment|gear)\b/.test(text)
+    || /\bcon que (?:puedo )?entrenar\b/.test(text)
+    || /\bwhat can i train with\b/.test(text)) return "equipment_query";
   if (current.session || /\b(yesterday|last session|last workout|what did i do)\b/.test(text)) return "session_lookup";
 
   if (/\b(hazme|ponme|dame|preparame|recomiendame|build me|give me|make me|recommend)\b/.test(text)

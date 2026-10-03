@@ -123,3 +123,25 @@ A larger model is selected only if its measured semantic quality materially impr
 - no automatic plan write;
 - no replacement for canonical profile timezone;
 - no Garmin/FIT changes.
+
+
+## Challenge slice
+
+The V0 benchmark now reports `core` and `challenge` separately. The challenge slice deliberately changes clause order and uses semantically equivalent wording that is not copied from the deterministic phrase patterns. This prevents a high score on the legacy router from being mistaken for general language understanding.
+
+The browser lab consumes `public/labs/local-language-v0/dataset.json`, which is generated from the canonical source dataset and guarded by a regression test. The browser benchmark and CI therefore evaluate the same cases.
+
+A local model should be judged primarily on the challenge slice once the safety gates remain green on core. A model that only matches the deterministic core surface does not justify its download/RAM/latency cost.
+
+
+### Deterministic baseline after challenge hardening
+
+Measured against the canonical 222-case dataset before any local model is allowed into production routing:
+
+| Slice | Cases | Intent accuracy | Exact slot accuracy |
+| --- | ---: | ---: | ---: |
+| Core deterministic surface | 136 | 100% | 100% |
+| Semantic challenge | 86 | 16.3% | 100% |
+| Combined | 222 | 67.6% | 100% |
+
+This is the useful baseline: the existing rules extract explicit slots very well but do not generalize across semantically equivalent wording. A local model only earns its complexity if it closes that intent gap while preserving core safety and exact slots.
