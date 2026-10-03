@@ -42,7 +42,7 @@ async function login(page, user) {
   await page.getByPlaceholder("password").fill(password);
   await page.getByRole("button", { name: "Conectar" }).click();
   await expect(page.getByText("Sesión iniciada.")).toBeVisible();
-  await page.locator("aside.rail").getByRole("button", { name: "Coach", exact: true }).click();
+  await page.locator('button.railButton[aria-label="Coach"]').click();
 }
 
 async function ask(page, text) {
@@ -101,7 +101,7 @@ test("explicit save persists coherent blocks and refreshes Activities", async ({
   const blocks = await request.get(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${rows[0].id}&select=*`, { headers: headers() });
   expect((await blocks.json()).length).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Actividades" }).click(); await expect(page.getByText(rows[0].title)).toBeVisible();
-  await page.locator("aside.rail").getByRole("button", { name: "Coach", exact: true }).click(); const body = await ask(page, "¿Qué entreno hoy?"); expect(body.answer).toContain(rows[0].title);
+  await page.locator('button.railButton[aria-label="Coach"]').click(); const body = await ask(page, "¿Qué entreno hoy?"); expect(body.answer).toContain(rows[0].title);
 });
 
 test("double click remains single-flight", async ({ page, request }) => {
