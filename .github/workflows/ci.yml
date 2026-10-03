@@ -44,15 +44,20 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: latest
-      - name: Start and rebuild local Supabase
+      - name: Prepare isolated local Supabase project
         run: |
-          supabase start
-          supabase db reset
-          supabase status -o env > /tmp/supabase.env
-          cat > supabase/.env.e2e <<'EOF'
+          rm -rf e2e-local/supabase/functions e2e-local/src
+          cp -R supabase/functions e2e-local/supabase/functions
+          ln -s ../src e2e-local/src
+      - name: Start and rebuild isolated local Supabase
+        run: |
+          supabase --workdir e2e-local start
+          supabase --workdir e2e-local db reset
+          supabase --workdir e2e-local status -o env > /tmp/supabase.env
+          cat > e2e-local/supabase/.env.e2e <<'EOF'
           OPENAI_COACH_ENABLED=false
           EOF
-          nohup supabase functions serve --env-file supabase/.env.e2e > /tmp/supabase-functions.log 2>&1 &
+          nohup supabase --workdir e2e-local functions serve --env-file e2e-local/supabase/.env.e2e > /tmp/supabase-functions.log 2>&1 &
       - name: Export local-only Supabase values
         run: |
           source /tmp/supabase.env
@@ -61,6 +66,17 @@ jobs:
             echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY"
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
+      - name: Wait for local Coach functions
+        run: |
+          source /tmp/supabase.env
+          for attempt in {1..30}; do
+            if curl -fsS -X OPTIONS "$API_URL/functions/v1/coach-reply" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/supabase-functions.log || true
+          exit 1
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Playwright E2E
@@ -78,6 +94,6 @@ jobs:
       - name: Show Edge Function logs on failure
         if: failure()
         run: cat /tmp/supabase-functions.log || true
-      - name: Stop local Supabase
+      - name: Stop isolated local Supabase
         if: always()
-        run: supabase stop --no-backup
+        run: supabase --workdir e2e-local stop --no-backup

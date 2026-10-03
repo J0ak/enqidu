@@ -1,0 +1,10 @@
+project_id = "enqidu-e2e"
+
+[functions.coach-context]
+verify_jwt = true
+
+[functions.coach-reply]
+verify_jwt = true
+
+[functions.coach-plan-action]
+verify_jwt = true

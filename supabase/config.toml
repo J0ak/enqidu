@@ -15,10 +15,3 @@ verify_jwt = true
 
 [functions.session-correction-apply]
 verify_jwt = true
-
-[db.seed]
-enabled = true
-sql_paths = ["./seed.sql"]
-
-[functions.coach-plan-action]
-verify_jwt = true
