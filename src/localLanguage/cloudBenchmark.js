@@ -34,7 +34,14 @@ const TOP_LEVEL_KEYS = ["confidence", "intent", "language", "slots", "version"];
 const SLOT_KEYS = ["date_reference", "duration_max_minutes", "environment", "intensity_preference", "weekday"];
 
 const isObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const canonicalize = (value) => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]),
+  );
+};
+const same = (a, b) => JSON.stringify(canonicalize(a)) === JSON.stringify(canonicalize(b));
 const round = (value, digits = 4) => value == null ? null : Number(value.toFixed(digits));
 
 function exactKeys(value, expected) {
