@@ -1,0 +1,192 @@
+export const ENQIDU_TOOL_CONTRACT_VERSION = "enqidu_tools_v1";
+
+const noArgs = Object.freeze({
+  type: "object",
+  properties: {},
+  required: [],
+  additionalProperties: false,
+});
+
+const tool = ({
+  name,
+  description,
+  access = "read",
+  parameters = noArgs,
+  implementation,
+  enabled = true,
+  explicitUserCommand = false,
+}) => Object.freeze({
+  version: ENQIDU_TOOL_CONTRACT_VERSION,
+  name,
+  description,
+  access,
+  parameters,
+  implementation,
+  enabled,
+  explicit_user_command: explicitUserCommand,
+  server_validated: true,
+});
+
+export const ENQIDU_TOOL_CATALOG = Object.freeze([
+  tool({
+    name: "get_today_plan",
+    description: "Read the athlete's canonical plan or calculated recommendation for today. A persisted plan is authoritative.",
+    implementation: "coach_context.today_plan",
+  }),
+  tool({
+    name: "get_week_plan",
+    description: "Read the athlete's canonical plan progress for the current profile-timezone week.",
+    implementation: "coach_context.week_plan",
+  }),
+  tool({
+    name: "get_training_trend",
+    description: "Read ENQIDU's deterministic current-versus-previous training trend comparison.",
+    implementation: "coach_context.training_trend",
+  }),
+  tool({
+    name: "get_recovery_status",
+    description: "Read recovery fields that are actually present in ENQIDU. Missing sleep, HRV, Body Battery or readiness must remain missing.",
+    implementation: "coach_context.recovery",
+  }),
+  tool({
+    name: "get_equipment",
+    description: "Read available equipment, optionally scoped to one explicit training environment. Never mix equipment across unresolved locations.",
+    implementation: "coach_context.equipment",
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        environment: {
+          anyOf: [
+            { type: "null" },
+            {
+              type: "string",
+              enum: ["home", "pool", "trail", "outdoor", "functional_training_center"],
+            },
+          ],
+        },
+      },
+      required: ["environment"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
+    name: "get_recent_session",
+    description: "Read a recent executed training session from ENQIDU without inferring missing Garmin/FIT fields.",
+    implementation: "coach_context.recent_session",
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        date_reference: {
+          anyOf: [
+            { type: "null" },
+            { type: "string", enum: ["today", "yesterday"] },
+          ],
+        },
+      },
+      required: ["date_reference"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
+    name: "save_recommendation_today",
+    description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
+    access: "write",
+    implementation: "coach_plan_action.save_recommendation_today",
+    explicitUserCommand: true,
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        date: { anyOf: [{ type: "null" }, { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }] },
+        environment: {
+          anyOf: [
+            { type: "null" },
+            {
+              type: "string",
+              enum: ["home", "pool", "trail", "outdoor", "functional_training_center"],
+            },
+          ],
+        },
+      },
+      required: ["date", "environment"],
+      additionalProperties: false,
+    }),
+  }),
+]);
+
+export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
+  "move_planned_session",
+  "set_training_unavailability",
+  "adapt_session_environment",
+  "adapt_session_duration",
+  "cancel_planned_session",
+  "adapt_remaining_week",
+  "get_exercise_history",
+  "record_training_feedback",
+  "build_garmin_workout",
+  "send_workout_to_garmin",
+]);
+
+const CATALOG_BY_NAME = new Map(ENQIDU_TOOL_CATALOG.map((item) => [item.name, item]));
+
+export function getEnqiduTool(name) {
+  return CATALOG_BY_NAME.get(String(name || "")) || null;
+}
+
+export function listEnqiduTools({ includeWrites = true } = {}) {
+  return ENQIDU_TOOL_CATALOG.filter((item) => item.enabled && (includeWrites || item.access !== "write"));
+}
+
+export function toOpenAIResponsesTools(options = {}) {
+  return listEnqiduTools(options).map((item) => ({
+    type: "function",
+    name: item.name,
+    description: item.description,
+    parameters: item.parameters,
+    strict: true,
+  }));
+}
+
+export function toMcpToolDescriptors(options = {}) {
+  return listEnqiduTools(options).map((item) => ({
+    name: item.name,
+    description: item.description,
+    inputSchema: item.parameters,
+  }));
+}
+
+export function validateEnqiduToolRequest({ name, arguments: args = {}, explicitUserCommand = false } = {}) {
+  const definition = getEnqiduTool(name);
+  if (!definition?.enabled) {
+    return { ok: false, error: "unsupported_tool" };
+  }
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return { ok: false, error: "invalid_arguments" };
+  }
+
+  const allowedKeys = new Set(Object.keys(definition.parameters?.properties || {}));
+  if (Object.keys(args).some((key) => !allowedKeys.has(key))) {
+    return { ok: false, error: "unexpected_argument" };
+  }
+  const required = Array.isArray(definition.parameters?.required)
+    ? definition.parameters.required
+    : [];
+  if (required.some((key) => !(key in args))) {
+    return { ok: false, error: "missing_argument" };
+  }
+  if (definition.access === "write" && definition.explicit_user_command && !explicitUserCommand) {
+    return { ok: false, error: "explicit_user_command_required" };
+  }
+
+  return {
+    ok: true,
+    tool: definition,
+    arguments: { ...args },
+  };
+}
+
+export const enqiduToolPolicy = Object.freeze({
+  llm_role: "understand_select_explain",
+  engine_role: "validate_decide_execute_persist",
+  writes: "server_validated_explicit_only",
+  source_of_truth: "enqidu_canonical_state",
+});
