@@ -1,5 +1,5 @@
 import { WEBLLM, VERSION, DATASET_URL, MODELS, schema, prompt } from "./config.js";
-import { buildRuntimeFailureArtifact, parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js";
+import { buildRuntimeFailureArtifact, isFatalLocalLanguageRuntimeError, parseModelPayload, summarizeBenchmarkResults } from "./benchmark.js";
 
 const data = await fetch(DATASET_URL).then(async (response) => {
   if (!response.ok) throw new Error(`dataset_load_failed_${response.status}`);
@@ -245,6 +245,11 @@ $("run").onclick = async () => {
         if (parsed.error) record.error = parsed.error;
       } catch (error) {
         record.error = String(error?.message || error);
+        records.push(record);
+        if (isFatalLocalLanguageRuntimeError(error)) {
+          throw new Error(`fatal_webgpu_runtime: ${record.error}`);
+        }
+        continue;
       }
 
       records.push(record);

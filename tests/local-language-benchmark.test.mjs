@@ -4,6 +4,7 @@ import test from "node:test";
 import { VERSION } from "../public/labs/local-language-v0/config.js";
 import {
   buildRuntimeFailureArtifact,
+  isFatalLocalLanguageRuntimeError,
   parseModelPayload,
   summarizeBenchmarkResults,
   validateStructuredParse,
@@ -160,4 +161,56 @@ test("LOCAL LANGUAGE BENCHMARK: runtime failures are portable artifacts and do n
   assert.equal(artifact.summary.eligible_on_this_device, false);
   assert.equal(artifact.summary.cloud_llm_api_calls, 0);
   assert.deepEqual(artifact.failures, []);
+});
+
+
+test("LOCAL LANGUAGE BENCHMARK: missing per-case latency is not converted to a fake zero", () => {
+  const records = [
+    {
+      expected: valid(),
+      actual: valid(),
+      kind: "core",
+      language: "es",
+      jsonValid: true,
+      structuredValid: true,
+      latencyMs: 120,
+    },
+    {
+      expected: valid(),
+      actual: null,
+      kind: "core",
+      language: "es",
+      jsonValid: false,
+      structuredValid: false,
+      latencyMs: null,
+    },
+  ];
+
+  const summary = summarizeBenchmarkResults({
+    records,
+    datasetSize: 2,
+    model: { id: "test", vramMb: 1 },
+    device: { userAgent: "Android test" },
+    initMs: 10,
+    warmupMs: 5,
+    cacheState: "previously_loaded_in_this_browser",
+    cacheDeltaMb: 0,
+    completionTokens: 1,
+  });
+
+  assert.equal(summary.inference_ms.p50, 120);
+  assert.equal(summary.inference_ms.p95, 120);
+  assert.equal(summary.inference_ms.mean, 120);
+});
+
+test("LOCAL LANGUAGE BENCHMARK: fatal WebGPU disposal errors are detected", () => {
+  assert.equal(
+    isFatalLocalLanguageRuntimeError(new Error("Failed to execute 'mapAsync' on 'GPUBuffer': A valid external Instance reference no longer exists.")),
+    true,
+  );
+  assert.equal(
+    isFatalLocalLanguageRuntimeError(new Error("The current Object has already been disposed")),
+    true,
+  );
+  assert.equal(isFatalLocalLanguageRuntimeError(new Error("temporary malformed JSON")), false);
 });
