@@ -59,6 +59,37 @@ function detectUnavailability(text) {
   return UNAVAILABILITY_PATTERNS.find((item) => item.pattern.test(text))?.date_reference || null;
 }
 
+
+const ENVIRONMENT_ALIASES = Object.freeze({
+  casa: "home",
+  home: "home",
+  piscina: "pool",
+  pool: "pool",
+  trail: "trail",
+  monte: "trail",
+  exterior: "outdoor",
+  parque: "outdoor",
+  outdoor: "outdoor",
+  gimnasio: "functional_training_center",
+  gym: "functional_training_center",
+  box: "functional_training_center",
+});
+
+const ENVIRONMENT_PATTERNS = Object.freeze([
+  /^(?:hazlo|hazmelo|adaptalo|cambialo) en (casa|piscina|trail|monte|exterior|parque|gimnasio|gym|box)$/,
+  /^mejor en (casa|piscina|trail|monte|exterior|parque|gimnasio|gym|box)$/,
+  /^(?:do it|make it) (?:at|in) (home|pool|trail|outdoor|gym)$/,
+  /^(?:make it|turn it into) a (home|pool|trail|outdoor|gym) workout$/,
+]);
+
+function detectEnvironmentAdaptation(text) {
+  for (const pattern of ENVIRONMENT_PATTERNS) {
+    const match = text.match(pattern);
+    if (match?.[1]) return ENVIRONMENT_ALIASES[match[1]] || null;
+  }
+  return null;
+}
+
 const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
   /^(?:si )?apuntamelo$/,
   /^(?:si )?guardalo(?: en (?:mi )?plan)?$/,
@@ -89,6 +120,19 @@ export function detectEnqiduFastPathCommand(message = "") {
   // Keep generic negative commands fail-closed. The exact unavailability
   // whitelist above is the only write path intentionally allowed to begin "no".
   if (text.startsWith("no ")) return null;
+
+  const targetEnvironment = detectEnvironmentAdaptation(text);
+  if (targetEnvironment) {
+    const definition = getEnqiduTool("adapt_session_environment");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      arguments: { environment: targetEnvironment },
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
 
   const targetWeekday = detectMoveWeekday(text);
   if (targetWeekday) {
