@@ -117,6 +117,16 @@ function detectsCancelPlan(text) {
   return CANCEL_PLAN_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+const ADAPT_REMAINING_WEEK_PATTERNS = Object.freeze([
+  /^(?:adapta|ajusta|reorganiza|replanifica) (?:el )?resto de la semana$/,
+  /^(?:adapta|ajusta|reorganiza|replanifica) lo que queda de semana$/,
+  /^(?:adapt|adjust|reorganize|replan) the rest of the week$/,
+]);
+
+function detectsRemainingWeekAdaptation(text) {
+  return ADAPT_REMAINING_WEEK_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
   /^(?:si )?apuntamelo$/,
   /^(?:si )?guardalo(?: en (?:mi )?plan)?$/,
@@ -150,6 +160,17 @@ export function detectEnqiduFastPathCommand(message = "") {
 
   if (detectsCancelPlan(text)) {
     const definition = getEnqiduTool("cancel_planned_session");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
+
+  if (detectsRemainingWeekAdaptation(text)) {
+    const definition = getEnqiduTool("adapt_remaining_week");
     if (!definition?.enabled || definition.access !== "write") return null;
     return {
       tool: definition.name,
