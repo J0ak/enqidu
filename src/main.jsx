@@ -5,7 +5,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, cancelCoachPlannedSession, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, adaptCoachRemainingWeek, cancelCoachPlannedSession, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -4116,6 +4116,45 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMessages((current) => replaceLastAssistantMessage(
           current,
           result.message || "No he podido actualizar tu disponibilidad.",
+          [],
+        ));
+        return;
+      }
+
+      if (fastPath?.tool === "adapt_remaining_week") {
+        const result = await adaptCoachRemainingWeek();
+        if (result.ok && result.adapted) {
+          const moveSummary = result.moves
+            .slice(0, 4)
+            .map((move) => {
+              const title = move.title || "Entrenamiento";
+              const target = formatCoachCardDate(move.target_date) || move.target_date;
+              return `${title} → ${target}`;
+            })
+            .join("; ");
+          const content = moveSummary
+            ? `He adaptado el resto de la semana y he recolocado ${result.movedCount} ${result.movedCount === 1 ? "sesión" : "sesiones"}: ${moveSummary}.`
+            : `He adaptado el resto de la semana y he recolocado ${result.movedCount} ${result.movedCount === 1 ? "sesión" : "sesiones"}.`;
+          setMessages((current) => replaceLastAssistantMessage(current, content, []));
+          const refreshed = await onPlanSaved?.();
+          setMicNotice(refreshed === false
+            ? "Semana adaptada. Actualiza Actividades si no aparece todavía."
+            : "Semana adaptada.");
+          return;
+        }
+
+        if (result.ok && !result.adapted) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            result.message || "No hay sesiones pendientes de recolocar en lo que queda de la semana.",
+            [],
+          ));
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido adaptar el resto de la semana con seguridad.",
           [],
         ));
         return;

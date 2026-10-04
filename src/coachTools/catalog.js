@@ -175,6 +175,13 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
+    name: "adapt_remaining_week",
+    description: "Safely reorganize the athlete's remaining current week after explicit availability changes. ENQIDU only moves its own uncompleted plans from unavailable dates to later free dates in the same week and fails closed if the week cannot be resolved safely.",
+    access: "write",
+    implementation: "coach_plan_action.adapt_remaining_week",
+    explicitUserCommand: true,
+  }),
+  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -201,7 +208,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
-  "adapt_remaining_week",
   "get_exercise_history",
   "record_training_feedback",
   "build_garmin_workout",
