@@ -5,7 +5,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptCoachPlannedSessionEnvironment, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -4116,6 +4116,55 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMessages((current) => replaceLastAssistantMessage(
           current,
           result.message || "No he podido actualizar tu disponibilidad.",
+          [],
+        ));
+        return;
+      }
+
+      if (fastPath?.tool === "adapt_session_duration") {
+        const plannedContext = findLatestPlannedTrainingContext(messages);
+        if (!plannedContext) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await adaptCoachPlannedSessionDuration({
+          sourceDate: plannedContext.date,
+          durationMinutes: fastPath.arguments?.duration_minutes,
+        });
+        if (result.ok && result.adapted && result.plannedSession) {
+          const content = `He ajustado ${result.plannedSession.title || plannedContext.title || "el entrenamiento"} a ${result.plannedSession.duration_minutes} minutos.`;
+          setMessages((current) => replaceLastAssistantMessage(
+            markLatestPlannedTrainingAdapted(current, {
+              date: result.sourceDate || plannedContext.date,
+              plannedSession: result.plannedSession,
+            }),
+            content,
+            [],
+          ));
+          const refreshed = await onPlanSaved?.();
+          setMicNotice(refreshed === false
+            ? "Duración adaptada. Actualiza Actividades si no aparece todavía."
+            : "Duración adaptada.");
+          return;
+        }
+
+        if (result.ok && !result.adapted) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            result.message || "La sesión ya tiene esa duración.",
+            [],
+          ));
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido adaptar la duración de ese entrenamiento.",
           [],
         ));
         return;

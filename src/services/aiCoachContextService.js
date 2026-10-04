@@ -234,3 +234,49 @@ export async function adaptCoachPlannedSessionEnvironment({ sourceDate, environm
     usage: data.usage || null,
   };
 }
+
+
+export async function adaptCoachPlannedSessionDuration({ sourceDate, durationMinutes } = {}) {
+  if (!supabase) {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const payload = {
+    action: "adapt_session_duration",
+    source_date: sourceDate || null,
+    duration_minutes: durationMinutes ?? null,
+    client_timezone: getClientCalendarTimezone(),
+  };
+
+  const { data, error } = await supabase.functions.invoke("coach-plan-action", {
+    body: payload,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: data?.error || error.message || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: data?.error || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  return {
+    ok: true,
+    adapted: Boolean(data.adapted),
+    sourceDate: data.source_date || null,
+    plannedSessionId: data.planned_session_id || null,
+    plannedSession: data.planned_session || null,
+    message: data.message || null,
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
+    usage: data.usage || null,
+  };
+}

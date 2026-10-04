@@ -44,3 +44,55 @@ export function isPlanDateOnOrAfter(value, referenceDate) {
     && isValidPlanCalendarDate(referenceDate)
     && value >= referenceDate;
 }
+
+
+export function scalePlannedBlockDurations(blocks = [], targetMinutes) {
+  const target = Number(targetMinutes);
+  if (!Number.isInteger(target) || target < 10 || target > 180) return null;
+  if (!Array.isArray(blocks) || !blocks.length || blocks.length > 12 || target < blocks.length) return null;
+
+  const normalized = blocks.map((block, index) => {
+    const seconds = Number(block?.planned_duration_seconds);
+    const id = typeof block?.id === "string" ? block.id.trim() : "";
+    if (!id || !Number.isFinite(seconds) || seconds <= 0) return null;
+    return {
+      ...block,
+      id,
+      index,
+      weight: seconds,
+    };
+  });
+  if (normalized.some((block) => !block)) return null;
+
+  const totalWeight = normalized.reduce((sum, block) => sum + block.weight, 0);
+  if (!(totalWeight > 0)) return null;
+
+  const flexibleMinutes = target - normalized.length;
+  const allocated = normalized.map((block) => {
+    const raw = flexibleMinutes * (block.weight / totalWeight);
+    return {
+      ...block,
+      base: Math.floor(raw),
+      remainder: raw - Math.floor(raw),
+    };
+  });
+
+  let remaining = flexibleMinutes - allocated.reduce((sum, block) => sum + block.base, 0);
+  const priority = allocated
+    .slice()
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  const bonus = new Set(priority.slice(0, remaining).map((block) => block.index));
+
+  return allocated
+    .sort((a, b) => a.index - b.index)
+    .map((block) => {
+      const durationMinutes = 1 + block.base + (bonus.has(block.index) ? 1 : 0);
+      return {
+        id: block.id,
+        block_order: block.block_order ?? block.index + 1,
+        title: block.title || null,
+        duration_minutes: durationMinutes,
+        duration_seconds: durationMinutes * 60,
+      };
+    });
+}
