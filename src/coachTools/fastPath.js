@@ -107,6 +107,16 @@ function detectDurationAdaptation(text) {
   return null;
 }
 
+
+const CANCEL_PLAN_PATTERNS = Object.freeze([
+  /^(?:cancelalo|cancela este entrenamiento|cancela la sesion|quita este entrenamiento del plan)$/,
+  /^(?:cancel it|cancel this workout|cancel the session|remove this workout from my plan)$/,
+]);
+
+function detectsCancelPlan(text) {
+  return CANCEL_PLAN_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
   /^(?:si )?apuntamelo$/,
   /^(?:si )?guardalo(?: en (?:mi )?plan)?$/,
@@ -137,6 +147,17 @@ export function detectEnqiduFastPathCommand(message = "") {
   // Keep generic negative commands fail-closed. The exact unavailability
   // whitelist above is the only write path intentionally allowed to begin "no".
   if (text.startsWith("no ")) return null;
+
+  if (detectsCancelPlan(text)) {
+    const definition = getEnqiduTool("cancel_planned_session");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
 
   const targetDurationMinutes = detectDurationAdaptation(text);
   if (targetDurationMinutes) {
