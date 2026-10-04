@@ -35,6 +35,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.63.0"
   }
 }
