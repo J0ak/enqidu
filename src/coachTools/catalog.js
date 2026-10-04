@@ -144,6 +144,22 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
+    name: "adapt_session_duration",
+    description: "Adapt one explicitly referenced ENQIDU-generated planned session to an explicit duration. ENQIDU preserves the session structure while deterministically rescaling timed blocks and validating the write server-side.",
+    access: "write",
+    implementation: "coach_plan_action.adapt_session_duration",
+    explicitUserCommand: true,
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        source_date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        duration_minutes: { type: "integer", minimum: 10, maximum: 180 },
+      },
+      required: ["source_date", "duration_minutes"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -170,7 +186,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
-  "adapt_session_duration",
   "cancel_planned_session",
   "adapt_remaining_week",
   "get_exercise_history",
