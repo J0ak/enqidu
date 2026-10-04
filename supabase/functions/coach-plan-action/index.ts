@@ -8,6 +8,7 @@ import {
 import {
   isPlanDateOnOrAfter,
   resolveNextWeekdayDate,
+  scalePlannedBlockDurations,
   shiftPlanCalendarDate,
 } from "../../../src/coachTools/planActions.js";
 import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
@@ -27,6 +28,7 @@ const supportedActions = new Set([
   "move_planned_session",
   "set_training_unavailability",
   "adapt_session_environment",
+  "adapt_session_duration",
 ]);
 
 async function loadUserTimezone(db: any, userId: string) {
@@ -43,7 +45,7 @@ async function loadUserTimezone(db: any, userId: string) {
 async function loadPlannedTraining(db: any, userId: string, date: string) {
   const result = await db
     .from("planned_training_sessions")
-    .select("id, title, status, source, linked_completed_session_id, location_type")
+    .select("id, title, status, source, linked_completed_session_id, location_type, session_type, planned_intensity, planned_duration_min, planned_duration_max, objective")
     .eq("user_id", userId)
     .eq("planned_date", date)
     .order("created_at", { ascending: true })
@@ -54,6 +56,17 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
     date,
     sessions: Array.isArray(result.data) ? result.data : [],
   };
+}
+
+async function loadPlannedBlocks(db: any, plannedSessionId: string) {
+  const result = await db
+    .from("planned_session_blocks")
+    .select("id, block_order, title, planned_duration_seconds")
+    .eq("planned_session_id", plannedSessionId)
+    .order("block_order", { ascending: true });
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data : [];
 }
 
 async function loadTrainingAvailability(db: any, userId: string, date: string) {
@@ -189,6 +202,137 @@ Deno.serve(async (req: Request) => {
         date: targetDate,
         planned_conflict: planned.sessions.length > 0,
         planned_titles: plannedTitles,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
+    }
+
+    if (action === "adapt_session_duration") {
+      const sourceDate = String(body.source_date || "");
+      const targetDurationMinutes = Number(body.duration_minutes);
+      if (!isPlanDateOnOrAfter(sourceDate, calendar.date)) {
+        return reply({
+          ok: false,
+          error: "stale_plan_source_date",
+          message: "Ese plan ya no corresponde a hoy o a una fecha futura. Vuelve a consultar el plan antes de adaptarlo.",
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        }, 400);
+      }
+      if (!Number.isInteger(targetDurationMinutes)
+          || targetDurationMinutes < 10
+          || targetDurationMinutes > 180) {
+        return reply({ ok: false, error: "invalid_duration" }, 400);
+      }
+
+      const planned = await loadPlannedTraining(userDb, userId, sourceDate);
+      if (!planned.sessions.length) {
+        return reply({
+          ok: false,
+          error: "source_plan_not_found",
+          message: "No encuentro ese entrenamiento planificado; vuelve a consultar tu plan antes de adaptarlo.",
+        });
+      }
+      if (planned.sessions.length > 1) {
+        return reply({
+          ok: false,
+          error: "source_plan_ambiguous",
+          message: "Hay más de una sesión en ese día. Necesito que identifiques una sesión concreta antes de adaptarla.",
+        });
+      }
+
+      const sourceSession = planned.sessions[0];
+      if (sourceSession.source !== "enkidu_coach") {
+        return reply({
+          ok: false,
+          error: "unsupported_plan_source",
+          message: "Solo puedo ajustar automáticamente la duración de sesiones generadas por ENQIDU. No he modificado este plan.",
+        });
+      }
+      if (sourceSession.linked_completed_session_id || sourceSession.status === "skipped") {
+        return reply({
+          ok: false,
+          error: "source_plan_not_adaptable",
+          message: "Ese entrenamiento ya no puede adaptarse automáticamente.",
+        });
+      }
+
+      const blocks = await loadPlannedBlocks(userDb, sourceSession.id);
+      const scaledBlocks = scalePlannedBlockDurations(blocks, targetDurationMinutes);
+      if (!scaledBlocks) {
+        return reply({
+          ok: false,
+          error: "duration_adaptation_unavailable",
+          message: "No puedo ajustar esa sesión a esa duración sin perder la estructura del plan.",
+        });
+      }
+
+      const currentDuration = Number(sourceSession.planned_duration_max || sourceSession.planned_duration_min);
+      const currentBlockSeconds = blocks.reduce(
+        (sum: number, block: any) => sum + Number(block?.planned_duration_seconds || 0),
+        0,
+      );
+      if (currentDuration === targetDurationMinutes
+          && currentBlockSeconds === targetDurationMinutes * 60) {
+        return reply({
+          ok: true,
+          action,
+          adapted: false,
+          message: `La sesión ya está ajustada a ${targetDurationMinutes} minutos.`,
+          source_date: sourceDate,
+          planned_session_id: sourceSession.id,
+          response_mode: "deterministic_action",
+          llm_used: false,
+          usage: null,
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        });
+      }
+
+      const adaptResult = await adminDb.rpc("adapt_coach_planned_session_duration", {
+        p_user_id: userId,
+        p_planned_date: sourceDate,
+        p_planned_session_id: sourceSession.id,
+        p_duration_minutes: targetDurationMinutes,
+        p_blocks: scaledBlocks.map((block) => ({
+          id: block.id,
+          duration_seconds: block.duration_seconds,
+        })),
+      });
+      if (adaptResult.error) throw adaptResult.error;
+
+      const adapted = adaptResult.data || {};
+      if (!adapted.ok) {
+        return reply({
+          ok: false,
+          error: adapted.error || "plan_adaptation_rejected",
+          message: adapted.error === "unsupported_plan_source"
+            ? "Solo puedo ajustar automáticamente la duración de sesiones generadas por ENQIDU. No he modificado este plan."
+            : null,
+        });
+      }
+
+      return reply({
+        ok: true,
+        action,
+        adapted: true,
+        source_date: sourceDate,
+        planned_session_id: adapted.planned_session_id || sourceSession.id,
+        planned_session: {
+          date: sourceDate,
+          title: sourceSession.title,
+          session_type: sourceSession.session_type,
+          duration_minutes: targetDurationMinutes,
+          intensity: sourceSession.planned_intensity,
+          environment: sourceSession.location_type,
+          blocks: scaledBlocks.map((block) => ({
+            title: block.title,
+            duration_minutes: block.duration_minutes,
+          })),
+        },
         response_mode: "deterministic_action",
         llm_used: false,
         usage: null,
