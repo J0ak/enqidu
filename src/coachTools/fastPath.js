@@ -90,6 +90,23 @@ function detectEnvironmentAdaptation(text) {
   return null;
 }
 
+
+const DURATION_PATTERNS = Object.freeze([
+  /^(?:hazlo|dejalo|ajustalo|recortalo) (?:de|a|en) (\d{1,3}) (?:min|minutos)$/,
+  /^solo tengo (\d{1,3}) (?:min|minutos)$/,
+  /^(?:make it|set it to) (\d{1,3}) (?:min|minutes)$/,
+  /^i only have (\d{1,3}) (?:min|minutes)$/,
+]);
+
+function detectDurationAdaptation(text) {
+  for (const pattern of DURATION_PATTERNS) {
+    const match = text.match(pattern);
+    const minutes = Number(match?.[1]);
+    if (Number.isInteger(minutes) && minutes >= 10 && minutes <= 180) return minutes;
+  }
+  return null;
+}
+
 const SAVE_RECOMMENDATION_PATTERNS = Object.freeze([
   /^(?:si )?apuntamelo$/,
   /^(?:si )?guardalo(?: en (?:mi )?plan)?$/,
@@ -120,6 +137,19 @@ export function detectEnqiduFastPathCommand(message = "") {
   // Keep generic negative commands fail-closed. The exact unavailability
   // whitelist above is the only write path intentionally allowed to begin "no".
   if (text.startsWith("no ")) return null;
+
+  const targetDurationMinutes = detectDurationAdaptation(text);
+  if (targetDurationMinutes) {
+    const definition = getEnqiduTool("adapt_session_duration");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      arguments: { duration_minutes: targetDurationMinutes },
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
 
   const targetEnvironment = detectEnvironmentAdaptation(text);
   if (targetEnvironment) {
