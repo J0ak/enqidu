@@ -161,7 +161,7 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
   }),
   tool({
     name: "cancel_planned_session",
-    description: "Cancel one explicitly referenced planned session while preserving it as an auditable cancelled plan. ENQIDU validates ownership, date, completion state and plan source before writing.",
+    description: "Cancel one explicitly referenced planned session while preserving it as auditable plan history. ENQIDU validates ownership, date and completion state before writing.",
     access: "write",
     implementation: "coach_plan_action.cancel_planned_session",
     explicitUserCommand: true,
