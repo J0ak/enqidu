@@ -5,9 +5,9 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, cancelCoachPlannedSession, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
@@ -4116,6 +4116,44 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMessages((current) => replaceLastAssistantMessage(
           current,
           result.message || "No he podido actualizar tu disponibilidad.",
+          [],
+        ));
+        return;
+      }
+
+      if (fastPath?.tool === "cancel_planned_session") {
+        const plannedContext = findLatestPlannedTrainingContext(messages);
+        if (!plannedContext) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await cancelCoachPlannedSession({
+          sourceDate: plannedContext.date,
+        });
+        if (result.ok && result.cancelled) {
+          const content = `He cancelado ${result.title || plannedContext.title || "el entrenamiento"} del ${formatCoachCardDate(result.sourceDate || plannedContext.date) || plannedContext.date}.`;
+          setMessages((current) => replaceLastAssistantMessage(
+            markLatestPlannedTrainingCancelled(current, {
+              date: result.sourceDate || plannedContext.date,
+            }),
+            content,
+            [],
+          ));
+          const refreshed = await onPlanSaved?.();
+          setMicNotice(refreshed === false
+            ? "Plan cancelado. Actualiza Actividades si no aparece todavía."
+            : "Plan cancelado.");
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido cancelar ese entrenamiento.",
           [],
         ));
         return;
