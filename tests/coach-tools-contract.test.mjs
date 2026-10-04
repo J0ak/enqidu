@@ -133,3 +133,15 @@ test("ENQIDU TOOLS: duration adaptation is enabled for App/OpenAI and future MCP
   assert.equal(openai.parameters.additionalProperties, false);
   assert.deepEqual(openai.parameters.required, ["source_date", "duration_minutes"]);
 });
+
+
+test("ENQIDU TOOLS: cancellation is enabled for App/OpenAI and future MCP projections", () => {
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "cancel_planned_session");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "cancel_planned_session");
+  assert.ok(openai);
+  assert.ok(mcp);
+  assert.deepEqual(openai.parameters, mcp.inputSchema);
+  assert.equal(openai.parameters.additionalProperties, false);
+  assert.deepEqual(openai.parameters.required, ["source_date"]);
+  assert.equal(getEnqiduTool("cancel_planned_session")?.explicit_user_command, true);
+});
