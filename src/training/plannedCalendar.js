@@ -7,6 +7,7 @@ const PLANNED_STATUSES = new Set([
   "modified",
   "skipped",
   "rescheduled",
+  "cancelled",
 ]);
 
 const STATUS_LABELS = {
@@ -19,6 +20,7 @@ const STATUS_LABELS = {
   modified: "Modificada",
   skipped: "Omitida",
   rescheduled: "Reprogramada",
+  cancelled: "Cancelada",
 };
 
 const TYPE_LABELS = {

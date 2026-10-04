@@ -61,6 +61,7 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
     .select("id, planned_date, planned_time, title, session_type, status, location_type, planned_intensity, planned_duration_min, planned_duration_max, objective, coach_notes, source")
     .eq("user_id", userId)
     .eq("planned_date", date)
+    .neq("status", "cancelled")
     .order("planned_time", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 

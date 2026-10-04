@@ -160,6 +160,21 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
+    name: "cancel_planned_session",
+    description: "Cancel one explicitly referenced planned session while preserving it as auditable plan history. ENQIDU validates ownership, date and completion state before writing.",
+    access: "write",
+    implementation: "coach_plan_action.cancel_planned_session",
+    explicitUserCommand: true,
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        source_date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      },
+      required: ["source_date"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -186,7 +201,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
-  "cancel_planned_session",
   "adapt_remaining_week",
   "get_exercise_history",
   "record_training_feedback",

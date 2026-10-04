@@ -115,7 +115,7 @@ export function findLatestPlannedTrainingContext(messages = []) {
 
     for (let cardIndex = message.cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
       const card = message.cards[cardIndex];
-      if (card?.id !== "planned_training_today") continue;
+      if (card?.id !== "planned_training_today" || card?.cancelled === true) continue;
       const date = coachCardCalendarDate(card);
       if (!date) continue;
       return {
@@ -219,6 +219,45 @@ export function markLatestPlannedTrainingAdapted(messages = [], { date, plannedS
             })),
             environment: plannedSession.environment || null,
             session_type: plannedSession.session_type || null,
+          }
+        : card),
+    };
+  });
+}
+
+
+export function markLatestPlannedTrainingCancelled(messages = [], { date } = {}) {
+  if (!Array.isArray(messages) || !/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))) {
+    return messages;
+  }
+
+  let targetMessageIndex = -1;
+  let targetCardIndex = -1;
+  for (let messageIndex = messages.length - 1; messageIndex >= 0 && targetMessageIndex < 0; messageIndex -= 1) {
+    const cards = Array.isArray(messages[messageIndex]?.cards) ? messages[messageIndex].cards : [];
+    for (let cardIndex = cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
+      const card = cards[cardIndex];
+      if (card?.id === "planned_training_today"
+          && card?.cancelled !== true
+          && coachCardCalendarDate(card) === date) {
+        targetMessageIndex = messageIndex;
+        targetCardIndex = cardIndex;
+        break;
+      }
+    }
+  }
+  if (targetMessageIndex < 0) return messages;
+
+  return messages.map((message, messageIndex) => {
+    if (messageIndex !== targetMessageIndex) return message;
+    return {
+      ...message,
+      cards: message.cards.map((card, cardIndex) => cardIndex === targetCardIndex
+        ? {
+            ...card,
+            badge: "Cancelada",
+            cancelled: true,
+            actions: [],
           }
         : card),
     };
