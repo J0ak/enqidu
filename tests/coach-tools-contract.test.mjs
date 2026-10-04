@@ -111,3 +111,14 @@ test("ENQIDU TOOLS: unavailability action projects identically to OpenAI and fut
   assert.deepEqual(openai.parameters.properties.date_reference.enum, ["today", "tomorrow"]);
   assert.equal(openai.parameters.additionalProperties, false);
 });
+
+
+test("ENQIDU TOOLS: environment adaptation is enabled for App/OpenAI and future MCP projections", () => {
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "adapt_session_environment");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "adapt_session_environment");
+  assert.ok(openai);
+  assert.ok(mcp);
+  assert.deepEqual(openai.parameters, mcp.inputSchema);
+  assert.equal(openai.parameters.additionalProperties, false);
+  assert.deepEqual(openai.parameters.required, ["source_date", "environment"]);
+});
