@@ -107,24 +107,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
-    name: "set_training_unavailability",
-    description: "Persist an explicit athlete statement that training is unavailable on today or tomorrow. This does not silently move, cancel or delete an existing plan.",
-    access: "write",
-    implementation: "coach_plan_action.set_training_unavailability",
-    explicitUserCommand: true,
-    parameters: Object.freeze({
-      type: "object",
-      properties: {
-        date_reference: {
-          type: "string",
-          enum: ["today", "tomorrow"],
-        },
-      },
-      required: ["date_reference"],
-      additionalProperties: false,
-    }),
-  }),
-  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -151,6 +133,7 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
+  "set_training_unavailability",
   "adapt_session_environment",
   "adapt_session_duration",
   "cancel_planned_session",
