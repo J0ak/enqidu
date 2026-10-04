@@ -26,6 +26,7 @@ const supportedActions = new Set([
   "save_recommendation_today",
   "move_planned_session",
   "set_training_unavailability",
+  "adapt_session_environment",
 ]);
 
 async function loadUserTimezone(db: any, userId: string) {
@@ -42,7 +43,7 @@ async function loadUserTimezone(db: any, userId: string) {
 async function loadPlannedTraining(db: any, userId: string, date: string) {
   const result = await db
     .from("planned_training_sessions")
-    .select("id, title, status")
+    .select("id, title, status, source, linked_completed_session_id, location_type")
     .eq("user_id", userId)
     .eq("planned_date", date)
     .order("created_at", { ascending: true })
@@ -53,6 +54,25 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
     date,
     sessions: Array.isArray(result.data) ? result.data : [],
   };
+}
+
+async function loadTrainingAvailability(db: any, userId: string, date: string) {
+  const result = await db
+    .from("training_availability_overrides")
+    .select("calendar_date, availability_status, source")
+    .eq("user_id", userId)
+    .eq("calendar_date", date)
+    .limit(1);
+
+  if (result.error) throw result.error;
+  const row = Array.isArray(result.data) ? result.data[0] : null;
+  return row
+    ? {
+        date: row.calendar_date || date,
+        status: row.availability_status || null,
+        source: row.source || null,
+      }
+    : null;
 }
 
 async function loadRecommendationConstraints(db: any, userId: string) {
@@ -169,6 +189,144 @@ Deno.serve(async (req: Request) => {
         date: targetDate,
         planned_conflict: planned.sessions.length > 0,
         planned_titles: plannedTitles,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
+    }
+
+    if (action === "adapt_session_environment") {
+      const sourceDate = String(body.source_date || "");
+      if (!isPlanDateOnOrAfter(sourceDate, calendar.date)) {
+        return reply({
+          ok: false,
+          error: "stale_plan_source_date",
+          message: "Ese plan ya no corresponde a hoy o a una fecha futura. Vuelve a consultar el plan antes de adaptarlo.",
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        }, 400);
+      }
+
+      const requestedLocationKey = normalizeCoachPlanLocation(body.environment);
+      if (!requestedLocationKey) {
+        return reply({ ok: false, error: "invalid_location" }, 400);
+      }
+
+      const planned = await loadPlannedTraining(userDb, userId, sourceDate);
+      if (!planned.sessions.length) {
+        return reply({
+          ok: false,
+          error: "source_plan_not_found",
+          message: "No encuentro ese entrenamiento planificado; vuelve a consultar tu plan antes de adaptarlo.",
+        });
+      }
+      if (planned.sessions.length > 1) {
+        return reply({
+          ok: false,
+          error: "source_plan_ambiguous",
+          message: "Hay más de una sesión en ese día. Necesito que identifiques una sesión concreta antes de adaptarla.",
+        });
+      }
+
+      const sourceSession = planned.sessions[0];
+      if (sourceSession.source !== "enkidu_coach") {
+        return reply({
+          ok: false,
+          error: "unsupported_plan_source",
+          message: "Solo puedo recalcular automáticamente sesiones generadas por ENQIDU. No he modificado este plan.",
+        });
+      }
+      if (sourceSession.linked_completed_session_id || sourceSession.status === "skipped") {
+        return reply({
+          ok: false,
+          error: "source_plan_not_adaptable",
+          message: "Ese entrenamiento ya no puede adaptarse automáticamente.",
+        });
+      }
+
+      const contextResult = await userDb.rpc("get_ai_coach_context", {
+        p_user_id: userId,
+        p_date: sourceDate,
+        p_mode: "today_coach",
+        p_from_date: null,
+        p_to_date: null,
+        p_session_id: null,
+      });
+      if (contextResult.error) throw contextResult.error;
+
+      const context = contextResult.data || {};
+      context.request = {
+        ...(context.request || {}),
+        date: sourceDate,
+        reference_date: calendar.date,
+      };
+      // Deliberately hide the existing plan from the recommendation builder:
+      // the current plan is the object being replaced, not authority against
+      // the explicit adaptation request.
+      context.planned_training = { date: sourceDate, sessions: [] };
+      context.training_availability = await loadTrainingAvailability(userDb, userId, sourceDate);
+      context.recommendation_context = {
+        constraints: await loadRecommendationConstraints(userDb, userId),
+      };
+
+      const recommendation = buildTrainingRecommendation(context, {
+        requestedLocation: { key: requestedLocationKey },
+      });
+      if (!recommendation || recommendation.insufficient) {
+        return reply({
+          ok: false,
+          error: "recommendation_unavailable",
+          reason: recommendation?.reason || "insufficient_enqidu_context",
+          message: recommendation?.reason === "athlete_unavailable"
+            ? "Tienes ese día marcado como no disponible para entrenar. No he modificado el plan."
+            : "No puedo recalcular esa sesión con seguridad para el entorno solicitado.",
+        });
+      }
+
+      const storageRecommendation = toPlannedRecommendationPayload({
+        ...recommendation,
+        environment: recommendation.environment || requestedLocationKey,
+      });
+      if (!storageRecommendation || storageRecommendation.environment !== requestedLocationKey) {
+        return reply({ ok: false, error: "unsupported_recommendation_type" });
+      }
+
+      const adaptResult = await adminDb.rpc("adapt_coach_planned_session_environment", {
+        p_user_id: userId,
+        p_planned_date: sourceDate,
+        p_planned_session_id: sourceSession.id,
+        p_session: storageRecommendation,
+      });
+      if (adaptResult.error) throw adaptResult.error;
+
+      const adapted = adaptResult.data || {};
+      if (!adapted.ok) {
+        return reply({
+          ok: false,
+          error: adapted.error || "plan_adaptation_rejected",
+          message: adapted.error === "unsupported_plan_source"
+            ? "Solo puedo recalcular automáticamente sesiones generadas por ENQIDU. No he modificado este plan."
+            : null,
+        });
+      }
+
+      return reply({
+        ok: true,
+        action,
+        adapted: true,
+        source_date: sourceDate,
+        planned_session_id: adapted.planned_session_id || sourceSession.id,
+        planned_session: {
+          date: sourceDate,
+          title: recommendation.title,
+          session_type: storageRecommendation.session_type,
+          duration_minutes: recommendation.duration_minutes,
+          intensity: recommendation.intensity,
+          environment: storageRecommendation.environment,
+          blocks: recommendation.blocks,
+        },
         response_mode: "deterministic_action",
         llm_used: false,
         usage: null,
