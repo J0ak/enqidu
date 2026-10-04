@@ -7,7 +7,9 @@ import {
 } from "../../../src/coachContext/coachPlanAction.js";
 import {
   isPlanDateOnOrAfter,
+  planRemainingWeekReschedule,
   resolveNextWeekdayDate,
+  resolveRemainingWeekEndDate,
   scalePlannedBlockDurations,
   shiftPlanCalendarDate,
 } from "../../../src/coachTools/planActions.js";
@@ -30,6 +32,7 @@ const supportedActions = new Set([
   "adapt_session_environment",
   "adapt_session_duration",
   "cancel_planned_session",
+  "adapt_remaining_week",
 ]);
 
 async function loadUserTimezone(db: any, userId: string) {
@@ -89,6 +92,36 @@ async function loadTrainingAvailability(db: any, userId: string, date: string) {
       }
     : null;
 }
+
+async function loadPlannedTrainingRange(db: any, userId: string, from: string, to: string) {
+  const result = await db
+    .from("planned_training_sessions")
+    .select("id, planned_date, title, status, source, linked_completed_session_id")
+    .eq("user_id", userId)
+    .gte("planned_date", from)
+    .lte("planned_date", to)
+    .neq("status", "cancelled")
+    .order("planned_date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+async function loadTrainingAvailabilityRange(db: any, userId: string, from: string, to: string) {
+  const result = await db
+    .from("training_availability_overrides")
+    .select("calendar_date, availability_status, source")
+    .eq("user_id", userId)
+    .gte("calendar_date", from)
+    .lte("calendar_date", to)
+    .eq("availability_status", "unavailable")
+    .order("calendar_date", { ascending: true });
+
+  if (result.error) throw result.error;
+  return Array.isArray(result.data) ? result.data : [];
+}
+
 
 async function loadRecommendationConstraints(db: any, userId: string) {
   const result = await db
@@ -204,6 +237,99 @@ Deno.serve(async (req: Request) => {
         date: targetDate,
         planned_conflict: planned.sessions.length > 0,
         planned_titles: plannedTitles,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
+    }
+
+    if (action === "adapt_remaining_week") {
+      const weekEnd = resolveRemainingWeekEndDate(calendar.date);
+      if (!weekEnd) {
+        return reply({ ok: false, error: "invalid_calendar" }, 400);
+      }
+
+      const [plannedSessions, unavailableRows] = await Promise.all([
+        loadPlannedTrainingRange(userDb, userId, calendar.date, weekEnd),
+        loadTrainingAvailabilityRange(userDb, userId, calendar.date, weekEnd),
+      ]);
+
+      const plan = planRemainingWeekReschedule({
+        sessions: plannedSessions,
+        unavailableDates: unavailableRows.map((row: any) => row.calendar_date),
+        fromDate: calendar.date,
+        toDate: weekEnd,
+      });
+
+      if (!plan.ok) {
+        const message = plan.error === "unsupported_plan_source"
+          ? "Hay una sesión no generada por ENQIDU en un día no disponible. No he modificado la semana."
+          : plan.error === "source_plan_not_adaptable"
+            ? "Hay una sesión ya ejecutada u omitida que no puedo reprogramar automáticamente. No he modificado la semana."
+            : plan.error === "remaining_week_plan_ambiguous"
+              ? "Hay más de una sesión activa en el mismo día. No adapto la semana de forma automática porque el plan es ambiguo."
+              : plan.error === "remaining_week_capacity_exhausted"
+                ? "No hay huecos suficientes dentro de esta semana para recolocar todas las sesiones afectadas. No he modificado nada."
+                : "No he podido adaptar el resto de la semana con seguridad.";
+        return reply({
+          ok: false,
+          error: plan.error || "remaining_week_adaptation_rejected",
+          message,
+          from_date: calendar.date,
+          to_date: weekEnd,
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        });
+      }
+
+      if (!plan.moves.length) {
+        return reply({
+          ok: true,
+          action,
+          adapted: false,
+          message: "No hay sesiones de ENQIDU pendientes de recolocar por disponibilidad en lo que queda de esta semana.",
+          from_date: calendar.date,
+          to_date: weekEnd,
+          moves: [],
+          response_mode: "deterministic_action",
+          llm_used: false,
+          usage: null,
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        });
+      }
+
+      const adaptResult = await adminDb.rpc("adapt_coach_remaining_week", {
+        p_user_id: userId,
+        p_from_date: calendar.date,
+        p_to_date: weekEnd,
+        p_moves: plan.moves.map((move) => ({
+          planned_session_id: move.planned_session_id,
+          source_date: move.source_date,
+          target_date: move.target_date,
+        })),
+      });
+      if (adaptResult.error) throw adaptResult.error;
+
+      const adapted = adaptResult.data || {};
+      if (!adapted.ok) {
+        return reply({
+          ok: false,
+          error: adapted.error || "remaining_week_adaptation_rejected",
+          message: "El plan cambió mientras intentaba adaptarlo. Vuelve a consultar la semana antes de reintentarlo.",
+        });
+      }
+
+      return reply({
+        ok: true,
+        action,
+        adapted: true,
+        from_date: calendar.date,
+        to_date: weekEnd,
+        moved_count: Number(adapted.moved_count || plan.moves.length),
+        moves: plan.moves,
         response_mode: "deterministic_action",
         llm_used: false,
         usage: null,
