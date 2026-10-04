@@ -122,3 +122,14 @@ test("ENQIDU TOOLS: environment adaptation is enabled for App/OpenAI and future 
   assert.equal(openai.parameters.additionalProperties, false);
   assert.deepEqual(openai.parameters.required, ["source_date", "environment"]);
 });
+
+
+test("ENQIDU TOOLS: duration adaptation is enabled for App/OpenAI and future MCP projections", () => {
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "adapt_session_duration");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "adapt_session_duration");
+  assert.ok(openai);
+  assert.ok(mcp);
+  assert.deepEqual(openai.parameters, mcp.inputSchema);
+  assert.equal(openai.parameters.additionalProperties, false);
+  assert.deepEqual(openai.parameters.required, ["source_date", "duration_minutes"]);
+});
