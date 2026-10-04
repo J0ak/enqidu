@@ -189,3 +189,48 @@ export async function setCoachTrainingUnavailability({ dateReference } = {}) {
     usage: data.usage || null,
   };
 }
+
+
+export async function adaptCoachPlannedSessionEnvironment({ sourceDate, environment } = {}) {
+  if (!supabase) {
+    return { ok: false, error: "supabase_unavailable" };
+  }
+
+  const payload = {
+    action: "adapt_session_environment",
+    source_date: sourceDate || null,
+    environment: environment || null,
+    client_timezone: getClientCalendarTimezone(),
+  };
+
+  const { data, error } = await supabase.functions.invoke("coach-plan-action", {
+    body: payload,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: data?.error || error.message || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: data?.error || "coach_plan_action_failed",
+      message: data?.message || null,
+    };
+  }
+
+  return {
+    ok: true,
+    adapted: Boolean(data.adapted),
+    sourceDate: data.source_date || null,
+    plannedSessionId: data.planned_session_id || null,
+    plannedSession: data.planned_session || null,
+    responseMode: data.response_mode || null,
+    llmUsed: Boolean(data.llm_used),
+    usage: data.usage || null,
+  };
+}
