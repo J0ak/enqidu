@@ -323,6 +323,65 @@ test("explicit duration adaptation rescales an ENQIDU plan without Coach LLM", a
   await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
 });
 
+test("explicit cancellation preserves audit history and releases the date for a new active plan", async ({ page, request }) => {
+  const user = await provision(request, "cancel");
+  await createPlan(request, user.id, "Fuerza para cancelar");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const actionResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Cancélalo");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const actionResponse = await actionResponsePromise;
+  expect(actionResponse.status()).toBe(200);
+  const body = await actionResponse.json();
+  expect(body).toMatchObject({
+    ok: true,
+    action: "cancel_planned_session",
+    cancelled: true,
+    source_date: madridDate(),
+    title: "Fuerza para cancelar",
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+  });
+  expect(coachReplyCalls).toBe(0);
+
+  const cancelledRows = await planRowsOnDate(request, user.id, madridDate());
+  expect(cancelledRows).toHaveLength(1);
+  expect(cancelledRows[0]).toMatchObject({
+    title: "Fuerza para cancelar",
+    status: "cancelled",
+    planned_date: madridDate(),
+    source: "enkidu_coach",
+  });
+  await expect(page.getByText(/He cancelado Fuerza para cancelar/i)).toBeVisible();
+  await expect(page.getByText("Cancelada", { exact: true })).toBeVisible();
+
+  const afterCancellation = await ask(page, "¿Qué entreno hoy?");
+  expect(afterCancellation.cards.some((card) => card.id === "planned_training_today")).toBe(false);
+  expect(afterCancellation.cards.some((card) => card.id === "recommended_training_today")).toBe(true);
+  expect(afterCancellation.answer).not.toContain("Fuerza para cancelar");
+
+  await page.getByRole("button", { name: "Guardar en plan" }).click();
+  await expect(page.getByText("Entrenamiento guardado en tu plan.")).toBeVisible();
+
+  const rowsAfterSave = await planRowsOnDate(request, user.id, madridDate());
+  expect(rowsAfterSave).toHaveLength(2);
+  expect(rowsAfterSave.filter((row) => row.status === "cancelled")).toHaveLength(1);
+  expect(rowsAfterSave.filter((row) => row.status !== "cancelled")).toHaveLength(1);
+});
+
 test("explicit tomorrow unavailability persists without moving or cancelling a conflicting plan", async ({ page, request }) => {
   const user = await provision(request, "unavailable");
   const targetDate = madridDate(1);
