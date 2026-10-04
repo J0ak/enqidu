@@ -259,6 +259,70 @@ test("explicit environment adaptation recalculates an ENQIDU plan for home witho
   await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
 });
 
+test("explicit duration adaptation rescales an ENQIDU plan without Coach LLM", async ({ page, request }) => {
+  const user = await provision(request, "duration");
+  await createPlan(request, user.id, "Fuerza de 35 minutos");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const actionResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Hazlo de 30 minutos");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const actionResponse = await actionResponsePromise;
+  expect(actionResponse.status()).toBe(200);
+  const body = await actionResponse.json();
+  expect(body).toMatchObject({
+    ok: true,
+    action: "adapt_session_duration",
+    adapted: true,
+    source_date: madridDate(),
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+  });
+  expect(body.planned_session).toMatchObject({
+    date: madridDate(),
+    title: "Fuerza de 35 minutos",
+    duration_minutes: 30,
+    environment: "home",
+  });
+  expect(coachReplyCalls).toBe(0);
+
+  const rows = await planRowsOnDate(request, user.id, madridDate());
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    title: "Fuerza de 35 minutos",
+    status: "modified",
+    planned_date: madridDate(),
+    location_type: "home",
+    source: "enkidu_coach",
+    planned_duration_min: 30,
+    planned_duration_max: 30,
+  });
+
+  const blocksResponse = await request.get(
+    `${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${rows[0].id}&select=title,planned_duration_seconds&order=block_order.asc`,
+    { headers: headers() },
+  );
+  expect(blocksResponse.ok(), await blocksResponse.text()).toBeTruthy();
+  const blocks = await blocksResponse.json();
+  expect(blocks).toHaveLength(1);
+  expect(blocks[0].planned_duration_seconds).toBe(1800);
+
+  await expect(page.getByText(/He ajustado Fuerza de 35 minutos a 30 minutos/i)).toBeVisible();
+  await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
+});
+
 test("explicit tomorrow unavailability persists without moving or cancelling a conflicting plan", async ({ page, request }) => {
   const user = await provision(request, "unavailable");
   const targetDate = madridDate(1);
