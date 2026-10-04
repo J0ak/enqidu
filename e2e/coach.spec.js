@@ -323,6 +323,82 @@ test("explicit duration adaptation rescales an ENQIDU plan without Coach LLM", a
   await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
 });
 
+test("remaining-week batch RPC moves an ENQIDU plan atomically without changing its contents", async ({ request }) => {
+  const user = await provision(request, "week-rpc");
+  const sourceDate = madridDate(10);
+  const targetDate = madridDate(12);
+  const saved = await createPlan(request, user.id, "Plan semanal para mover", sourceDate);
+  expect(saved.ok).toBe(true);
+  expect(saved.planned_session_id).toBeTruthy();
+
+  const response = await request.post(
+    `${supabaseUrl}/rest/v1/rpc/adapt_coach_remaining_week`,
+    {
+      headers: headers(),
+      data: {
+        p_user_id: user.id,
+        p_from_date: sourceDate,
+        p_to_date: targetDate,
+        p_moves: [{
+          planned_session_id: saved.planned_session_id,
+          source_date: sourceDate,
+          target_date: targetDate,
+        }],
+      },
+    },
+  );
+  expect(response.ok(), await response.text()).toBeTruthy();
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    adapted: true,
+    moved_count: 1,
+  });
+
+  expect(await planRowsOnDate(request, user.id, sourceDate)).toHaveLength(0);
+  const targetRows = await planRowsOnDate(request, user.id, targetDate);
+  expect(targetRows).toHaveLength(1);
+  expect(targetRows[0]).toMatchObject({
+    title: "Plan semanal para mover",
+    status: "rescheduled",
+    planned_date: targetDate,
+    source: "enkidu_coach",
+  });
+});
+
+test("explicit remaining-week adaptation is deterministic and LLM-free when no move is pending", async ({ page, request }) => {
+  const user = await provision(request, "week-adapt");
+  await login(page, user);
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const actionResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Adapta el resto de la semana");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const actionResponse = await actionResponsePromise;
+  expect(actionResponse.status()).toBe(200);
+  const body = await actionResponse.json();
+  expect(body).toMatchObject({
+    ok: true,
+    action: "adapt_remaining_week",
+    adapted: false,
+    moves: [],
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+    request_date: madridDate(),
+  });
+  expect(coachReplyCalls).toBe(0);
+  await expect(page.getByText(/No hay sesiones de ENQIDU pendientes de recolocar/i)).toBeVisible();
+});
+
 test("explicit cancellation preserves audit history and releases the date for a new active plan", async ({ page, request }) => {
   const user = await provision(request, "cancel");
   await createPlan(request, user.id, "Fuerza para cancelar");
