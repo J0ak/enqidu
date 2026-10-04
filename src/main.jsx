@@ -5,9 +5,9 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { adaptCoachPlannedSessionEnvironment, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
@@ -4116,6 +4116,53 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         setMessages((current) => replaceLastAssistantMessage(
           current,
           result.message || "No he podido actualizar tu disponibilidad.",
+          [],
+        ));
+        return;
+      }
+
+      if (fastPath?.tool === "adapt_session_environment") {
+        const plannedContext = findLatestPlannedTrainingContext(messages);
+        if (!plannedContext) {
+          setMessages((current) => replaceLastAssistantMessage(
+            current,
+            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
+            [],
+          ));
+          return;
+        }
+
+        const result = await adaptCoachPlannedSessionEnvironment({
+          sourceDate: plannedContext.date,
+          environment: fastPath.arguments?.environment,
+        });
+        if (result.ok && result.adapted && result.plannedSession) {
+          const environmentLabel = {
+            home: "casa",
+            pool: "piscina",
+            trail: "trail",
+            outdoor: "aire libre",
+            functional_training_center: "centro de entrenamiento",
+          }[result.plannedSession.environment] || "el entorno solicitado";
+          const content = `He adaptado ${result.plannedSession.title || plannedContext.title || "el entrenamiento"} para ${environmentLabel}.`;
+          setMessages((current) => replaceLastAssistantMessage(
+            markLatestPlannedTrainingAdapted(current, {
+              date: result.sourceDate || plannedContext.date,
+              plannedSession: result.plannedSession,
+            }),
+            content,
+            [],
+          ));
+          const refreshed = await onPlanSaved?.();
+          setMicNotice(refreshed === false
+            ? "Plan adaptado. Actualiza Actividades si no aparece todavía."
+            : "Plan adaptado.");
+          return;
+        }
+
+        setMessages((current) => replaceLastAssistantMessage(
+          current,
+          result.message || "No he podido adaptar ese entrenamiento al entorno solicitado.",
           [],
         ));
         return;
