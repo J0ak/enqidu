@@ -29,6 +29,7 @@ const supportedActions = new Set([
   "set_training_unavailability",
   "adapt_session_environment",
   "adapt_session_duration",
+  "cancel_planned_session",
 ]);
 
 async function loadUserTimezone(db: any, userId: string) {
@@ -48,6 +49,7 @@ async function loadPlannedTraining(db: any, userId: string, date: string) {
     .select("id, title, status, source, linked_completed_session_id, location_type, session_type, planned_intensity, planned_duration_min, planned_duration_max, objective")
     .eq("user_id", userId)
     .eq("planned_date", date)
+    .neq("status", "cancelled")
     .order("created_at", { ascending: true })
     .limit(5);
 
@@ -202,6 +204,76 @@ Deno.serve(async (req: Request) => {
         date: targetDate,
         planned_conflict: planned.sessions.length > 0,
         planned_titles: plannedTitles,
+        response_mode: "deterministic_action",
+        llm_used: false,
+        usage: null,
+        request_date: calendar.date,
+        calendar_timezone: calendar.timezone,
+      });
+    }
+
+    if (action === "cancel_planned_session") {
+      const sourceDate = String(body.source_date || "");
+      if (!isPlanDateOnOrAfter(sourceDate, calendar.date)) {
+        return reply({
+          ok: false,
+          error: "stale_plan_source_date",
+          message: "Ese plan ya no corresponde a hoy o a una fecha futura. Vuelve a consultar el plan antes de cancelarlo.",
+          request_date: calendar.date,
+          calendar_timezone: calendar.timezone,
+        }, 400);
+      }
+
+      const planned = await loadPlannedTraining(userDb, userId, sourceDate);
+      if (!planned.sessions.length) {
+        return reply({
+          ok: false,
+          error: "source_plan_not_found",
+          message: "No encuentro ese entrenamiento planificado; vuelve a consultar tu plan antes de cancelarlo.",
+        });
+      }
+      if (planned.sessions.length > 1) {
+        return reply({
+          ok: false,
+          error: "source_plan_ambiguous",
+          message: "Hay más de una sesión en ese día. Necesito que identifiques una sesión concreta antes de cancelarla.",
+        });
+      }
+
+      const sourceSession = planned.sessions[0];
+      if (sourceSession.linked_completed_session_id) {
+        return reply({
+          ok: false,
+          error: "source_plan_already_completed",
+          message: "Ese entrenamiento ya tiene una ejecución enlazada y no lo cancelo como plan.",
+        });
+      }
+
+      const cancelResult = await adminDb.rpc("cancel_coach_planned_session", {
+        p_user_id: userId,
+        p_planned_date: sourceDate,
+        p_planned_session_id: sourceSession.id,
+      });
+      if (cancelResult.error) throw cancelResult.error;
+
+      const cancelled = cancelResult.data || {};
+      if (!cancelled.ok) {
+        return reply({
+          ok: false,
+          error: cancelled.error || "plan_cancellation_rejected",
+          message: cancelled.error === "source_plan_already_completed"
+            ? "Ese entrenamiento ya tiene una ejecución enlazada y no lo cancelo como plan."
+            : null,
+        });
+      }
+
+      return reply({
+        ok: true,
+        action,
+        cancelled: true,
+        source_date: sourceDate,
+        planned_session_id: cancelled.planned_session_id || sourceSession.id,
+        title: cancelled.title || sourceSession.title || null,
         response_mode: "deterministic_action",
         llm_used: false,
         usage: null,
