@@ -109,8 +109,8 @@ function detectDurationAdaptation(text) {
 
 
 const CANCEL_PLAN_PATTERNS = Object.freeze([
-  /^(?:cancelalo|cancela este entrenamiento|cancela la sesion|quita este entrenamiento del plan)$/,
-  /^(?:cancel it|cancel this workout|cancel the session|remove this workout from my plan)$/,
+  /^(?:cancelalo|cancela este entrenamiento|cancela la sesion|quita este entrenamiento del plan|borralo del plan|eliminalo del plan)$/,
+  /^(?:cancel it|cancel this workout|cancel the session|remove this workout from my plan|delete it from my plan)$/,
 ]);
 
 function detectsCancelPlan(text) {
