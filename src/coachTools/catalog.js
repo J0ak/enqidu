@@ -125,6 +125,25 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
     }),
   }),
   tool({
+    name: "adapt_session_environment",
+    description: "Adapt one explicitly referenced ENQIDU-generated planned session to an explicit training environment. ENQIDU recalculates the session from canonical context and server-validates the replacement before writing.",
+    access: "write",
+    implementation: "coach_plan_action.adapt_session_environment",
+    explicitUserCommand: true,
+    parameters: Object.freeze({
+      type: "object",
+      properties: {
+        source_date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        environment: {
+          type: "string",
+          enum: ["home", "pool", "trail", "outdoor", "functional_training_center"],
+        },
+      },
+      required: ["source_date", "environment"],
+      additionalProperties: false,
+    }),
+  }),
+  tool({
     name: "save_recommendation_today",
     description: "Persist today's currently valid ENQIDU recommendation after an explicit user request. The server recalculates and revalidates it before writing.",
     access: "write",
@@ -151,7 +170,6 @@ export const ENQIDU_TOOL_CATALOG = Object.freeze([
 ]);
 
 export const ENQIDU_PLANNED_TOOL_NAMES = Object.freeze([
-  "adapt_session_environment",
   "adapt_session_duration",
   "cancel_planned_session",
   "adapt_remaining_week",

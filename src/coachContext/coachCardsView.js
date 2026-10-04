@@ -164,3 +164,63 @@ export function markLatestPlannedTrainingMoved(messages = [], { sourceDate, targ
     };
   });
 }
+
+
+const titleCaseCoachValue = (value = "") => String(value)
+  .replace(/[_-]+/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+
+export function markLatestPlannedTrainingAdapted(messages = [], { date, plannedSession } = {}) {
+  if (!Array.isArray(messages) || !/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
+    || !plannedSession || typeof plannedSession !== "object") {
+    return messages;
+  }
+
+  let targetMessageIndex = -1;
+  let targetCardIndex = -1;
+  for (let messageIndex = messages.length - 1; messageIndex >= 0 && targetMessageIndex < 0; messageIndex -= 1) {
+    const cards = Array.isArray(messages[messageIndex]?.cards) ? messages[messageIndex].cards : [];
+    for (let cardIndex = cards.length - 1; cardIndex >= 0; cardIndex -= 1) {
+      const card = cards[cardIndex];
+      if (card?.id === "planned_training_today" && coachCardCalendarDate(card) === date) {
+        targetMessageIndex = messageIndex;
+        targetCardIndex = cardIndex;
+        break;
+      }
+    }
+  }
+  if (targetMessageIndex < 0) return messages;
+
+  const duration = Number(plannedSession.duration_minutes);
+  const blocks = Array.isArray(plannedSession.blocks) ? plannedSession.blocks : [];
+
+  return messages.map((message, messageIndex) => {
+    if (messageIndex !== targetMessageIndex) return message;
+    return {
+      ...message,
+      cards: message.cards.map((card, cardIndex) => cardIndex === targetCardIndex
+        ? {
+            ...card,
+            title: plannedSession.title || card.title,
+            badge: "Plan adaptado",
+            metrics: [
+              ...(Number.isFinite(duration) && duration > 0
+                ? [{ key: "planned_duration", label: "Duración prevista", value: duration, unit: "min" }]
+                : []),
+              ...(blocks.length
+                ? [{ key: "blocks", label: "Bloques", value: blocks.length, unit: "" }]
+                : []),
+            ],
+            breakdown: blocks.slice(0, 5).map((block) => ({
+              label: block.title || "Bloque",
+              value: Number(block.duration_minutes) > 0 ? Number(block.duration_minutes) : 1,
+            })),
+            environment: plannedSession.environment || null,
+            session_type: plannedSession.session_type || null,
+          }
+        : card),
+    };
+  });
+}

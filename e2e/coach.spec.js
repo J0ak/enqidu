@@ -71,8 +71,8 @@ async function ask(page, text) {
   return response.json();
 }
 
-async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate()) {
-  const response = await request.post(`${supabaseUrl}/rest/v1/rpc/save_coach_recommendation_plan`, { headers: headers(), data: { p_user_id: userId, p_planned_date: plannedDate, p_session: { title, session_type: "strength", duration_minutes: 35, intensity: "moderada", environment: "home", blocks: [{ title: "Bloque sintético", duration_minutes: 35 }] } } });
+async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate(), environment = "home") {
+  const response = await request.post(`${supabaseUrl}/rest/v1/rpc/save_coach_recommendation_plan`, { headers: headers(), data: { p_user_id: userId, p_planned_date: plannedDate, p_session: { title, session_type: environment === "trail" ? "trail" : "strength", duration_minutes: 35, intensity: "moderada", environment, blocks: [{ title: "Bloque sintético", duration_minutes: 35 }] } } });
   expect(response.ok(), await response.text()).toBeTruthy();
   return response.json();
 }
@@ -85,7 +85,7 @@ async function planRows(request, userId) {
 
 async function planRowsOnDate(request, userId, date) {
   const response = await request.get(
-    `${supabaseUrl}/rest/v1/planned_training_sessions?user_id=eq.${userId}&planned_date=eq.${date}&select=id,title,status,planned_date`,
+    `${supabaseUrl}/rest/v1/planned_training_sessions?user_id=eq.${userId}&planned_date=eq.${date}&select=id,title,status,planned_date,location_type,session_type,planned_duration_min,planned_duration_max,source`,
     { headers: headers() },
   );
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -194,6 +194,69 @@ test("explicit conversational move reprograms the persisted plan without Coach L
     planned_date: targetDate,
   });
   await expect(page.getByText(/He movido Fuerza para mover al/)).toBeVisible();
+});
+
+test("explicit environment adaptation recalculates an ENQIDU plan for home without Coach LLM", async ({ page, request }) => {
+  const user = await provision(request, "environment");
+  await createPlan(request, user.id, "Plan exterior a adaptar", madridDate(), "outdoor");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+
+  let coachReplyCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
+  });
+
+  const actionResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/coach-plan-action")
+    && response.request().method() === "POST"
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Hazlo en casa");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const actionResponse = await actionResponsePromise;
+  expect(actionResponse.status()).toBe(200);
+  const body = await actionResponse.json();
+  expect(body).toMatchObject({
+    ok: true,
+    action: "adapt_session_environment",
+    adapted: true,
+    source_date: madridDate(),
+    response_mode: "deterministic_action",
+    llm_used: false,
+    usage: null,
+    calendar_timezone: "Europe/Madrid",
+  });
+  expect(body.planned_session).toMatchObject({
+    date: madridDate(),
+    environment: "home",
+  });
+  expect(coachReplyCalls).toBe(0);
+
+  const rows = await planRowsOnDate(request, user.id, madridDate());
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    status: "modified",
+    planned_date: madridDate(),
+    location_type: "home",
+    source: "enkidu_coach",
+  });
+  expect(rows[0].title).not.toBe("Plan exterior a adaptar");
+  expect(Number(rows[0].planned_duration_min)).toBeGreaterThan(0);
+  expect(rows[0].planned_duration_min).toBe(rows[0].planned_duration_max);
+
+  const blocksResponse = await request.get(
+    `${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${rows[0].id}&select=title,planned_duration_seconds&order=block_order.asc`,
+    { headers: headers() },
+  );
+  expect(blocksResponse.ok(), await blocksResponse.text()).toBeTruthy();
+  const blocks = await blocksResponse.json();
+  expect(blocks.length).toBeGreaterThan(0);
+  expect(blocks.reduce((sum, block) => sum + Number(block.planned_duration_seconds || 0), 0))
+    .toBe(rows[0].planned_duration_min * 60);
+
+  await expect(page.getByText(/He adaptado .* para casa/i)).toBeVisible();
+  await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
 });
 
 test("explicit tomorrow unavailability persists without moving or cancelling a conflicting plan", async ({ page, request }) => {
