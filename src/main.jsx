@@ -867,13 +867,16 @@ function App() {
     setDataState((current) => ({ ...current, loading: true }));
     const userId = activeSession?.user?.id;
 
-    const dailyQuery = supabase
-      .from("wearable_health_daily")
-      .select(
-        "calendar_date, resting_heart_rate_bpm, steps, intensity_minutes, active_kcal, average_stress_level, body_battery_current, spo2_avg_pct, respiration_avg_brpm",
-      )
-      .order("calendar_date", { ascending: false })
-      .limit(1);
+    const dailyQuery = userId
+      ? supabase
+          .from("wearable_health_daily")
+          .select(
+            "provider, provider_mode, ingestion_channel, calendar_date, resting_heart_rate_bpm, min_heart_rate_bpm, max_heart_rate_bpm, steps, intensity_minutes, active_kcal, bmr_kcal, distance_m, active_time_seconds, moderate_intensity_seconds, vigorous_intensity_seconds, average_stress_level, max_stress_level, stress_qualifier, body_battery_current, body_battery_charged, body_battery_drained, spo2_avg_pct, spo2_min_pct, respiration_avg_brpm, respiration_min_brpm",
+          )
+          .eq("user_id", userId)
+          .order("calendar_date", { ascending: false })
+          .limit(1)
+      : Promise.resolve({ data: [], error: null });
 
     const sessionQuery = fetchTrainingSessionsForActivities(supabase);
 
@@ -980,7 +983,7 @@ function App() {
       spo2Query,
     ]);
 
-    if (dailyResult.data?.[0]) setHealth(dailyResult.data[0]);
+    setHealth(dailyResult.data?.[0] || {});
     if (!sessionResult.error) {
       setSessions((sessionResult.data || []).map(mapTrainingSession));
     }
@@ -1298,16 +1301,25 @@ function DisciplineSwitch({ value, onChange }) {
   );
 }
 
+
 function HomeView({ discipline, health, sessions, setRoute, dataState }) {
+  const observedCards = [
+    health.body_battery_current != null && ["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current],
+    health.average_stress_level != null && ["Stress", health.average_stress_level, "avg", "Garmin", 100 - Number(health.average_stress_level)],
+    health.steps != null && ["Steps", compact(health.steps), "", "Garmin", null],
+    health.intensity_minutes != null && ["Intensity", health.intensity_minutes, "min", "Garmin", null],
+  ].filter(Boolean);
+
   return (
     <section className="viewStack">
       <HeroCard discipline={discipline} />
-      <div className="smartGrid">
-        <SmartCard title="Body Battery" value={health.body_battery_current ?? 72} unit="/100" badge="Garmin" progress={health.body_battery_current ?? 72} />
-        <SmartCard title="Stress" value={health.average_stress_level ?? 31} unit="avg" badge="Health" progress={100 - Number(health.average_stress_level ?? 31)} />
-        <SmartCard title="Steps" value={compact(health.steps ?? 8740)} unit="" badge="Activity" progress={Math.min(100, ((health.steps ?? 8740) / 10000) * 100)} />
-        <SmartCard title="Intensity" value={health.intensity_minutes ?? 126} unit="min" badge="Weekly" progress={Math.min(100, ((health.intensity_minutes ?? 126) / 175) * 100)} />
-      </div>
+      {observedCards.length > 0 && (
+        <div className="smartGrid">
+          {observedCards.map(([title, value, unit, badge, progress]) => (
+            <SmartCard key={title} title={title} value={value} unit={unit} badge={badge} progress={progress} />
+          ))}
+        </div>
+      )}
       <ActionPanel title="Hoy toca decidir bien" cta="Abrir Coach" onClick={() => setRoute("coach")}>
         {discipline.prescription.map((item) => (
           <span key={item}>{item}</span>
@@ -1355,13 +1367,15 @@ function HeroCard({ discipline }) {
   );
 }
 
-function HealthView({ health, healthSeries, discipline }) {
-  const readiness = computeHealthReadiness(health);
+
+function HealthView({ health, healthSeries }) {
   const sleep = buildSleepModel(health, healthSeries.sleep, healthSeries.hrv);
-  const energyCurve = healthSeries.bodyBattery?.length ? buildEnergyCurve(health, healthSeries.bodyBattery) : [];
+  const energyCurve = buildEnergyCurve(healthSeries.bodyBattery);
   const hrvTrend = buildHrvTrend(healthSeries.hrv, sleep.hrv);
-  const hasHealthData = Boolean(health?.calendar_date) && hasRealHealthValues(health, healthSeries);
-  const cards = hasHealthData ? buildRealHealthCards(health, sleep, healthSeries) : [];
+  const healthDate = health?.calendar_date || healthSeries.sleep?.calendar_date || healthSeries.hrv?.[0]?.calendar_date || null;
+  const hasHealthData = Boolean(healthDate) && hasRealHealthValues(health, healthSeries);
+  const cards = hasHealthData ? buildRealHealthCards(health, sleep) : [];
+  const sourceLabel = healthSourceLabel(health);
 
   return (
     <section className="viewStack">
@@ -1370,16 +1384,12 @@ function HealthView({ health, healthSeries, discipline }) {
           <section className="healthHero">
             <div>
               <span>Salud</span>
-              <h2>{readiness.label}</h2>
-              <p>{readiness.copy}</p>
+              <h2>Datos de salud conectados</h2>
+              <p>ENQIDU muestra únicamente métricas observadas y persistidas. Las interpretaciones de readiness se mantienen separadas de los datos Garmin.</p>
               <div className="healthTags">
-                <span>{readiness.training}</span>
-                <span>{health.calendar_date}</span>
+                <span>{sourceLabel}</span>
+                <span>{healthDate}</span>
               </div>
-            </div>
-            <div className="healthScore">
-              <strong>{readiness.score}</strong>
-              <span>estado</span>
             </div>
           </section>
           {cards.length > 0 && (
@@ -1389,20 +1399,27 @@ function HealthView({ health, healthSeries, discipline }) {
               ))}
             </div>
           )}
-          <GarminHighlights health={health} sleep={sleep} readiness={readiness} />
+          <GarminHighlights health={health} sleep={sleep} />
           <GarminMetricGrid health={health} sleep={sleep} curve={energyCurve} hrvTrend={hrvTrend} healthSeries={healthSeries} />
         </>
       ) : (
         <section className="emptyHealthState">
           <Moon size={20} />
           <div>
-            <strong>Aún no hay datos de salud para hoy.</strong>
-            <span>Cuando existan lecturas conectadas, aquí verás recuperación, sueño, HRV, Body Battery y frecuencia cardíaca.</span>
+            <strong>Aún no hay datos de salud conectados para mostrar.</strong>
+            <span>Cuando existan lecturas persistidas, aquí aparecerán sueño, HRV, Body Battery, frecuencia cardíaca y demás métricas disponibles.</span>
           </div>
         </section>
       )}
     </section>
   );
+}
+
+function healthSourceLabel(health = {}) {
+  if (health.ingestion_channel === "fitness_ai_connector") return "Garmin · Fitness AI Connector";
+  if (health.ingestion_channel === "garmin_health_api") return "Garmin API";
+  if (health.ingestion_channel === "admin_backfill") return "Garmin · histórico";
+  return health.provider === "garmin" ? "Garmin" : "Datos conectados";
 }
 
 function hasRealHealthValues(health, healthSeries) {
@@ -1417,54 +1434,57 @@ function hasRealHealthValues(health, healthSeries) {
   ].some((value) => value != null) || Boolean(healthSeries?.sleep || healthSeries?.hrv?.length || healthSeries?.bodyBattery?.length);
 }
 
-function buildRealHealthCards(health, sleep, healthSeries) {
+
+function buildRealHealthCards(health, sleep) {
   const cards = [];
   if (health.body_battery_current != null) {
     cards.push(["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current]);
   }
-  if (sleep.hasSleepData) {
-    cards.push(["Sueño", sleep.score, "/100", "Recuperación", sleep.score]);
+  if (sleep.score != null) {
+    cards.push(["Sueño", sleep.score, "/100", "Garmin", sleep.score]);
   }
   if (sleep.hasHrvData) {
-    cards.push(["HRV", sleep.hrv, "ms", "Balance", Math.min(100, (sleep.hrv / 70) * 100)]);
+    cards.push(["HRV", sleep.hrv, "ms", "Garmin", null]);
   }
   if (health.resting_heart_rate_bpm != null) {
-    cards.push(["FC reposo", health.resting_heart_rate_bpm, "ppm", "Cardio", Math.max(20, 100 - (Number(health.resting_heart_rate_bpm) - 42) * 2)]);
+    cards.push(["FC reposo", health.resting_heart_rate_bpm, "ppm", "Garmin", null]);
   }
   if (health.average_stress_level != null) {
-    cards.push(["Estrés", health.average_stress_level, "avg", "Carga", 100 - Number(health.average_stress_level)]);
+    cards.push(["Estrés", health.average_stress_level, "avg", "Garmin", 100 - Number(health.average_stress_level)]);
   }
   if (health.respiration_avg_brpm != null) {
-    cards.push(["Respiración", health.respiration_avg_brpm, "rpm", "Respira", 76]);
+    cards.push(["Respiración", health.respiration_avg_brpm, "rpm", "Garmin", null]);
   }
   if (health.spo2_avg_pct != null) {
-    cards.push(["SpO2", health.spo2_avg_pct, "%", "Oxígeno", health.spo2_avg_pct]);
+    cards.push(["SpO2", health.spo2_avg_pct, "%", "Garmin", health.spo2_avg_pct]);
   }
-  if (health.intensity_minutes != null) {
-    cards.push(["Carga semanal", health.intensity_minutes, "min", "Semana", Math.min(100, (Number(health.intensity_minutes) / 175) * 100)]);
+  if (health.steps != null) {
+    cards.push(["Pasos", compact(health.steps), "", "Garmin", null]);
   }
   return cards;
 }
 
-function GarminHighlights({ health, sleep, readiness }) {
-  const stress = Number(health.average_stress_level ?? 0);
-  const battery = Number(health.body_battery_current ?? 0);
+
+function GarminHighlights({ health, sleep }) {
+  const metrics = [
+    sleep.score != null && ["Puntuación de sueño", `${sleep.score}/100`],
+    health.body_battery_current != null && ["Body Battery", health.body_battery_current],
+    sleep.hasHrvData && ["HRV nocturna", `${sleep.hrv} ms`],
+    health.average_stress_level != null && ["Estrés medio", health.average_stress_level],
+    health.resting_heart_rate_bpm != null && ["FC reposo", `${health.resting_heart_rate_bpm} ppm`],
+    health.spo2_avg_pct != null && ["SpO2 media", `${health.spo2_avg_pct}%`],
+  ].filter(Boolean);
+
+  if (!metrics.length) return null;
+
   return (
     <section className="garminSection">
-      <PanelTitle label="Garmin" title="Resumen principal" />
+      <PanelTitle label="Garmin" title="Lecturas observadas" />
       <div className="garminCarousel">
         <article className="garminFeatureCard">
-          <span>Recuperación</span>
-          <div className="readinessGauge" style={{ "--gauge": `${readiness.score * 3.6}deg` }}>
-            <strong>{readiness.score}</strong>
-          </div>
-          <h3>{readiness.score >= 78 ? "Alta" : readiness.score >= 62 ? "Aceptable" : "Bajo"}</h3>
-          <p>{readiness.score >= 78 ? "Puedes construir" : readiness.score >= 62 ? "Tómatelo con calma" : "Recuperación primero"}</p>
+          <span>Datos persistidos</span>
           <div className="garminFactorGrid">
-            {sleep.hasSleepData && <InfoPair label="Sueño" value={sleep.quality} />}
-            {health.body_battery_current != null && <InfoPair label="Body Battery" value={battery} />}
-            {sleep.hasHrvData && <InfoPair label="Estado VFC" value={sleep.hrv >= 50 ? "Equilibrado" : "Bajo"} />}
-            {health.average_stress_level != null && <InfoPair label="Estrés reciente" value={stress < 40 ? "Medio" : "Alto"} />}
+            {metrics.map(([label, value]) => <InfoPair key={label} label={label} value={value} />)}
           </div>
         </article>
       </div>
@@ -1472,58 +1492,65 @@ function GarminHighlights({ health, sleep, readiness }) {
   );
 }
 
+
 function GarminMetricGrid({ health, sleep, curve, hrvTrend, healthSeries }) {
-  const heart = Number(health.resting_heart_rate_bpm ?? 0);
-  const battery = Number(health.body_battery_current ?? 0);
+  const heart = health.resting_heart_rate_bpm == null ? null : Number(health.resting_heart_rate_bpm);
+  const battery = health.body_battery_current == null ? null : Number(health.body_battery_current);
   const hasCards =
     sleep.hasSleepData ||
     sleep.hasHrvData ||
-    health.body_battery_current != null ||
-    health.resting_heart_rate_bpm != null;
+    battery != null ||
+    heart != null ||
+    healthSeries.stress?.length ||
+    healthSeries.respiration?.length ||
+    healthSeries.spo2?.length;
   if (!hasCards) return null;
+
   return (
     <section className="garminSection">
       <PanelTitle label="Gráficas" title="Salud Garmin" />
       <div className="garminMetricGrid">
         {sleep.hasSleepData && (
           <article className="garminMiniCard">
-            <span>Puntuación de sueño</span>
+            <span>Sueño</span>
             <div className="miniMetricRow">
-              <strong>{sleep.score}</strong>
-              <b>{sleep.duration}</b>
+              <strong>{sleep.score != null ? `${sleep.score}/100` : "Sin puntuación"}</strong>
+              <b>{sleep.duration || "Duración no disponible"}</b>
             </div>
             <MiniSleepChart stages={sleep.stages} />
           </article>
         )}
         {sleep.hasHrvData && (
           <article className="garminMiniCard">
-            <span>Estado de VFC</span>
-            <div className={`miniStatus ${sleep.hrv < 42 ? "danger" : ""}`}>{sleep.hrv < 42 ? "Bajo" : "Equilibrado"}</div>
+            <span>VFC nocturna</span>
             <div className="miniMetricRow">
               <strong>{sleep.hrv} ms</strong>
-              <b>Últimas lecturas</b>
+              <b>Media última noche</b>
             </div>
             <HrvTrend points={hrvTrend} />
           </article>
         )}
-        {health.body_battery_current != null && (
+        {battery != null && (
           <article className="garminMiniCard">
             <span>Body Battery</span>
             <MiniRing value={battery} />
-            {healthSeries.bodyBattery?.length > 0 && <SparkBars points={curve} />}
+            {curve.length > 0 && <SparkBars points={curve} />}
             <div className="miniStack">
               {health.body_battery_charged != null && <><strong>+{health.body_battery_charged}</strong><span>Cargada</span></>}
-              {health.body_battery_drained != null && <><strong>-{health.body_battery_drained}</strong><span>Agotada</span></>}
+              {health.body_battery_drained != null && <><strong>-{health.body_battery_drained}</strong><span>Consumida</span></>}
             </div>
           </article>
         )}
-        {health.resting_heart_rate_bpm != null && (
+        {heart != null && (
           <article className="garminMiniCard">
             <span>Frecuencia cardíaca</span>
-            <MiniRing value={Math.max(18, 100 - (heart - 40) * 2)} label={heart} />
-            <div className="miniStack">
+            <div className="miniMetricRow">
               <strong>{heart} ppm</strong>
-              <span>Descanso</span>
+              <b>Reposo</b>
+            </div>
+            <div className="miniStack">
+              {health.min_heart_rate_bpm != null && <><strong>{health.min_heart_rate_bpm} ppm</strong><span>Mínima diaria</span></>}
+              {health.max_heart_rate_bpm != null && <><strong>{health.max_heart_rate_bpm} ppm</strong><span>Máxima diaria</span></>}
             </div>
           </article>
         )}
@@ -1556,10 +1583,10 @@ function LoadFocus({ label, value, max, color, optimal }) {
   );
 }
 
+
 function MiniSleepChart({ stages }) {
-  const bars = stages?.length
-    ? stages.flatMap((stage) => Array.from({ length: Math.max(1, Math.round(stage.value / 8)) }, () => stage.label))
-    : ["Deep", "Light", "Awake", "Light", "REM", "Light", "REM"];
+  if (!stages?.length) return null;
+  const bars = stages.flatMap((stage) => Array.from({ length: Math.max(1, Math.round(stage.value / 8)) }, () => stage.label));
   return (
     <div className="miniSleepChart">
       {bars.slice(0, 14).map((stage, index) => (
@@ -1569,12 +1596,13 @@ function MiniSleepChart({ stages }) {
   );
 }
 
+
 function HrvTrend({ points }) {
-  const dots = points?.length ? points : [44, 48, 46, 51, 54, 58, 61, 63, 59, 46, 39, 35, 32];
+  if (!points?.length) return null;
   return (
     <div className="hrvTrend">
-      {dots.slice(-13).map((value, index) => (
-        <i key={index} className={value < 42 ? "warn" : ""} style={{ bottom: `${Math.max(12, Math.min(86, value))}%` }} />
+      {points.slice(-13).map((value, index) => (
+        <i key={index} style={{ bottom: `${Math.max(12, Math.min(86, value))}%` }} />
       ))}
     </div>
   );
@@ -6634,7 +6662,9 @@ function mergeTags(existingTags, nextTags) {
   return [...new Set([...(existingTags || []), ...(nextTags || [])].filter(Boolean))];
 }
 
+
 function SmartCard({ title, value, unit, badge, progress }) {
+  const hasProgress = progress != null && Number.isFinite(Number(progress));
   return (
     <article className="smartCard">
       <div className="smartHead">
@@ -6646,9 +6676,11 @@ function SmartCard({ title, value, unit, badge, progress }) {
         <b>{value}</b>
         {unit && <span>{unit}</span>}
       </div>
-      <div className="smartProgress">
-        <i style={{ width: `${Math.max(8, Math.min(100, Number(progress) || 50))}%` }} />
-      </div>
+      {hasProgress && (
+        <div className="smartProgress">
+          <i style={{ width: `${Math.max(0, Math.min(100, Number(progress)))}%` }} />
+        </div>
+      )}
     </article>
   );
 }
@@ -6748,49 +6780,10 @@ function buildCoachFallbackReply(input, discipline, sessions = [], error, cards 
   return localReply;
 }
 
-function computeHealthReadiness(health) {
-  const components = [];
-  if (health.body_battery_current != null) components.push({ value: Number(health.body_battery_current), weight: 0.42 });
-  if (health.average_stress_level != null) components.push({ value: 100 - Number(health.average_stress_level), weight: 0.28 });
-  if (health.resting_heart_rate_bpm != null) components.push({ value: Math.max(0, 100 - Math.abs(Number(health.resting_heart_rate_bpm) - 52) * 3), weight: 0.18 });
-  if (health.spo2_avg_pct != null) components.push({ value: Math.min(100, Number(health.spo2_avg_pct)), weight: 0.12 });
-  const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
-  const score = totalWeight
-    ? Math.round(components.reduce((sum, component) => sum + component.value * component.weight, 0) / totalWeight)
-    : 0;
-
-  if (score >= 78) {
-    return {
-      score,
-      label: "Ready to build",
-      training: "Intensidad controlada",
-      copy: "El sistema está bastante limpio: energía útil, stress controlado y señales respiratorias estables.",
-      plan: "Puedes entrenar, pero con una regla: calidad antes que volumen. Mantendría una sesión fuerte corta o técnica con salida fácil.",
-    };
-  }
-
-  if (score >= 62) {
-    return {
-      score,
-      label: "Train, but narrow",
-      training: "Base + técnica",
-      copy: "Hay energía suficiente, pero no conviene abrir demasiados frentes. Buen día para construir sin deuda.",
-      plan: "Me quedaría en Zone 2, movilidad y fuerza limpia. Evitaría un metcon largo o competir contra el reloj.",
-    };
-  }
-
-  return {
-    score,
-    label: "Recovery bias",
-    training: "Recuperación activa",
-    copy: "Las señales piden bajar coste: priorizar sueño, respiración y movimiento suave.",
-    plan: "Hoy no compraría fatiga. Caminata, movilidad, respiración nasal y preparar mañana.",
-  };
-}
 
 function buildSleepModel(health, sleepSession, hrvRows = []) {
-  const hasSleepData = Boolean(sleepSession || health.sleep_score != null);
-  const score = hasSleepData ? Math.round(Number(sleepSession?.sleep_score ?? health.sleep_score)) : null;
+  const sleepScoreValue = sleepSession?.sleep_score ?? health.sleep_score;
+  const score = sleepScoreValue == null ? null : Math.round(Number(sleepScoreValue));
   const hrvSource = sleepSession?.hrv_last_night_avg_ms ?? hrvRows?.[0]?.last_night_avg_ms;
   const hasHrvData = hrvSource != null;
   const hrv = hasHrvData ? Math.round(Number(hrvSource)) : null;
@@ -6806,13 +6799,11 @@ function buildSleepModel(health, sleepSession, hrvRows = []) {
   const totalStageSeconds = stages?.reduce((sum, [, seconds]) => sum + Number(seconds || 0), 0) || 0;
 
   return {
-    hasSleepData,
+    hasSleepData: Boolean(sleepSession || score != null),
     hasHrvData,
-    score: score ?? 0,
+    score,
     hrv,
     duration: durationSeconds ? formatDuration(durationSeconds) : "",
-    quality: score > 80 ? "Buena" : score > 68 ? "Correcta" : "Ligera",
-    note: score > 76 ? "La noche permite absorber carga moderada." : "La noche pide margen y menos intensidad.",
     stages: stages && totalStageSeconds
       ? stages.map(([label, seconds]) => ({
           label,
@@ -6823,24 +6814,13 @@ function buildSleepModel(health, sleepSession, hrvRows = []) {
   };
 }
 
-function buildEnergyCurve(health, bodyBatteryRows = []) {
-  if (bodyBatteryRows?.length) {
-    return sampleSeries(bodyBatteryRows, "body_battery_value", "recorded_at", 6).map((point) => ({
-      label: formatHour(point.recorded_at),
-      value: Math.round(Number(point.body_battery_value || 0)),
-    }));
-  }
-  const current = Number(health.body_battery_current ?? 72);
-  const charged = Number(health.body_battery_charged ?? 42);
-  const drained = Number(health.body_battery_drained ?? 28);
-  return [
-    ["00", Math.max(24, current - charged + 16)],
-    ["04", Math.max(34, current - 20)],
-    ["08", Math.min(96, current + 14)],
-    ["12", Math.max(30, current - drained * 0.32)],
-    ["16", Math.max(24, current - drained * 0.55)],
-    ["20", Math.max(18, current - drained * 0.78)],
-  ].map(([label, value]) => ({ label, value: Math.round(value) }));
+
+function buildEnergyCurve(bodyBatteryRows = []) {
+  if (!bodyBatteryRows?.length) return [];
+  return sampleSeries(bodyBatteryRows, "body_battery_value", "recorded_at", 6).map((point) => ({
+    label: formatHour(point.recorded_at),
+    value: Math.round(Number(point.body_battery_value || 0)),
+  }));
 }
 
 function buildHrvTrend(hrvRows = [], fallback) {
