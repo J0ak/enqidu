@@ -44,15 +44,19 @@ There is no callable Fitness AI server API, SDK, endpoint, or credential in this
 
 ## Injected transport response contract
 
-`getHealthSummary` receives the validated source request, including athlete IANA timezone and opaque cursor. The sanitized fixtures document the currently supported response envelope:
+The injected transport returns the live Fitness AI Connector health-summary shape. V1 now accepts that observed structure directly and normalizes it before the stable GarminSource DTO layer:
 
-- top-level `data_status`, `latest_available_date`, `retrieved_at`, optional `next_cursor`, `limitations`, and `response_metadata`;
-- summary arrays `daily`, `sleep`, `hrv`, `stress`, `body_battery`, `respiration`, `spo2`, and `heart_rate`, keyed by connector-supplied `calendar_date`;
-- independent `series` arrays and matching `series_meta` arrays keyed by date;
-- series points with `offset_s` and a value, plus explicit duration for sleep-stage intervals;
-- basis metadata with offset-aware `t0_utc`, `tz_offset_s`, interval and coarsening evidence.
+- top-level `data_status` and `latest_available_date`;
+- a single-day `data` object whose observed families include `daily`, `sleep`, `stress`, `hrv`, and `spo2`;
+- top-level `series` where numeric series are arrays of `[offset_s, value]` pairs;
+- `sleep_stages` as explicit `{ stage, start_utc, end_utc }` intervals;
+- top-level `series_meta` keyed directly by series name, carrying basis, applied resolution, point counts, and coarsening metadata.
 
-The transport must paginate narrowly enough that a page maps to at most 100 canonical records. Invalid status, dates outside the request, duplicate family/date entries, missing metadata for a returned series, unsafe timestamps, or unsupported values fail before persistence. Requested zero-point series are valid.
+The bridge converts the observed units and field names into the internal canonical DTO envelope: kilometres to metres, minutes/hours to seconds, nightly HRV to milliseconds, and direct tuple offsets to explicit UTC timestamps using `series_meta.<type>.basis.t0_utc`. Missing families and empty series remain absence. Numeric connector offsets are timestamp evidence only and never replace the athlete profile IANA timezone for calendar semantics.
+
+For backwards-compatible tests and transport isolation, the source also accepts the earlier internal normalized envelope used by the synthetic fixtures. Production transport code should prefer the live connector shape above; no runtime connector endpoint, SDK, or credential is invented here.
+
+A live single-day response must expose a consistent `calendar_date` across the returned health families. When only series are present without any family date, the source requires a single-day request so calendar identity cannot be guessed across a range. The transport may still expose an opaque `next_cursor`/limitations metadata if it implements pagination outside the connector's current single-day surface.
 
 ## Provenance, timezone, evidence, and security
 
