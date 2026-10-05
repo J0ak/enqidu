@@ -1301,7 +1301,6 @@ function DisciplineSwitch({ value, onChange }) {
   );
 }
 
-
 function HomeView({ discipline, health, sessions, setRoute, dataState }) {
   const observedCards = [
     health.body_battery_current != null && ["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current],
@@ -1366,7 +1365,6 @@ function HeroCard({ discipline }) {
     </article>
   );
 }
-
 
 function HealthView({ health, healthSeries }) {
   const sleep = buildSleepModel(health, healthSeries.sleep, healthSeries.hrv);
@@ -1433,7 +1431,6 @@ function hasRealHealthValues(health, healthSeries) {
     health?.sleep_score,
   ].some((value) => value != null) || Boolean(healthSeries?.sleep || healthSeries?.hrv?.length || healthSeries?.bodyBattery?.length);
 }
-
 
 function buildRealHealthCards(health, sleep) {
   const cards = [];
@@ -1582,7 +1579,6 @@ function LoadFocus({ label, value, max, color, optimal }) {
     </div>
   );
 }
-
 
 function MiniSleepChart({ stages }) {
   if (!stages?.length) return null;
@@ -6662,7 +6658,6 @@ function mergeTags(existingTags, nextTags) {
   return [...new Set([...(existingTags || []), ...(nextTags || [])].filter(Boolean))];
 }
 
-
 function SmartCard({ title, value, unit, badge, progress }) {
   const hasProgress = progress != null && Number.isFinite(Number(progress));
   return (
@@ -6779,7 +6774,6 @@ function buildCoachFallbackReply(input, discipline, sessions = [], error, cards 
   }
   return localReply;
 }
-
 
 function buildSleepModel(health, sleepSession, hrvRows = []) {
   const sleepScoreValue = sleepSession?.sleep_score ?? health.sleep_score;
