@@ -103,13 +103,14 @@ function recoveryState(recovery = {}) {
     recovery?.hrv?.status,
     ...list(recovery?.readiness?.flags),
   ].filter(Boolean).join(" "));
-  const hasScore = Number.isFinite(score) && score > 0;
+  const readinessStatus = normalizeText(recovery?.readiness?.status);
+  const readinessUsable = (!readinessStatus || ["available", "partial"].includes(readinessStatus))
+    && recovery?.freshness !== "stale";
+  const hasScore = readinessUsable && Number.isFinite(score) && score >= 0;
   const explicitlyLow = /low|poor|bajo|mala|unbalanced|desequilibr/.test(statusText);
   return {
-    hasData: hasScore || Boolean(statusText)
-      || Number(recovery?.sleep?.score) > 0
-      || Number(recovery?.hrv?.night_avg_ms) > 0
-      || Number(recovery?.body_battery?.morning) > 0,
+    hasData: hasScore || explicitlyLow
+      || (recovery?.freshness !== "stale" && recovery?.status === "available"),
     low: explicitlyLow || (hasScore && score < RECOMMENDATION_RULES.lowReadinessUpperBound),
     score: hasScore ? score : null,
   };

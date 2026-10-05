@@ -97,25 +97,32 @@ function buildSessionAnswer(period = {}, { targetDate = null, exactDate = false 
 }
 
 function buildRecoveryAnswer(recovery = {}) {
-  const readiness = asPositiveNumber(recovery?.readiness?.score);
-  const sleepScore = asPositiveNumber(recovery?.sleep?.score);
+  const observedNumber = (value) => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
+  const readiness = observedNumber(recovery?.readiness?.score);
+  const sleepScore = observedNumber(recovery?.sleep?.score);
   const sleepDuration = formatDuration(recovery?.sleep?.duration_seconds);
-  const hrv = asPositiveNumber(recovery?.hrv?.night_avg_ms);
-  const bodyBattery = asPositiveNumber(recovery?.body_battery?.morning);
+  const hrv = observedNumber(recovery?.hrv?.last_night_avg_ms ?? recovery?.hrv?.night_avg_ms);
+  const bodyBattery = observedNumber(recovery?.body_battery?.morning ?? recovery?.body_battery?.current);
 
   const facts = [
-    readiness ? `readiness ${Math.round(readiness)}` : null,
-    sleepScore ? `sueño ${Math.round(sleepScore)}` : null,
+    readiness != null ? `readiness ${Math.round(readiness)}` : null,
+    sleepScore != null ? `sueño ${Math.round(sleepScore)}` : null,
     sleepDuration ? `${sleepDuration} de sueño` : null,
-    hrv ? `HRV nocturna ${Math.round(hrv)} ms` : null,
-    bodyBattery ? `Body Battery ${Math.round(bodyBattery)}` : null,
+    hrv != null ? `HRV nocturna ${Math.round(hrv)} ms` : null,
+    bodyBattery != null ? `Body Battery ${Math.round(bodyBattery)}` : null,
   ];
 
   if (!facts.filter(Boolean).length) {
     return "Aún no tengo datos de recuperación suficientes para hoy (sueño, HRV, Body Battery o readiness).";
   }
 
-  return `Datos de recuperación disponibles: ${joinNatural(facts)}.`;
+  const freshness = recovery?.freshness === "stale" ? " Son datos históricos; no los trato como actuales." : "";
+  const explanation = readiness != null && Array.isArray(recovery?.readiness?.factors) && recovery.readiness.factors.length
+    ? ` Factores: ${recovery.readiness.factors.map((factor) => factor.reason).filter(Boolean).slice(0, 2).join(" y ")}.`
+    : readiness == null && recovery?.readiness?.status === "unavailable"
+      ? " No hay evidencia suficiente para calcular readiness hoy."
+      : "";
+  return `Datos de recuperación disponibles: ${joinNatural(facts)}.${freshness}${explanation}`;
 }
 
 function buildPlannedTrainingAnswer(plannedTraining = {}) {

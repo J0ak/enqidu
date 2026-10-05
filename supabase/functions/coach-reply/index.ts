@@ -4,6 +4,7 @@ import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDet
 import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 import { buildTrainingTrendRanges } from "../../../src/coachContext/trainingTrend.js";
 import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
+import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
 import { requestOpenAiResponses } from "../../../src/llm/openAiResponsesProvider.js";
 
 const headers = {
@@ -225,6 +226,12 @@ Deno.serve(async (req: Request) => {
       calendar_timezone: calendar.timezone,
       date_source: calendar.source,
     };
+    context.health_recovery = await loadHealthIntelligence(db, {
+      userId,
+      calendarDate: contextDate,
+      timezone: calendar.timezone,
+      generatedAt: new Date().toISOString(),
+    });
     context.planned_training = intents.planToday
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };

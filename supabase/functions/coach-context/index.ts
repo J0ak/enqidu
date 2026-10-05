@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
+import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -256,16 +258,33 @@ Deno.serve(async (req: Request) => {
     activeScope = scope;
 
     if (!fixtureUser) {
+      const profileResult = await userDb.from("profiles").select("timezone").eq("id", userId).limit(1);
+      if (profileResult.error) throw profileResult.error;
+      const timezone = profileResult.data?.[0]?.timezone || "UTC";
+      const calendar = resolveUserCalendar({
+        explicitDate: body.date || null,
+        explicitDateSource: body.date ? "request" : null,
+        profileTimezone: timezone,
+        now: new Date(),
+      });
+      if (!calendar.ok || !calendar.date) return reply({ error: calendar.error || "invalid_calendar" }, 400);
       const contextResult = await userDb.rpc("get_ai_coach_context", {
         p_user_id: userId,
-        p_date: body.date || new Date().toISOString().slice(0, 10),
+        p_date: calendar.date,
         p_mode: body.context_mode || "today_coach",
         p_from_date: body.from_date || null,
         p_to_date: body.to_date || null,
         p_session_id: body.session_id || null,
       });
       if (contextResult.error) throw contextResult.error;
-      return reply({ ok: true, context: compactAiCoachContext(contextResult.data || {}) });
+      const canonical = contextResult.data || {};
+      canonical.health_recovery = await loadHealthIntelligence(userDb, {
+        userId,
+        calendarDate: calendar.date,
+        timezone: calendar.timezone,
+        generatedAt: new Date().toISOString(),
+      });
+      return reply({ ok: true, context: compactAiCoachContext(canonical) });
     }
 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
