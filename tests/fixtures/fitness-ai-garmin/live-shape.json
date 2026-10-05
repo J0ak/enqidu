@@ -1,0 +1,287 @@
+{
+  "data_status": "available",
+  "latest_available_date": "2026-10-04",
+  "data": {
+    "daily": {
+      "calendar_date": "2026-10-04",
+      "steps": 1234,
+      "distance_km": 4.25,
+      "active_time_min": 45.5,
+      "heart_rate": {
+        "min": 44,
+        "max": 151,
+        "avg": 67,
+        "resting": 49
+      },
+      "stress_avg": 23,
+      "stress_max": 71,
+      "stress_qualifier": "balanced",
+      "stress_duration_s": {
+        "rest": 100,
+        "low": 200,
+        "medium": 300,
+        "high": 400,
+        "activity": 500
+      },
+      "body_battery": {
+        "charged": 52,
+        "drained": 31
+      },
+      "floors_climbed": 6,
+      "intensity_duration_s": {
+        "moderate": 1200,
+        "vigorous": 600
+      },
+      "calories": {
+        "total": null,
+        "active": 640,
+        "bmr": 1700
+      },
+      "goals": {
+        "steps": 8000,
+        "floors_climbed": 10,
+        "intensity_duration_s": 9000
+      }
+    },
+    "sleep": {
+      "calendar_date": "2026-10-04",
+      "duration_hours": 7.5,
+      "phases": {
+        "deep_hours": 1.2,
+        "light_hours": 4.4,
+        "rem_hours": 1.5,
+        "awake_hours": 0.4
+      },
+      "sleep_score": 82,
+      "sleep_score_qualifier": "GOOD",
+      "avg_spo2": null,
+      "avg_respiration": 14.2,
+      "sleep_start_utc": "2026-10-03T22:00:00Z",
+      "sleep_end_utc": "2026-10-04T05:30:00Z",
+      "sub_scores": {
+        "total_duration": {
+          "qualifier": "GOOD"
+        }
+      },
+      "unmeasurable_sleep_s": 0
+    },
+    "stress": {
+      "calendar_date": "2026-10-04",
+      "overall_stress": 23,
+      "stress_distribution": {
+        "rest_pct": 20,
+        "low_pct": 50,
+        "medium_pct": 20,
+        "high_pct": 10
+      },
+      "body_battery": {
+        "high": 88,
+        "low": 35
+      }
+    },
+    "hrv": {
+      "calendar_date": "2026-10-04",
+      "last_night_avg": 57,
+      "last_night_5min_high": 84,
+      "duration_hours": 8,
+      "readings_count": 96,
+      "readings_min": 30,
+      "readings_max": 100,
+      "start_time_utc": "2026-10-03T22:00:00Z"
+    },
+    "spo2": {
+      "calendar_date": "2026-10-04",
+      "avg_spo2": 96,
+      "min_spo2": 90,
+      "max_spo2": 99,
+      "readings_count": 3,
+      "on_demand": false,
+      "window": {
+        "start_utc": "2026-10-03T22:00:00Z",
+        "end_utc": "2026-10-04T22:00:00Z",
+        "duration_s": 86400
+      }
+    }
+  },
+  "series": {
+    "heart_rate": [
+      [
+        0,
+        52
+      ],
+      [
+        300,
+        null
+      ]
+    ],
+    "stress": [
+      [
+        0,
+        0
+      ]
+    ],
+    "body_battery": [
+      [
+        0,
+        61
+      ]
+    ],
+    "hrv": [
+      [
+        0,
+        55
+      ]
+    ],
+    "sleep_stages": [
+      {
+        "stage": "deep",
+        "start_utc": "2026-10-03T22:00:00Z",
+        "end_utc": "2026-10-03T22:30:00Z"
+      },
+      {
+        "stage": "light",
+        "start_utc": "2026-10-03T22:30:00Z",
+        "end_utc": "2026-10-03T23:00:00Z"
+      }
+    ],
+    "spo2_sleep": [],
+    "respiration_sleep": [
+      [
+        60,
+        12.5
+      ]
+    ],
+    "respiration": [
+      [
+        0,
+        14.5
+      ]
+    ],
+    "spo2": [
+      [
+        0,
+        97
+      ]
+    ]
+  },
+  "series_meta": {
+    "heart_rate": {
+      "applied_interval_s": 300,
+      "range": [
+        0,
+        300
+      ],
+      "points": 2,
+      "original_points": 288,
+      "coarsened": true,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "stress": {
+      "applied_interval_s": 180,
+      "range": [
+        0,
+        0
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "body_battery": {
+      "applied_interval_s": 180,
+      "range": [
+        0,
+        0
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "hrv": {
+      "applied_interval_s": 300,
+      "range": [
+        0,
+        0
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "sleep_stages": {
+      "points": 2,
+      "basis": {
+        "t0_utc": "2026-10-03T22:00:00Z",
+        "tz_offset_s": 7200,
+        "description": "absolute UTC timestamps"
+      }
+    },
+    "spo2_sleep": {
+      "points": 0,
+      "original_points": 0,
+      "note": "no data for this date"
+    },
+    "respiration_sleep": {
+      "applied_interval_s": 60,
+      "range": [
+        60,
+        60
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "respiration": {
+      "applied_interval_s": 120,
+      "range": [
+        0,
+        0
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    },
+    "spo2": {
+      "applied_interval_s": 60,
+      "range": [
+        0,
+        0
+      ],
+      "points": 1,
+      "original_points": 1,
+      "coarsened": false,
+      "basis": {
+        "t0_utc": "2026-10-03T22:30:00Z",
+        "tz_offset_s": 7200,
+        "description": "synthetic local-day basis"
+      }
+    }
+  }
+}
