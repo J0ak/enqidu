@@ -21,9 +21,9 @@ V1 of this change only renders layers 1–2. It does not invent or infer recover
 | Sleep | `wearable_sleep_sessions` | Yes, latest row | Yes | Score/duration/stages only when present. No fabricated stage pattern. |
 | HRV nightly | `wearable_hrv_nightly_summaries` | Yes, up to 28 rows | Yes | Raw nightly average + observed trend. No synthetic baseline/status threshold. |
 | Body Battery samples | `wearable_body_battery_samples` | Yes, up to 96 rows | Yes | Observed series only; no generated fallback curve. |
-| Stress samples | `wearable_stress_samples` | Yes, up to 96 rows | Partially | Daily average is visible; time-series-specific UI remains a later Health Product increment. |
-| Respiration samples | `wearable_respiration_samples` | Yes, up to 96 rows | Partially | Daily average is visible; time-series-specific UI remains a later increment. |
-| SpO2 samples | `wearable_spo2_samples` | Yes, up to 96 rows | Partially | Daily average is visible; time-series-specific UI remains a later increment. |
+| Stress samples | `wearable_stress_samples` | Yes, up to 96 rows | Yes | Latest/min/max/count are shown from observed persisted samples; no interpretation threshold is applied. |
+| Respiration samples | `wearable_respiration_samples` | Yes, up to 96 rows | Yes | Latest/min/max/count are shown from observed persisted samples. |
+| SpO2 samples | `wearable_spo2_samples` | Yes, up to 96 rows | Yes | Latest/min/max/count are shown from observed persisted samples. |
 | Heart-rate samples | `wearable_heart_rate_samples` | Not currently queried by Health page | Daily summary only | Fine-grained Health HR series is not yet a Health-page feature. Activity HR remains sourced through FIT/session data. |
 | Body composition | `wearable_body_composition_measurements` | Not currently queried by Health page | No | Canonical foundation supports it, but the provisional Fitness AI bridge intentionally does not claim unsupported body-composition input. |
 | Vendor insights | `wearable_vendor_insights` | Not currently queried by Health page | No | Keep separate from raw observed metrics unless an observed Garmin/Fitness AI capability is proven. |
@@ -51,4 +51,4 @@ V1 of this change only renders layers 1–2. It does not invent or infer recover
 
 ## Next Health Product increment
 
-After this baseline is green, the next safe increment is to complete the display audit for already-queried stress/respiration/SpO2 series and decide which additional canonical fields deserve first-class product UI. Derived readiness should only be introduced later behind an explicit evidence contract and versioned algorithm.
+Stress, respiration and SpO2 sample summaries are now covered by the next Health Product increment. The following safe step is to decide whether fine-grained heart-rate health samples or additional canonical daily fields deserve first-class UI, while keeping activity heart rate sourced from FIT/session data. Derived readiness should only be introduced later behind an explicit evidence contract and versioned algorithm.
