@@ -51,6 +51,164 @@ function omitUndefined(value) {
   return value;
 }
 
+function scaled(value, factor, field) {
+  if (value === undefined || value === null) return value;
+  return finite(value, field) * factor;
+}
+
+function liveConnectorDate(data, response, request) {
+  const dates = [];
+  for (const key of ["daily", "sleep", "stress", "hrv", "spo2"]) {
+    const entry = data[key];
+    if (entry === undefined || entry === null) continue;
+    object(entry, `data.${key}`);
+    if (entry.calendar_date !== undefined) dates.push(validateCalendarDate(entry.calendar_date, `data.${key}.calendar_date`));
+  }
+  const unique = [...new Set(dates)];
+  if (unique.length > 1) throw new TypeError("live connector health families disagree on calendar_date");
+  if (unique.length === 1) return unique[0];
+
+  const hasSeries = Object.values(response.series ?? {}).some((points) => Array.isArray(points) && points.length > 0);
+  if (!hasSeries) return null;
+  if (request.from_date !== request.to_date) {
+    throw new TypeError("live connector series without calendar_date require a single-day source request");
+  }
+  return request.from_date;
+}
+
+function tuplePoints(points, field) {
+  return array(points, field).map((point, index) => {
+    if (!Array.isArray(point) || point.length !== 2) throw new TypeError(`${field}[${index}] must be [offset_s, value]`);
+    return { offset_s: finite(point[0], `${field}[${index}][0]`, { nonnegative: false }), value: point[1] };
+  });
+}
+
+function normalizeLiveConnectorResponse(response, request) {
+  if (response.data === undefined) return response;
+  const data = object(response.data, "data");
+  const calendarDate = liveConnectorDate(data, response, request);
+  const normalized = { ...response };
+  const withDate = (entry) => entry ? { calendar_date: calendarDate, ...entry } : null;
+
+  normalized.daily = data.daily ? [withDate({
+    steps: data.daily.steps,
+    distance_m: scaled(data.daily.distance_km, 1000, "data.daily.distance_km"),
+    active_time_seconds: scaled(data.daily.active_time_min, 60, "data.daily.active_time_min"),
+    heart_rate: data.daily.heart_rate ? {
+      min: data.daily.heart_rate.min, max: data.daily.heart_rate.max,
+      resting: data.daily.heart_rate.resting, avg: data.daily.heart_rate.avg,
+    } : undefined,
+    stress: {
+      average: data.daily.stress_avg,
+      maximum: data.daily.stress_max,
+      qualifier: data.daily.stress_qualifier,
+      durations: data.daily.stress_duration_s ? {
+        rest_seconds: data.daily.stress_duration_s.rest,
+        activity_seconds: data.daily.stress_duration_s.activity,
+        low_seconds: data.daily.stress_duration_s.low,
+        medium_seconds: data.daily.stress_duration_s.medium,
+        high_seconds: data.daily.stress_duration_s.high,
+      } : undefined,
+    },
+    body_battery: data.daily.body_battery ? {
+      charged: data.daily.body_battery.charged, drained: data.daily.body_battery.drained,
+    } : undefined,
+    intensity: data.daily.intensity_duration_s ? {
+      moderate_duration_seconds: data.daily.intensity_duration_s.moderate,
+      vigorous_duration_seconds: data.daily.intensity_duration_s.vigorous,
+    } : undefined,
+    calories: data.daily.calories ? {
+      active: data.daily.calories.active, bmr: data.daily.calories.bmr, total: data.daily.calories.total,
+    } : undefined,
+    goals: data.daily.goals ? {
+      steps: data.daily.goals.steps,
+      weekly_intensity_seconds: data.daily.goals.intensity_duration_s,
+      floors_climbed: data.daily.goals.floors_climbed,
+    } : undefined,
+    floors_climbed: data.daily.floors_climbed,
+  })] : [];
+
+  normalized.sleep = data.sleep ? [withDate({
+    duration_seconds: scaled(data.sleep.duration_hours, 3600, "data.sleep.duration_hours"),
+    stages: data.sleep.phases ? {
+      deep_seconds: scaled(data.sleep.phases.deep_hours, 3600, "data.sleep.phases.deep_hours"),
+      light_seconds: scaled(data.sleep.phases.light_hours, 3600, "data.sleep.phases.light_hours"),
+      rem_seconds: scaled(data.sleep.phases.rem_hours, 3600, "data.sleep.phases.rem_hours"),
+      awake_seconds: scaled(data.sleep.phases.awake_hours, 3600, "data.sleep.phases.awake_hours"),
+      unmeasurable_seconds: data.sleep.unmeasurable_sleep_s,
+    } : undefined,
+    sleep_score: data.sleep.sleep_score,
+    score_qualifier: data.sleep.sleep_score_qualifier,
+    sleep_start_utc: data.sleep.sleep_start_utc,
+    sleep_end_utc: data.sleep.sleep_end_utc,
+    respiration: data.sleep.avg_respiration === undefined ? undefined : { average_brpm: data.sleep.avg_respiration },
+    spo2: data.sleep.avg_spo2 === undefined ? undefined : { average_pct: data.sleep.avg_spo2 },
+    sub_scores: data.sleep.sub_scores,
+  })] : [];
+
+  normalized.hrv = data.hrv ? [withDate({
+    last_night_average_ms: data.hrv.last_night_avg,
+    five_minute_high_ms: data.hrv.last_night_5min_high,
+    duration_hours: data.hrv.duration_hours,
+    readings_count: data.hrv.readings_count,
+    readings_min: data.hrv.readings_min,
+    readings_max: data.hrv.readings_max,
+    start_time_utc: data.hrv.start_time_utc,
+  })] : [];
+
+  normalized.stress = data.stress ? [withDate({
+    average: data.stress.overall_stress,
+    stress_distribution: data.stress.stress_distribution,
+    body_battery: data.stress.body_battery,
+  })] : [];
+
+  normalized.body_battery = data.stress?.body_battery ? [withDate({
+    high: data.stress.body_battery.high,
+    low: data.stress.body_battery.low,
+  })] : [];
+  normalized.respiration = [];
+  normalized.spo2 = data.spo2 ? [withDate({
+    average_pct: data.spo2.avg_spo2,
+    minimum_pct: data.spo2.min_spo2,
+    maximum_pct: data.spo2.max_spo2,
+    readings_count: data.spo2.readings_count,
+    on_demand: data.spo2.on_demand,
+    window: data.spo2.window,
+  })] : [];
+  normalized.heart_rate = data.daily?.heart_rate ? [withDate({
+    resting_bpm: data.daily.heart_rate.resting,
+    minimum_bpm: data.daily.heart_rate.min,
+    maximum_bpm: data.daily.heart_rate.max,
+    average_bpm: data.daily.heart_rate.avg,
+  })] : [];
+
+  const rawSeries = object(response.series ?? {}, "series");
+  const rawMeta = object(response.series_meta ?? {}, "series_meta");
+  normalized.series = {};
+  normalized.series_meta = {};
+  for (const type of [...SERIES_TYPES, "respiration_sleep", "spo2_sleep"]) {
+    if (rawSeries[type] === undefined) continue;
+    if (!calendarDate && array(rawSeries[type], `series.${type}`).length) {
+      throw new TypeError(`series.${type} requires a canonical calendar date`);
+    }
+    normalized.series[type] = [{ calendar_date: calendarDate ?? request.from_date, points: tuplePoints(rawSeries[type], `series.${type}`) }];
+    if (rawMeta[type] !== undefined) normalized.series_meta[type] = [{ calendar_date: calendarDate ?? request.from_date, ...object(rawMeta[type], `series_meta.${type}`) }];
+  }
+  if (rawSeries.sleep_stages !== undefined) {
+    normalized.series.sleep_stages = [{
+      calendar_date: calendarDate ?? request.from_date,
+      points: array(rawSeries.sleep_stages, "series.sleep_stages").map((point, index) => {
+        object(point, `series.sleep_stages[${index}]`);
+        return { stage: point.stage, start_utc: point.start_utc, end_utc: point.end_utc };
+      }),
+    }];
+    if (rawMeta.sleep_stages !== undefined) {
+      normalized.series_meta.sleep_stages = [{ calendar_date: calendarDate ?? request.from_date, ...object(rawMeta.sleep_stages, "series_meta.sleep_stages") }];
+    }
+  }
+  return normalized;
+}
+
 function timestampFromOffset(meta, offset, field) {
   object(meta, `${field}.meta`);
   const basis = object(meta.basis, `${field}.meta.basis`);
@@ -93,12 +251,23 @@ function mapSeries(seriesType, seriesEntry, meta) {
 function mapSleepStages(seriesEntry, meta) {
   return array(seriesEntry?.points, "series.sleep_stages.points").map((point, index) => {
     object(point, `series.sleep_stages.points[${index}]`);
-    const startAt = timestampFromOffset(meta, point.offset_s, `series.sleep_stages.points[${index}]`);
-    const durationSeconds = own(point, "duration_s") ? finite(point.duration_s, `series.sleep_stages.points[${index}].duration_s`) : null;
-    if (!durationSeconds) throw new TypeError("sleep stage series points require a positive duration_s; intervals are never inferred");
+    const absolute = point.start_utc !== undefined || point.end_utc !== undefined;
+    const startAt = absolute
+      ? normalizeHealthTimestamp(point.start_utc, `series.sleep_stages.points[${index}].start_utc`, false)
+      : timestampFromOffset(meta, point.offset_s, `series.sleep_stages.points[${index}]`);
+    let endAt;
+    let durationSeconds;
+    if (absolute) {
+      endAt = normalizeHealthTimestamp(point.end_utc, `series.sleep_stages.points[${index}].end_utc`, false);
+      durationSeconds = (Date.parse(endAt) - Date.parse(startAt)) / 1000;
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new RangeError("sleep stage end_utc must follow start_utc");
+    } else {
+      durationSeconds = own(point, "duration_s") ? finite(point.duration_s, `series.sleep_stages.points[${index}].duration_s`) : null;
+      if (!durationSeconds) throw new TypeError("sleep stage series points require a positive duration_s; intervals are never inferred");
+      endAt = new Date(Date.parse(startAt) + durationSeconds * 1000).toISOString();
+    }
     return {
-      stage_code: point.stage ?? "unknown", start_at: startAt,
-      end_at: new Date(Date.parse(startAt) + durationSeconds * 1000).toISOString(),
+      stage_code: point.stage ?? "unknown", start_at: startAt, end_at: endAt,
       duration: { value: durationSeconds, unit: "s" }, raw: sanitizeEvidence(point),
     };
   });
@@ -220,7 +389,8 @@ export class FitnessAiGarminSource extends GarminSource {
   async getHealthRecords(input) {
     if (typeof window !== "undefined") throw new Error("Fitness AI Garmin source requires a server runtime");
     const request = validateGarminSourceRequest(input);
-    const response = object(await this.transport.getHealthSummary({ ...request }), "Fitness AI health summary response");
+    const rawResponse = object(await this.transport.getHealthSummary({ ...request }), "Fitness AI health summary response");
+    const response = normalizeLiveConnectorResponse(rawResponse, request);
     if (!STATUSES.has(response.data_status)) throw new TypeError("connector data_status must be available, partial, or no_data");
     const retrievedAt = normalizeHealthTimestamp(response.retrieved_at ?? this.clock().toISOString(), "retrieved_at", false);
     const nextCursor = response.next_cursor ?? null;
