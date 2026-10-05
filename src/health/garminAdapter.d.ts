@@ -23,5 +23,5 @@ export function validateCanonicalHealthRecord(input: unknown): CanonicalHealthRe
 export function getGarminHealthNaturalKey(userId: string, input: CanonicalHealthRecord): string;
 export class GarminAdapter {
   normalize(record: GarminHealthRecord): CanonicalHealthRecord;
-  normalizePage(page: GarminSourcePage): { records: CanonicalHealthRecord[]; next_cursor: string | null };
+  normalizePage(page: GarminSourcePage): { records: CanonicalHealthRecord[]; next_cursor: string | null; source_metadata: JsonValue };
 }

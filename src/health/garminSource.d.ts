@@ -12,7 +12,7 @@ export interface GarminSourceRequest {
   timezone: string;
   cursor?: string | null;
 }
-export interface GarminSourcePage { records: GarminHealthRecord[]; next_cursor: string | null }
+export interface GarminSourcePage { records: GarminHealthRecord[]; next_cursor: string | null; source_metadata?: JsonValue }
 
 export interface GarminRecordEvidence {
   provider: "garmin";

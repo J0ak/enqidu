@@ -1,0 +1,8 @@
+{
+  "data_status": "partial",
+  "latest_available_date": "2026-10-05",
+  "retrieved_at": "2026-10-06T08:00:00Z",
+  "daily": [{ "calendar_date": "2026-10-05", "source_updated_at": "2026-10-06T07:50:00Z", "steps": 12, "distance_m": null }],
+  "series": { "heart_rate": [{ "calendar_date": "2026-10-05", "points": [] }] },
+  "series_meta": { "heart_rate": [{ "calendar_date": "2026-10-05", "applied_interval_s": 300, "original_points": 0, "points": 0, "coarsened": false, "basis": { "t0_utc": "2026-10-04T22:00:00Z", "tz_offset_s": 7200 } }] }
+}
