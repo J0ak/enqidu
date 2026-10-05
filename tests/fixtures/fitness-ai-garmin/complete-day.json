@@ -1,0 +1,377 @@
+{
+  "data_status": "available",
+  "latest_available_date": "2026-10-04",
+  "retrieved_at": "2026-10-05T08:00:00Z",
+  "next_cursor": "synthetic-page-2",
+  "response_metadata": {
+    "connector_version": "synthetic-v1",
+    "authorization": "must-not-persist"
+  },
+  "limitations": {
+    "requested_from_date": "2026-10-04",
+    "effective_from_date": "2026-10-04",
+    "history_window_limited": true
+  },
+  "daily": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "source_identifier": "synthetic-day-A",
+      "steps": 0,
+      "distance_m": 4321.5,
+      "active_time_seconds": 1800,
+      "heart_rate": {
+        "min": 44,
+        "max": 151,
+        "resting": 49
+      },
+      "stress": {
+        "average": 23,
+        "maximum": 71,
+        "qualifier": "balanced",
+        "durations": {
+          "total_seconds": 1000,
+          "rest_seconds": 200,
+          "activity_seconds": 300,
+          "low_seconds": 250,
+          "medium_seconds": 150,
+          "high_seconds": 100
+        }
+      },
+      "body_battery": {
+        "charged": 52,
+        "drained": 31
+      },
+      "intensity": {
+        "moderate_duration_seconds": 1200,
+        "vigorous_duration_seconds": 600
+      },
+      "calories": {
+        "active": 640,
+        "bmr": 1700
+      },
+      "goals": {
+        "steps": 8000,
+        "weekly_intensity_seconds": 9000
+      }
+    }
+  ],
+  "sleep": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "duration_seconds": 27000,
+      "stages": {
+        "deep_seconds": 4200,
+        "light_seconds": 15000,
+        "rem_seconds": 5400,
+        "awake_seconds": 2400,
+        "unmeasurable_seconds": 0
+      },
+      "sleep_score": 82,
+      "score_qualifier": "good",
+      "sleep_start_utc": "2026-10-03T22:00:00Z",
+      "sleep_end_utc": "2026-10-04T05:30:00Z",
+      "respiration": {
+        "average_brpm": 14.2,
+        "minimum_brpm": 10
+      },
+      "spo2": {
+        "average_pct": 96,
+        "minimum_pct": 91
+      },
+      "hrv": {
+        "last_night_average_ms": 57,
+        "five_minute_high_ms": 84
+      }
+    }
+  ],
+  "hrv": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "last_night_average_ms": 57,
+      "five_minute_high_ms": 84,
+      "status": "balanced"
+    }
+  ],
+  "stress": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "average": 23,
+      "maximum": 71,
+      "qualifier": "balanced"
+    }
+  ],
+  "body_battery": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "current": 60,
+      "charged": 52,
+      "drained": 31
+    }
+  ],
+  "respiration": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "average_brpm": 14.5,
+      "minimum_brpm": 9.5
+    }
+  ],
+  "spo2": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "average_pct": 96,
+      "minimum_pct": 90
+    }
+  ],
+  "heart_rate": [
+    {
+      "calendar_date": "2026-10-04",
+      "source_updated_at": "2026-10-05T07:50:00Z",
+      "resting_bpm": 49,
+      "minimum_bpm": 44,
+      "maximum_bpm": 151
+    }
+  ],
+  "series": {
+    "heart_rate": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 52,
+            "context": "daily"
+          },
+          {
+            "offset_s": 300,
+            "value": null,
+            "context": "daily"
+          }
+        ]
+      }
+    ],
+    "stress": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 0,
+            "status": "measured"
+          }
+        ]
+      }
+    ],
+    "body_battery": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 61
+          }
+        ]
+      }
+    ],
+    "hrv": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 55
+          }
+        ]
+      }
+    ],
+    "respiration": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 14.5,
+            "context": "daily"
+          }
+        ]
+      }
+    ],
+    "respiration_sleep": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 60,
+            "value": 12.5
+          }
+        ]
+      }
+    ],
+    "spo2": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "value": 97,
+            "context": "daily"
+          }
+        ]
+      }
+    ],
+    "spo2_sleep": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 60,
+            "value": null
+          }
+        ]
+      }
+    ],
+    "sleep_stages": [
+      {
+        "calendar_date": "2026-10-04",
+        "points": [
+          {
+            "offset_s": 0,
+            "duration_s": 1800,
+            "stage": "deep"
+          },
+          {
+            "offset_s": 1800,
+            "duration_s": 1800,
+            "stage": "light"
+          }
+        ]
+      }
+    ]
+  },
+  "series_meta": {
+    "heart_rate": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 300,
+        "original_points": 288,
+        "points": 2,
+        "coarsened": true,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200,
+          "description": "synthetic local-day basis"
+        }
+      }
+    ],
+    "stress": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 180,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "body_battery": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 180,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "hrv": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 300,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "respiration": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 300,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "respiration_sleep": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 60,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "spo2": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 300,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "spo2_sleep": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 60,
+        "original_points": 1,
+        "points": 1,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:30:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ],
+    "sleep_stages": [
+      {
+        "calendar_date": "2026-10-04",
+        "applied_interval_s": 1800,
+        "original_points": 2,
+        "points": 2,
+        "coarsened": false,
+        "basis": {
+          "t0_utc": "2026-10-03T22:00:00Z",
+          "tz_offset_s": 7200
+        }
+      }
+    ]
+  }
+}

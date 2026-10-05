@@ -324,6 +324,7 @@ export class GarminAdapter {
     object(page, "source page");
     if (!Array.isArray(page.records)) fail("records", "must be an array");
     if (page.next_cursor !== null && (typeof page.next_cursor !== "string" || !page.next_cursor.trim())) fail("next_cursor", "must be a nonempty string or null");
-    return { records: page.records.map(normalizeGarminHealthRecord), next_cursor: page.next_cursor };
+    const source_metadata = page.source_metadata === undefined ? null : cloneHealthEvidence(page.source_metadata);
+    return { records: page.records.map(normalizeGarminHealthRecord), next_cursor: page.next_cursor, source_metadata };
   }
 }

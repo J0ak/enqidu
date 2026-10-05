@@ -31,5 +31,6 @@ export async function ingestGarminHealthPage({ db, authenticatedUser, source, re
   for (const record of normalized.records) {
     results.push(await persistGarminHealthRecord({ db, authenticatedUser, record }));
   }
-  return { processed_count: results.length, next_cursor: normalized.next_cursor, results };
+  return { processed_count: results.length, next_cursor: normalized.next_cursor,
+    source_metadata: normalized.source_metadata, results };
 }
