@@ -1,14 +1,15 @@
-const finitePositive = (value) => {
+const finiteNonNegative = (value) => {
+  if (value === null || value === undefined || value === "" || typeof value === "boolean") return null;
   const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
+  return Number.isFinite(number) && number >= 0 ? number : null;
 };
 
 export function formatCoachCardMetric(metric = {}) {
-  const value = finitePositive(metric.value);
+  const value = finiteNonNegative(metric.value);
   if (value == null) return null;
   if (metric.unit === "s") {
     const minutes = Math.round(value / 60);
-    if (minutes < 60) return `${Math.max(1, minutes)} min`;
+    if (minutes < 60) return `${value === 0 ? 0 : Math.max(1, minutes)} min`;
     const hours = Math.floor(minutes / 60);
     const remainder = minutes % 60;
     return remainder ? `${hours} h ${remainder} min` : `${hours} h`;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { coachHealthFixture } from "./fixtures/coach-health-v1.mjs";
 import { buildCoachCards, coachCardContract, detectCoachIntents } from "../src/coachContext/coachCards.js";
 import {
   formatCoachCardMetric,
@@ -37,13 +38,7 @@ const context = {
       },
     ],
   },
-  health_recovery: {
-    date: "2026-09-28",
-    readiness: { score: 82, flags: [] },
-    sleep: { score: 79, duration_seconds: 27000, resting_hr: 51, avg_sleep_hr: 54 },
-    hrv: { night_avg_ms: 47, status: "balanced" },
-    body_battery: { morning: 76, charged: 58, drained: 9 },
-  },
+  health_recovery: coachHealthFixture(),
   training_period: {
     period: { from: "2026-09-21", to: "2026-09-27" },
     summary: {
@@ -92,7 +87,7 @@ test("builds the latest session card for activity questions", () => {
 test("builds recovery/readiness only when factual recovery metrics exist", () => {
   const cards = buildCoachCards({ message: "¿Cómo estoy hoy de recuperación?", context });
   assert.equal(cards[0].id, "recovery_readiness");
-  assert.equal(cards[0].metrics.find((item) => item.key === "readiness").value, 82);
+  assert.equal(cards[0].metrics.find((item) => item.key === "readiness").value, context.health_recovery.readiness.score);
   assert.equal(cards[0].metrics.find((item) => item.key === "hrv").value, 47);
 
   const withoutRecovery = {

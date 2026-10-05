@@ -3,8 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
 import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 import { buildTrainingTrendRanges } from "../../../src/coachContext/trainingTrend.js";
-import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
+import { isValidTimeZone, resolveUserCalendar } from "../../../src/time/userCalendar.js";
 import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
+import { loadClosedLoopAssessments } from "../../../src/closedLoop/loadClosedLoopAssessments.js";
 import { requestOpenAiResponses } from "../../../src/llm/openAiResponsesProvider.js";
 
 const headers = {
@@ -191,6 +192,7 @@ Deno.serve(async (req: Request) => {
     if (message.length > 4000) return reply({ error: "message_too_long" }, 400);
 
     const profileTimezone = await loadUserTimezone(db, userId);
+    if (!isValidTimeZone(profileTimezone)) return reply({ error: "profile_timezone_required" }, 400);
     const calendar = resolveUserCalendar({
       explicitDate: body.date || null,
       explicitDateSource: body.date_source || null,
@@ -232,14 +234,26 @@ Deno.serve(async (req: Request) => {
       timezone: calendar.timezone,
       generatedAt: new Date().toISOString(),
     });
-    context.planned_training = intents.planToday
+    context.readiness = context.health_recovery.readiness;
+    context.closed_loop_assessments = intents.closedLoop
+      ? await loadClosedLoopAssessments(db, {
+          userId,
+          calendarDate: contextDate,
+          timezone: calendar.timezone,
+          generatedAt: context.health_recovery.generated_at,
+          sessionId: body.session_id || null,
+          fromDate: body.from_date || null,
+          toDate: body.to_date || null,
+        })
+      : [];
+    context.planned_training = intents.planToday || intents.healthTraining
       ? await loadPlannedTraining(db, userId, contextDate)
       : { date: contextDate, sessions: [] };
-    context.training_availability = intents.planToday
+    context.training_availability = intents.planToday || intents.healthTraining
       ? await loadTrainingAvailability(db, userId, contextDate)
       : null;
     context.recommendation_context = {
-      constraints: intents.planToday
+      constraints: intents.planToday || intents.healthTraining
         ? await loadRecommendationConstraints(db, userId)
         : [],
     };
@@ -281,9 +295,9 @@ Deno.serve(async (req: Request) => {
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
-    // Today's plan/recommendation, weekly plan progress and trend comparison are deterministic,
+    // Health, closed loop, today's plan, weekly progress and trend are deterministic,
     // even when the optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan) {
+    if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop) {
       return reply({
         ok: true,
         answer: deterministic.answer,

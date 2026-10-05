@@ -1,3 +1,5 @@
+import { coachReadiness, coachReadinessFactorReasons } from "./coachHealthContext.js";
+
 const normalizeText = (value = "") => String(value)
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "")
@@ -19,9 +21,10 @@ function displayEnvironment(value) {
   return ENVIRONMENT_LABELS[key] || value;
 }
 
-// ENQIDU's existing readiness UI labels values below 62 as "Bajo". Keeping the
-// boundary here makes the recommendation rule visible, testable and replaceable.
+// This is a conservative recommendation policy for versioned ENQIDU readiness,
+// independent of the old UI labels. It never changes a persisted plan.
 export const RECOMMENDATION_RULES = Object.freeze({
+  algorithmVersion: "training_recommendation_v1.1",
   lowReadinessUpperBound: 62,
   hardSessionLookbackDays: 2,
 });
@@ -95,24 +98,13 @@ function isHard(session = {}) {
     || /vo2|max effort|umbral|intervalos duros/.test(normalizeText(session.title));
 }
 
-function recoveryState(recovery = {}) {
-  const score = Number(recovery?.readiness?.score);
-  const statusText = normalizeText([
-    recovery?.readiness?.status,
-    recovery?.readiness?.label,
-    recovery?.hrv?.status,
-    ...list(recovery?.readiness?.flags),
-  ].filter(Boolean).join(" "));
-  const readinessStatus = normalizeText(recovery?.readiness?.status);
-  const readinessUsable = (!readinessStatus || ["available", "partial"].includes(readinessStatus))
-    && recovery?.freshness !== "stale";
-  const hasScore = readinessUsable && Number.isFinite(score) && score >= 0;
-  const explicitlyLow = /low|poor|bajo|mala|unbalanced|desequilibr/.test(statusText);
+function recoveryState(context = {}) {
+  const { readiness, score } = coachReadiness(context);
   return {
-    hasData: hasScore || explicitlyLow
-      || (recovery?.freshness !== "stale" && recovery?.status === "available"),
-    low: explicitlyLow || (hasScore && score < RECOMMENDATION_RULES.lowReadinessUpperBound),
-    score: hasScore ? score : null,
+    hasData: score != null,
+    low: score != null && score < RECOMMENDATION_RULES.lowReadinessUpperBound,
+    score,
+    readiness,
   };
 }
 
@@ -141,9 +133,10 @@ function equipmentNames(equipment, environment) {
     .filter(Boolean))];
 }
 
-function recommendation({ type, title, objective, duration, intensity, environment, equipment, blocks, reasons }) {
+function recommendation({ type, title, objective, duration, intensity, environment, equipment, blocks, reasons, readiness = null }) {
   return {
     kind: "calculated_recommendation",
+    algorithm_version: RECOMMENDATION_RULES.algorithmVersion,
     session_type: type,
     title,
     objective,
@@ -153,6 +146,12 @@ function recommendation({ type, title, objective, duration, intensity, environme
     equipment,
     blocks,
     reasons,
+    ...(readiness ? { readiness_evidence: {
+      schema_version: readiness.schema_version,
+      algorithm_version: readiness.algorithm_version,
+      score: readiness.score,
+      evidence_dates: readiness.evidence_dates,
+    } } : {}),
   };
 }
 
@@ -171,7 +170,7 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
   const locations = trainingLocations(context);
   const athleteGoals = goals(context);
   const sessions = list(context?.training_period?.sessions);
-  const recovery = recoveryState(context?.health_recovery || {});
+  const recovery = recoveryState(context);
   const environment = resolveEnvironment(equipment, requestedLocation);
   const selectedLocation = findTrainingLocation(locations, environment);
   const relevantEquipment = equipmentNames(equipment, environment);
@@ -214,9 +213,11 @@ export function buildTrainingRecommendation(context = {}, { requestedLocation = 
         { title: "Vuelta a la calma", duration_minutes: 5 },
       ],
       reasons: compact([
-        recovery.score != null ? `readiness ${Math.round(recovery.score)} registrado` : "señal de recuperación baja registrada",
+        `readiness ${Math.round(recovery.score)} calculado con evidencia actual`,
+        ...coachReadinessFactorReasons(recovery.readiness).slice(0, 2),
         constraints.length ? "restricciones activas tenidas en cuenta" : null,
       ]),
+      readiness: recovery.readiness,
     });
   }
 

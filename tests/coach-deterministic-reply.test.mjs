@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
+import { coachHealthFixture } from "./fixtures/coach-health-v1.mjs";
 
 const context = {
   request: { date: "2026-09-27" },
@@ -35,13 +36,7 @@ const context = {
       },
     ],
   },
-  health_recovery: {
-    date: "2026-09-28",
-    readiness: { score: 82 },
-    sleep: { score: 79, duration_seconds: 27000 },
-    hrv: { night_avg_ms: 47 },
-    body_battery: { morning: 76 },
-  },
+  health_recovery: coachHealthFixture({ date: "2026-09-27" }),
   training_period: {
     period: { from: "2026-09-21", to: "2026-09-27" },
     summary: {
@@ -107,7 +102,7 @@ test("answers home equipment with concrete available item names", () => {
 
 test("answers recovery facts when present and states when they are absent", () => {
   const reply = buildDeterministicCoachReply({ message: "¿Cómo estoy hoy de recuperación?", context });
-  assert.match(reply.answer, /readiness 82/);
+  assert.match(reply.answer, new RegExp(`Readiness ${context.health_recovery.readiness.score}/100`));
   assert.match(reply.answer, /sueño 79/);
   assert.match(reply.answer, /HRV nocturna 47 ms/);
   assert.match(reply.answer, /Body Battery 76/);
