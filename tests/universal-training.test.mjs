@@ -151,3 +151,12 @@ test("quick edit patch recalculates missing fields and completion", async () => 
   assert.equal(updated.missing_fields.includes("load_kg"), false);
   assert.ok(next.summary_metrics.completion_score > result.session.summary_metrics.completion_score);
 });
+
+
+test("completed activity detail mounts the universal training card", async () => {
+  const source = await readFile(path.join(root, "src", "main.jsx"), "utf8");
+  const start = source.indexOf("function ActivityView");
+  const end = source.indexOf("function ArchivedSessionNotice", start);
+  assert.ok(start >= 0 && end > start);
+  assert.match(source.slice(start, end), /<TrainingSessionCard detail=\{activityDetail\} \/>/);
+});
