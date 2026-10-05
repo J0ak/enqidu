@@ -19,6 +19,7 @@ cp -R src e2e-local/src
 
 supabase --workdir e2e-local start
 supabase --workdir e2e-local db reset
+node e2e-local/bootstrap-health-intelligence.mjs
 supabase --workdir e2e-local status -o env > /tmp/supabase.env
 source /tmp/supabase.env
 
@@ -37,3 +38,63 @@ supabase --workdir e2e-local stop --no-backup
 
 Never run these tests against a linked Supabase project and never use production
 credentials or production user data. The E2E project is disposable and local-only.
+
+The Health Intelligence suite additionally bootstraps the inspected canonical Health
+fixture and reuses the already-existing Health Foundation V1 SQL in the disposable
+`supabase_db_enqidu-e2e` container. The bootstrap refuses remote connections, creates
+no migration file, and keeps the production migration tree unchanged. It replaces
+the old slim local wearable fixture only once per reset, preserving actual Health
+constraints, foundation identities, ingestion RPC and owner-read policies.
+Run the bootstrap again after every `supabase --workdir e2e-local db reset`.
+The existing CI workflow does this immediately after resetting the disposable
+database and continues serving the native source/dependency graph normally.
+
+`e2e/health-intelligence.spec.js` exercises canonical ingestion, a personal baseline,
+current zero/null observations, stale official Garmin evidence, deterministic Coach
+replies, exact FIT/plan matching, confirmed feedback, proposal-only adaptations,
+cross-user isolation and unchanged persisted plans/FIT. The browser runs in
+America/Los_Angeles while the athlete profile remains Europe/Madrid. The local
+service-role key stays in the Node setup process; Vite receives only the anon key.
+
+## Managed environment verification (2026-10-05)
+
+The local suite uses Supabase CLI 2.119.0 and Edge Runtime 1.77.1 with Docker's
+local socket. When the managed proxy prevents native graph loading, run
+`node e2e-local/prepare-functions.mjs` before `functions serve`. It bundles the unchanged repository Edge source
+with the SDK version already locked by the repository, replacing only the runtime
+type declaration import with an empty module. Generated bundles remain ignored.
+This avoids runtime JSR/npm downloads in environments where the loader cannot trust
+the session proxy CA. TLS verification remains enabled; the native remote dependency
+graph still needs its ordinary post-merge deployment/smoke verification.
+
+In this managed environment the Docker Auth health probe used the inherited proxy
+for its own local URL and returned HTTP 403. Start may use the supported
+`--ignore-health-check` option in that case; verify the actual local endpoint with
+`curl -fsS http://127.0.0.1:54321/auth/v1/health` before testing. Real registration,
+login, JWT/getUser and authenticated endpoints are exercised by Playwright.
+
+Docker proxy defaults can also append duplicate `NO_PROXY` entries after the
+functions env file, causing internal Auth/REST calls to route through the proxy.
+After `functions serve` is ready, run:
+
+```bash
+node e2e-local/configure-runtime-proxy.mjs
+```
+
+The guarded script recreates only the disposable `supabase_edge_runtime_enqidu-e2e`
+container through `/var/run/docker.sock`. It preserves its entire configuration,
+proxy credentials, read-only mounts and the CLI's streamed main service in memory,
+deduplicates environment names, adds only local internal services to `NO_PROXY`,
+and keeps OpenAI disabled. The original serve supervisor exits; the recreated local
+container continues serving the same bundles. Rerun both serve and this script after
+preparing changed bundles. No production code, Docker daemon setting or credential
+default is changed.
+
+All 21 Playwright tests passed locally on 2026-10-05 after rebuilding the final
+source bundles (47.1 seconds), including
+the three new Health Intelligence/Security/Closed Loop flows. The ordinary native
+dependency graph remains the CI path; it was not locally verified because of the
+managed proxy's JSR certificate limitation. The official PostgreSQL 17.11.0.002
+image was flattened into one local Docker layer, preserving its filesystem and
+runtime configuration, after the managed daemon's `vfs` layer copies exceeded
+the available disk. The daemon/storage driver was unchanged.

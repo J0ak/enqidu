@@ -20,4 +20,5 @@ public/labs/local-language-v0/dataset.json
 /e2e-local/src
 /e2e-local/supabase/functions/
 /e2e-local/supabase/.temp/
+/e2e-local/supabase/.branches/
 /e2e-local/supabase/.env.e2e
