@@ -23,6 +23,24 @@ http://192.168.1.187:5174
 
 Si desde otro dispositivo no abre, normalmente es firewall de Windows para Node/Vite.
 
+## Entorno cloud / Codex Cloud
+
+El runtime soportado es Node.js 22. En un entorno cloud nuevo ejecuta:
+
+```bash
+npm run setup:cloud
+```
+
+El setup valida Node.js 22, usa `mise x node@22` cuando el runtime inicial es distinto, instala exactamente las dependencias bloqueadas con `npm ci` y crea `.env.local` desde `.env.example` solo si todavía no existe.
+
+Después arranca la aplicación con:
+
+```bash
+npm run dev
+```
+
+Las credenciales y variables locales no se guardan en Git. Si el entorno dispone de credenciales, rellena `.env.local`; sin ellas la aplicación puede arrancar en modo demo. El setup nunca sobrescribe una configuración `.env.local` existente.
+
 ## Supabase
 
 Proyecto consultado: `Hybriq` (`rdduqsziboqxlgeqouxq`).
