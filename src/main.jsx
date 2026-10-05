@@ -1775,6 +1775,7 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
       <LinkedPlannedSessionPanel detail={activityDetail} />
       {isLinkedPlanned && hasConversationView && <ConversationActivityCard view={conversationView} title="Registro realizado / Coach" />}
       <ActivitySummaryMetrics detail={activityDetail} />
+      <TrainingSessionCard detail={activityDetail} />
       {!isLinkedPlanned && hasConversationView && <ConversationActivityCard view={conversationView} />}
       <GarminSeriesCard series={activityDetail.garminSeries} />
       <PhysiologyCard detail={activityDetail} />
