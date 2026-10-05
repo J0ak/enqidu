@@ -12,6 +12,8 @@ import {
   explainTrainingTrend,
 } from "./trainingTrend.js";
 import { buildWeekPlanProgress, explainWeekPlanProgress } from "./weekPlanProgress.js";
+import { coachHealthFamily, coachReadiness, explainCoachReadiness, observedHealthNumber } from "./coachHealthContext.js";
+import { CLOSED_LOOP_ALGORITHM_VERSION, CLOSED_LOOP_SCHEMA_VERSION } from "../closedLoop/closedLoopAssessment.js";
 
 const asPositiveNumber = (value) => {
   const number = Number(value);
@@ -96,26 +98,73 @@ function buildSessionAnswer(period = {}, { targetDate = null, exactDate = false 
   return `${prefix} ${session.title || session.garmin_type_label || "una sesión registrada"}${date}${suffix}.`;
 }
 
-function buildRecoveryAnswer(recovery = {}) {
-  const readiness = asPositiveNumber(recovery?.readiness?.score);
-  const sleepScore = asPositiveNumber(recovery?.sleep?.score);
-  const sleepDuration = formatDuration(recovery?.sleep?.duration_seconds);
-  const hrv = asPositiveNumber(recovery?.hrv?.night_avg_ms);
-  const bodyBattery = asPositiveNumber(recovery?.body_battery?.morning);
-
-  const facts = [
-    readiness ? `readiness ${Math.round(readiness)}` : null,
-    sleepScore ? `sueño ${Math.round(sleepScore)}` : null,
-    sleepDuration ? `${sleepDuration} de sueño` : null,
-    hrv ? `HRV nocturna ${Math.round(hrv)} ms` : null,
-    bodyBattery ? `Body Battery ${Math.round(bodyBattery)}` : null,
-  ];
-
-  if (!facts.filter(Boolean).length) {
-    return "Aún no tengo datos de recuperación suficientes para hoy (sueño, HRV, Body Battery o readiness).";
+function buildRecoveryAnswer(context = {}, intents = {}) {
+  const numericFact = (label, value, unit = "") => {
+    const observed = observedHealthNumber(value);
+    return observed == null ? null : `${label} ${Number(observed.toFixed(1))}${unit ? ` ${unit}` : ""}`;
+  };
+  const durationFact = (label, value) => {
+    const observed = observedHealthNumber(value);
+    return observed == null ? null : `${label} ${observed === 0 ? "0 min" : formatDuration(observed)}`;
+  };
+  const families = {
+    sleep: (value) => [
+      numericFact("sueño", value.sleep_score),
+      durationFact("duración de sueño", value.duration_seconds),
+      ...(intents.healthMetric === "sleep" ? [
+        durationFact("sueño profundo", value.deep_seconds),
+        durationFact("sueño ligero", value.light_seconds),
+        durationFact("sueño REM", value.rem_seconds),
+        durationFact("tiempo despierto", value.awake_seconds),
+      ] : []),
+    ],
+    hrv: (value) => [
+      numericFact("HRV nocturna", value.last_night_avg_ms, "ms"),
+      ...(intents.healthMetric === "hrv" ? [
+        numericFact("máxima media de 5 min", value.last_night_5min_high_ms, "ms"),
+        numericFact("lecturas", value.readings_count),
+      ] : []),
+    ],
+    body_battery: (value) => [
+      numericFact("Body Battery", value.current),
+      numericFact("cargado", value.charged),
+      numericFact("consumido", value.drained),
+    ],
+    stress: (value) => [
+      numericFact("estrés medio", value.average),
+      numericFact("estrés máximo", value.max),
+    ],
+    heart_rate: (value) => [
+      numericFact("frecuencia cardiaca en reposo", value.resting, "ppm"),
+      numericFact("frecuencia cardiaca mínima", value.min, "ppm"),
+      numericFact("frecuencia cardiaca máxima", value.max, "ppm"),
+    ],
+    spo2: (value) => [
+      numericFact("SpO2 media", value.average, "%"),
+      numericFact("SpO2 mínima", value.min, "%"),
+    ],
+    respiration: (value) => [
+      numericFact("respiración media", value.average, "resp/min"),
+      numericFact("respiración mínima", value.min, "resp/min"),
+    ],
+  };
+  const statements = [];
+  for (const [name, describe] of Object.entries(families)) {
+    if (intents.healthMetric && name !== intents.healthMetric) continue;
+    const family = coachHealthFamily(context, name);
+    if (!family) continue;
+    const facts = describe(family).filter(Boolean);
+    if (!facts.length) continue;
+    const historical = family.freshness !== "current";
+    statements.push(`${joinNatural(facts)} (${historical ? "dato histórico del" : "registrado el"} ${family.calendar_date})${historical ? "; no lo trato como actual" : ""}.`);
   }
-
-  return `Datos de recuperación disponibles: ${joinNatural(facts)}.`;
+  const missingLabels = { sleep: "sueño", hrv: "HRV", body_battery: "Body Battery" };
+  const facts = statements.length
+    ? `Datos de recuperación disponibles: ${statements.join(" ")}`
+    : intents.healthMetric
+      ? `No tengo ${missingLabels[intents.healthMetric]} registrado para la fecha consultada.`
+      : "Aún no tengo datos de recuperación suficientes para hoy (sueño, HRV o Body Battery).";
+  return `${facts} ${explainCoachReadiness(context, { includeFactors: !intents.healthMetric })}`;
 }
 
 function buildPlannedTrainingAnswer(plannedTraining = {}) {
@@ -157,6 +206,45 @@ function buildPlannedTrainingAnswer(plannedTraining = {}) {
   if (session.objective) answer += ` Objetivo: ${session.objective}.`;
   if (blockNames.length) answer += ` Bloques: ${blockNames.join(", ")}.`;
   return answer;
+}
+
+function buildClosedLoopAnswer(context = {}) {
+  const assessments = Array.isArray(context?.closed_loop_assessments) ? context.closed_loop_assessments : [];
+  const priority = (item) => item.identity_match === "exact_persisted_link" && item.executed_session ? 0
+    : item.completion === "not_executed" ? 1 : 2;
+  const assessment = assessments.filter((item) => item?.schema_version === CLOSED_LOOP_SCHEMA_VERSION
+    && item.algorithm_version === CLOSED_LOOP_ALGORITHM_VERSION && item.applied === false)
+    .sort((a, b) => priority(a) - priority(b)
+      || String(b.executed_session?.calendar_date || b.planned_session?.calendar_date || "").localeCompare(String(a.executed_session?.calendar_date || a.planned_session?.calendar_date || ""))
+      || String(a.executed_session?.id || a.planned_session?.id || "").localeCompare(String(b.executed_session?.id || b.planned_session?.id || "")))[0];
+  if (!assessment) return "Aún no tengo una evaluación de plan y ejecución disponible para la sesión consultada.";
+  const completion = {
+    completed: "La sesión consta como completada.",
+    partial: "La evidencia confirma una ejecución parcial.",
+    not_executed: "Consta de forma explícita como no ejecutada.",
+    unknown: "No hay evidencia suficiente para confirmar la completitud.",
+  }[assessment.completion] || "No hay evidencia suficiente para confirmar la completitud.";
+  const facts = Array.isArray(assessment.assessment?.facts)
+    ? assessment.assessment.facts.filter((fact) => typeof fact?.reason === "string" && fact.code !== "execution_linked").slice(0, 6).map((fact) => fact.reason)
+    : [];
+  const execution = assessment.executed_session?.evidence_kind === "objective_fit"
+    ? " Hay una ejecución FIT enlazada como evidencia objetiva."
+    : "";
+  const title = assessment.planned_session?.title || "la sesión consultada";
+  const date = assessment.planned_session?.calendar_date;
+  const proposal = assessment.adaptation_proposal;
+  const actions = {
+    keep: "mantener la planificación",
+    reduce: "revisar una reducción de carga",
+    increase: "revisar un aumento de carga",
+    move: "valorar un cambio de día",
+    recovery_bias: "priorizar recuperación",
+    no_change: "mantener la planificación con la evidencia actual",
+  };
+  const adaptation = proposal?.applied === false && proposal.requires_explicit_action === true && actions[proposal.action]
+    ? ` Propuesta: ${actions[proposal.action]}; requiere una acción explícita. No se ha aplicado ningún cambio al plan.`
+    : "";
+  return `Comparación de ${title}${date ? ` (${date})` : ""}: ${completion}${execution}${facts.length ? ` ${facts.join(" ")}` : ""}${adaptation}`;
 }
 
 function buildUnavailablePlanAnswer(availability = {}, plannedTraining = {}) {
@@ -210,7 +298,8 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     ? context.planned_training.sessions
     : [];
   const unavailable = context?.training_availability?.status === "unavailable";
-  const recommendation = intents.planToday && !plannedSessions.length
+  const trainingIntent = intents.planToday || intents.healthTraining;
+  const recommendation = trainingIntent && !plannedSessions.length
     ? buildTrainingRecommendation(context, { requestedLocation: intents.equipmentLocation })
     : null;
   const trendComparison = intents.trend
@@ -223,7 +312,7 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
   if (intents.greeting) {
     answers.push(buildGreetingAnswer());
   }
-  if (intents.planToday) {
+  if (trainingIntent) {
     answers.push(unavailable
       ? buildUnavailablePlanAnswer(
           context?.training_availability || {},
@@ -232,12 +321,21 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
       : plannedSessions.length
         ? buildPlannedTrainingAnswer(context?.planned_training || {})
         : explainTrainingRecommendation(recommendation));
+    if (plannedSessions.length && intents.healthTraining) {
+      answers[answers.length - 1] += " El plan persistido sigue siendo la referencia; no he cambiado la sesión.";
+    }
+    if (!intents.recovery && coachReadiness(context).score != null) {
+      answers[answers.length - 1] += ` ${explainCoachReadiness(context)}`;
+    }
   }
   if (intents.weekPlan) {
     answers.push(explainWeekPlanProgress(weekPlanProgress));
   }
   if (intents.recovery) {
-    answers.push(buildRecoveryAnswer(context?.health_recovery || {}));
+    answers.push(buildRecoveryAnswer(context, intents));
+  }
+  if (intents.closedLoop) {
+    answers.push(buildClosedLoopAnswer(context));
   }
   if (intents.equipment) {
     answers.push(buildEquipmentAnswer(
@@ -277,5 +375,8 @@ export function buildDeterministicCoachReply({ message = "", context = {} } = {}
     intents,
     responseMode: "deterministic",
     llmUsed: false,
+    response_mode: "deterministic",
+    llm_used: false,
+    usage: null,
   };
 }

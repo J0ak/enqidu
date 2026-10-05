@@ -13,7 +13,8 @@ import {
   scalePlannedBlockDurations,
   shiftPlanCalendarDate,
 } from "../../../src/coachTools/planActions.js";
-import { resolveUserCalendar } from "../../../src/time/userCalendar.js";
+import { isValidTimeZone, resolveUserCalendar } from "../../../src/time/userCalendar.js";
+import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -180,6 +181,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const profileTimezone = await loadUserTimezone(userDb, userId);
+    if (!isValidTimeZone(profileTimezone)) return reply({ ok: false, error: "profile_timezone_required" }, 400);
     const calendar = resolveUserCalendar({
       profileTimezone,
       clientTimezone: body.client_timezone || null,
@@ -612,6 +614,13 @@ Deno.serve(async (req: Request) => {
       context.recommendation_context = {
         constraints: await loadRecommendationConstraints(userDb, userId),
       };
+      context.health_recovery = await loadHealthIntelligence(userDb, {
+        userId,
+        calendarDate: sourceDate,
+        timezone: calendar.timezone,
+        generatedAt: new Date().toISOString(),
+      });
+      context.readiness = context.health_recovery.readiness;
 
       const recommendation = buildTrainingRecommendation(context, {
         requestedLocation: { key: requestedLocationKey },
@@ -779,6 +788,13 @@ Deno.serve(async (req: Request) => {
     context.recommendation_context = {
       constraints: await loadRecommendationConstraints(userDb, userId),
     };
+    context.health_recovery = await loadHealthIntelligence(userDb, {
+      userId,
+      calendarDate: date,
+      timezone: calendar.timezone,
+      generatedAt: new Date().toISOString(),
+    });
+    context.readiness = context.health_recovery.readiness;
 
     const requestedLocation = requestedLocationKey
       ? { key: requestedLocationKey }

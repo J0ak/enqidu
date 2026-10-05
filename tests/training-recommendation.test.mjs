@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { coachHealthFixture } from "./fixtures/coach-health-v1.mjs";
 import {
   buildTrainingRecommendation,
   RECOMMENDATION_RULES,
@@ -52,11 +53,11 @@ test("without a plan it creates a stable, complete deterministic recommendation"
 test("low factual readiness produces a conservative session", () => {
   const result = buildTrainingRecommendation({
     ...base,
-    health_recovery: { readiness: { score: RECOMMENDATION_RULES.lowReadinessUpperBound - 1 } },
+    health_recovery: coachHealthFixture({ sleepScore: 40, bodyBattery: 40 }),
   });
   assert.equal(result.session_type, "recovery");
   assert.equal(result.intensity, "baja");
-  assert.match(result.reasons.join(" "), /readiness 61/);
+  assert.match(result.reasons.join(" "), /readiness \d+ calculado con evidencia actual/);
 });
 
 test("missing recovery is not invented or cited", () => {
@@ -137,7 +138,7 @@ test("insufficient context is explicit and produces no fabricated card", () => {
 test("today recommendation never exceeds the card contract limit and uses no LLM", () => {
   const reply = buildDeterministicCoachReply({
     message: "¿Qué entreno hoy y cómo estoy de recuperación?",
-    context: { ...base, health_recovery: { readiness: { score: 80 } } },
+    context: { ...base, health_recovery: coachHealthFixture() },
   });
   assert.ok(reply.cards.length <= 2);
   assert.equal(reply.cards.filter((card) => card.id === "recommended_training_today").length, 1);

@@ -1,5 +1,6 @@
 import { buildTrainingTrendComparison } from "./trainingTrend.js";
 import { buildWeekPlanProgress } from "./weekPlanProgress.js";
+import { coachHealthEvidence, coachHealthFamily, coachReadiness, observedHealthNumber } from "./coachHealthContext.js";
 
 const MAX_CARDS = 2;
 
@@ -101,22 +102,46 @@ export function detectCoachIntents(message = "") {
     "sesion prevista",
     "entrenamiento planificado",
   ]);
+  const healthTraining = hasAny(text, ["afecta al entrenamiento", "puedo entrenar hoy", "influye en mi entrenamiento"]);
+  const sleep = hasAny(text, ["sueno", "dormi", "dormido"]);
+  const hrv = /\bhrv\b/.test(text);
+  const bodyBattery = text.includes("body battery");
+  const healthMetric = [sleep && "sleep", hrv && "hrv", bodyBattery && "body_battery"].filter(Boolean);
+  const closedLoop = hasAny(text, [
+    "closed loop", "compara lo planificado", "planificado y ejecutado", "planificado vs ejecutado",
+    "comparada con el plan", "comparado con el plan", "cumpli mi plan",
+    "evaluacion de mi sesion", "evaluacion de la sesion", "evalua mi sesion",
+    "balance de mi sesion", "que adaptacion propones", "que ajustar despues",
+  ]);
 
   return {
     greeting,
     weekPlan,
     trend,
     planToday,
-    recovery: hasAny(text, [
+    healthTraining,
+    healthMetric: healthMetric.length === 1 ? healthMetric[0] : null,
+    closedLoop,
+    recovery: healthTraining || hasAny(text, [
       "recuperacion",
       "readiness",
       "sueno",
       "dormi",
+      "dormido",
       "hrv",
       "body battery",
+      "datos de salud",
+      "estoy recuperado",
+      "afecta al entrenamiento",
       "fatiga",
       "como estoy hoy",
       "puedo entrenar hoy",
+      "pulso",
+      "frecuencia cardiaca",
+      "spo2",
+      "saturacion",
+      "respiracion",
+      "estres",
     ]),
     equipment: hasAny(text, [
       "material",
@@ -141,7 +166,7 @@ export function detectCoachIntents(message = "") {
       "como voy",
       "progreso",
     ]),
-    session: !planToday && hasAny(text, [
+    session: !planToday && !closedLoop && hasAny(text, [
       "ayer",
       "ultimo",
       "ultima",
@@ -291,17 +316,25 @@ function buildLatestSessionCard(session) {
   };
 }
 
-function buildRecoveryCard(recovery = {}) {
-  const readiness = recovery?.readiness || {};
-  const sleep = recovery?.sleep || {};
-  const hrv = recovery?.hrv || {};
-  const battery = recovery?.body_battery || {};
+function buildRecoveryCard(context = {}) {
+  const recovery = coachHealthEvidence(context);
+  const currentFamily = (name) => {
+    const family = coachHealthFamily(context, name);
+    return family?.freshness === "current" ? family : {};
+  };
+  const sleep = currentFamily("sleep");
+  const hrv = currentFamily("hrv");
+  const battery = currentFamily("body_battery");
+  const healthMetric = (key, label, value, unit = "") => {
+    const numeric = observedHealthNumber(value);
+    return numeric == null ? null : { key, label, value: numeric, unit };
+  };
   const metrics = compact([
-    metric("readiness", "Readiness", readiness.score),
-    metric("sleep_score", "Sueño", sleep.score),
-    metric("sleep_duration", "Duración sueño", sleep.duration_seconds, "s"),
-    metric("hrv", "HRV nocturna", hrv.night_avg_ms, "ms"),
-    metric("body_battery", "Body Battery", battery.morning),
+    healthMetric("readiness", "Readiness", coachReadiness(context).score),
+    healthMetric("sleep_score", "Sueño", sleep.sleep_score),
+    healthMetric("sleep_duration", "Duración sueño", sleep.duration_seconds, "s"),
+    healthMetric("hrv", "HRV nocturna", hrv.last_night_avg_ms, "ms"),
+    healthMetric("body_battery", "Body Battery", battery.current),
   ]);
 
   if (!metrics.length) return null;
@@ -310,7 +343,7 @@ function buildRecoveryCard(recovery = {}) {
     id: "recovery_readiness",
     type: "recovery_summary",
     title: "Recuperación de hoy",
-    subtitle: recovery.date || null,
+    subtitle: recovery.calendar_date || null,
     badge: "Recovery",
     metrics,
     breakdown: [],
@@ -454,7 +487,7 @@ export function buildCoachCards({
     : sessions[0] || null;
   const cards = [];
 
-  if (intents.planToday) {
+  if (intents.planToday || intents.healthTraining) {
     const availabilityCard = buildTrainingAvailabilityCard(context?.training_availability || {});
     const plannedCard = buildPlannedTrainingCard(context?.planned_training || {});
     if (availabilityCard) {
@@ -480,7 +513,7 @@ export function buildCoachCards({
       trendComparison || buildTrainingTrendComparison(context?.training_comparison || {}),
     ));
   }
-  if (intents.recovery) cards.push(buildRecoveryCard(context?.health_recovery || {}));
+  if (intents.recovery) cards.push(buildRecoveryCard(context));
   if (intents.equipment) {
     cards.push(buildEquipmentCard(
       context?.athlete_context?.equipment || [],

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { coachHealthFixture } from "./fixtures/coach-health-v1.mjs";
+import { detectCoachIntents } from "../src/coachContext/coachCards.js";
 
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
 import { buildTrainingTrendRanges } from "../src/coachContext/trainingTrend.js";
@@ -73,7 +75,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
   assert.equal(reply.llmUsed, false);
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
+  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAiCall = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
@@ -88,12 +90,55 @@ test("EVAL: missing recovery is never cited as observed evidence", () => {
 test("EVAL: low factual readiness forces a conservative recovery recommendation", () => {
   const context = {
     ...baseContext,
-    health_recovery: { readiness: { score: 50 } },
+    health_recovery: coachHealthFixture({ sleepScore: 40, bodyBattery: 40 }),
   };
   const reply = buildDeterministicCoachReply({ message: "¿Qué entreno hoy?", context });
   const session = reply.cards[0]?.session;
   assert.equal(session?.session_type, "recovery");
   assert.equal(session?.intensity, "baja");
+});
+
+test("EVAL: every supported health question returns deterministic metadata and bypasses paid LLM transport", async () => {
+  const context = { ...baseContext, health_recovery: coachHealthFixture() };
+  for (const message of ["¿Cómo estoy hoy?", "¿Cómo he dormido?", "¿Cuál fue mi HRV?", "¿Qué Body Battery tengo?", "¿Qué datos de salud tienes?", "¿Cómo está mi recuperación?", "¿Estoy recuperado?", "¿Me afecta al entrenamiento?"]) {
+    assert.equal(detectCoachIntents(message).recovery, true, message);
+    const reply = buildDeterministicCoachReply({ message, context });
+    assert.equal(reply.response_mode, "deterministic", message);
+    assert.equal(reply.llm_used, false, message);
+    assert.equal(reply.usage, null, message);
+  }
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  assert.ok(gate > 0);
+  assert.ok(source.indexOf("requestOpenAiResponses({") > gate);
+});
+
+test("EVAL: insufficient readiness stays null and cannot masquerade as low recovery", () => {
+  const health = coachHealthFixture({ bodyBattery: null, hrv: null });
+  assert.equal(health.readiness.score, null);
+  const context = { ...baseContext, health_recovery: health };
+  const healthReply = buildDeterministicCoachReply({ message: "¿Estoy recuperado?", context });
+  assert.match(healthReply.answer, /No hay evidencia suficiente para calcular readiness hoy\./);
+  assert.doesNotMatch(healthReply.answer, /Readiness \d+\/100/);
+  const trainingReply = buildDeterministicCoachReply({ message: "¿Qué entreno hoy?", context });
+  assert.notEqual(trainingReply.cards[0]?.session?.session_type, "recovery");
+});
+
+test("EVAL: legacy frontend readiness is not evidence and persisted plans survive health advice unchanged", () => {
+  const legacy = { ...baseContext, health_recovery: { readiness: { score: 0, label: "low" } } };
+  assert.notEqual(buildDeterministicCoachReply({ message: "¿Qué entreno hoy?", context: legacy }).cards[0]?.session?.session_type, "recovery");
+  const context = {
+    ...baseContext,
+    health_recovery: coachHealthFixture({ sleepScore: 0, bodyBattery: 0 }),
+    planned_training: { date: "2026-09-29", sessions: [{ id: "persisted", title: "Lower Strength", blocks: [] }] },
+  };
+  const original = structuredClone(context);
+  const reply = buildDeterministicCoachReply({ message: "¿Me afecta al entrenamiento?", context });
+  assert.match(reply.answer, /Lower Strength/);
+  assert.match(reply.answer, /no he cambiado la sesión/);
+  assert.equal(reply.cards[0].id, "planned_training_today");
+  assert.equal(reply.cards.some((card) => card.id === "recommended_training_today"), false);
+  assert.deepEqual(context, original);
 });
 
 test("EVAL: a recent explicit HIIT session is not blindly repeated", () => {
@@ -191,7 +236,7 @@ test("EVAL: greeting remains natural and card-free", () => {
 test("EVAL: Coach never exceeds the card contract limit", () => {
   const context = {
     ...baseContext,
-    health_recovery: { readiness: { score: 80 } },
+    health_recovery: coachHealthFixture(),
   };
   const reply = buildDeterministicCoachReply({
     message: "¿Qué entreno hoy y cómo estoy de recuperación?",
@@ -230,7 +275,7 @@ test("EVAL: trend comparison never turns higher volume into a performance verdic
 
 test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan)");
+  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAi = source.indexOf("requestOpenAiResponses({");
   assert.ok(gate >= 0);
   assert.ok(openAi > gate);

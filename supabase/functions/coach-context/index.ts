@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
+import { loadClosedLoopAssessments } from "../../../src/closedLoop/loadClosedLoopAssessments.js";
+import { isValidTimeZone, resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -118,6 +121,7 @@ function compactAiCoachContext(context: any) {
     || constraints.length
     || availableEquipment.length
     || sessionsCount
+    || ["available", "partial"].includes(context?.health_recovery?.status)
   );
   const normalizedGoals = goals.map((goal: any) => ({
     priority: goal.priority ?? null,
@@ -132,6 +136,8 @@ function compactAiCoachContext(context: any) {
   }));
 
   return {
+    context_version: context?.context_version || "ai_context_v1",
+    request: context?.request || {},
     status: hasContext ? "available" : "empty",
     scope: {
       type: "user",
@@ -157,9 +163,15 @@ function compactAiCoachContext(context: any) {
       sourceKeys: ["get_ai_coach_context"],
     },
     updatedAt: null,
+    health_recovery: context?.health_recovery || {},
+    readiness: context?.readiness || null,
+    closed_loop_assessments: context?.closed_loop_assessments || [],
     cardContext: {
+      request: context?.request || {},
       training_period: context?.training_period || {},
       health_recovery: context?.health_recovery || {},
+      readiness: context?.readiness || null,
+      closed_loop_assessments: context?.closed_loop_assessments || [],
       athlete_context: {
         equipment: availableEquipment,
       },
@@ -256,16 +268,50 @@ Deno.serve(async (req: Request) => {
     activeScope = scope;
 
     if (!fixtureUser) {
+      const profileResult = await userDb.from("profiles").select("timezone").eq("id", userId).limit(1);
+      if (profileResult.error) throw profileResult.error;
+      const timezone = profileResult.data?.[0]?.timezone || null;
+      if (!isValidTimeZone(timezone)) return reply({ error: "profile_timezone_required" }, 400);
+      const calendar = resolveUserCalendar({
+        explicitDate: body.date || null,
+        explicitDateSource: body.date ? "explicit" : null,
+        profileTimezone: timezone,
+        now: new Date(),
+      });
+      if (!calendar.ok || !calendar.date) return reply({ error: calendar.error || "invalid_calendar" }, 400);
       const contextResult = await userDb.rpc("get_ai_coach_context", {
         p_user_id: userId,
-        p_date: body.date || new Date().toISOString().slice(0, 10),
+        p_date: calendar.date,
         p_mode: body.context_mode || "today_coach",
         p_from_date: body.from_date || null,
         p_to_date: body.to_date || null,
         p_session_id: body.session_id || null,
       });
       if (contextResult.error) throw contextResult.error;
-      return reply({ ok: true, context: compactAiCoachContext(contextResult.data || {}) });
+      const canonical = contextResult.data || {};
+      canonical.request = {
+        ...(canonical.request || {}),
+        date: calendar.date,
+        calendar_timezone: calendar.timezone,
+        date_source: calendar.source,
+      };
+      canonical.health_recovery = await loadHealthIntelligence(userDb, {
+        userId,
+        calendarDate: calendar.date,
+        timezone: calendar.timezone,
+        generatedAt: new Date().toISOString(),
+      });
+      canonical.readiness = canonical.health_recovery.readiness;
+      canonical.closed_loop_assessments = await loadClosedLoopAssessments(userDb, {
+        userId,
+        calendarDate: calendar.date,
+        timezone: calendar.timezone,
+        generatedAt: canonical.health_recovery.generated_at,
+        sessionId: body.session_id || null,
+        fromDate: body.from_date || null,
+        toDate: body.to_date || null,
+      });
+      return reply({ ok: true, context: compactAiCoachContext(canonical) });
     }
 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
