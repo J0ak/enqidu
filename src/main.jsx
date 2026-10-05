@@ -1304,7 +1304,7 @@ function DisciplineSwitch({ value, onChange }) {
 function HomeView({ discipline, health, sessions, setRoute, dataState }) {
   const observedCards = [
     health.body_battery_current != null && ["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current],
-    health.average_stress_level != null && ["Stress", health.average_stress_level, "avg", "Garmin", 100 - Number(health.average_stress_level)],
+    health.average_stress_level != null && ["Stress", health.average_stress_level, "avg", "Garmin", null],
     health.steps != null && ["Steps", compact(health.steps), "", "Garmin", null],
     health.intensity_minutes != null && ["Intensity", health.intensity_minutes, "min", "Garmin", null],
   ].filter(Boolean);
@@ -1447,7 +1447,7 @@ function buildRealHealthCards(health, sleep) {
     cards.push(["FC reposo", health.resting_heart_rate_bpm, "ppm", "Garmin", null]);
   }
   if (health.average_stress_level != null) {
-    cards.push(["Estrés", health.average_stress_level, "avg", "Garmin", 100 - Number(health.average_stress_level)]);
+    cards.push(["Estrés", health.average_stress_level, "avg", "Garmin", null]);
   }
   if (health.respiration_avg_brpm != null) {
     cards.push(["Respiración", health.respiration_avg_brpm, "rpm", "Garmin", null]);
