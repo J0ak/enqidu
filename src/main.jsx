@@ -1568,7 +1568,7 @@ function ObservedSeriesCard({ title, summary, unit }) {
       <span>{title}</span>
       <div className="miniMetricRow">
         <strong>{summary.latest}{unit}</strong>
-        <b>{summary.lastObservedLabel}</b>
+        <b>Última lectura</b>
       </div>
       <div className="miniStack">
         <strong>{summary.min}{unit}</strong>
@@ -1598,7 +1598,7 @@ function observedSeriesSummary(rows = [], valueField, timeField) {
     min: Math.min(...values),
     max: Math.max(...values),
     count: observed.length,
-    lastObservedLabel: latest.observedAt ? formatHour(latest.observedAt) : "Última lectura",
+    observedAt: latest.observedAt,
   };
 }
 
