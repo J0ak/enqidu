@@ -1493,14 +1493,17 @@ function GarminHighlights({ health, sleep }) {
 function GarminMetricGrid({ health, sleep, curve, hrvTrend, healthSeries }) {
   const heart = health.resting_heart_rate_bpm == null ? null : Number(health.resting_heart_rate_bpm);
   const battery = health.body_battery_current == null ? null : Number(health.body_battery_current);
+  const stressSeries = observedSeriesSummary(healthSeries.stress, "stress_value", "recorded_at");
+  const respirationSeries = observedSeriesSummary(healthSeries.respiration, "breaths_per_minute", "recorded_at");
+  const spo2Series = observedSeriesSummary(healthSeries.spo2, "spo2_percent", "recorded_at");
   const hasCards =
     sleep.hasSleepData ||
     sleep.hasHrvData ||
     battery != null ||
     heart != null ||
-    healthSeries.stress?.length ||
-    healthSeries.respiration?.length ||
-    healthSeries.spo2?.length;
+    stressSeries ||
+    respirationSeries ||
+    spo2Series;
   if (!hasCards) return null;
 
   return (
@@ -1551,9 +1554,52 @@ function GarminMetricGrid({ health, sleep, curve, hrvTrend, healthSeries }) {
             </div>
           </article>
         )}
+        {stressSeries && <ObservedSeriesCard title="Estrés" summary={stressSeries} unit="" />}
+        {respirationSeries && <ObservedSeriesCard title="Respiración" summary={respirationSeries} unit=" rpm" />}
+        {spo2Series && <ObservedSeriesCard title="SpO2" summary={spo2Series} unit="%" />}
       </div>
     </section>
   );
+}
+
+function ObservedSeriesCard({ title, summary, unit }) {
+  return (
+    <article className="garminMiniCard">
+      <span>{title}</span>
+      <div className="miniMetricRow">
+        <strong>{summary.latest}{unit}</strong>
+        <b>{summary.lastObservedLabel}</b>
+      </div>
+      <div className="miniStack">
+        <strong>{summary.min}{unit}</strong>
+        <span>Mínima observada</span>
+        <strong>{summary.max}{unit}</strong>
+        <span>Máxima observada</span>
+        <strong>{summary.count}</strong>
+        <span>Lecturas cargadas</span>
+      </div>
+    </article>
+  );
+}
+
+function observedSeriesSummary(rows = [], valueField, timeField) {
+  const observed = rows
+    .map((row) => ({
+      value: row?.[valueField] == null ? null : Number(row[valueField]),
+      observedAt: row?.[timeField] || null,
+    }))
+    .filter((point) => Number.isFinite(point.value));
+  if (!observed.length) return null;
+
+  const latest = observed[observed.length - 1];
+  const values = observed.map((point) => point.value);
+  return {
+    latest: latest.value,
+    min: Math.min(...values),
+    max: Math.max(...values),
+    count: observed.length,
+    lastObservedLabel: latest.observedAt ? formatHour(latest.observedAt) : "Última lectura",
+  };
 }
 
 function InfoPair({ label, value }) {
