@@ -55,6 +55,10 @@ function scaled(value, factor, field) {
   if (value === undefined || value === null) return value;
   return finite(value, field) * factor;
 }
+function wholeSeconds(value, factor, field) {
+  const scaledValue = scaled(value, factor, field);
+  return scaledValue === undefined || scaledValue === null ? scaledValue : Math.round(scaledValue);
+}
 
 function liveConnectorDate(data, response, request) {
   const dates = [];
@@ -93,7 +97,7 @@ function normalizeLiveConnectorResponse(response, request) {
   normalized.daily = data.daily ? [withDate({
     steps: data.daily.steps,
     distance_m: scaled(data.daily.distance_km, 1000, "data.daily.distance_km"),
-    active_time_seconds: scaled(data.daily.active_time_min, 60, "data.daily.active_time_min"),
+    active_time_seconds: wholeSeconds(data.daily.active_time_min, 60, "data.daily.active_time_min"),
     heart_rate: data.daily.heart_rate ? {
       min: data.daily.heart_rate.min, max: data.daily.heart_rate.max,
       resting: data.daily.heart_rate.resting, avg: data.daily.heart_rate.avg,
@@ -129,12 +133,12 @@ function normalizeLiveConnectorResponse(response, request) {
   })] : [];
 
   normalized.sleep = data.sleep ? [withDate({
-    duration_seconds: scaled(data.sleep.duration_hours, 3600, "data.sleep.duration_hours"),
+    duration_seconds: wholeSeconds(data.sleep.duration_hours, 3600, "data.sleep.duration_hours"),
     stages: data.sleep.phases ? {
-      deep_seconds: scaled(data.sleep.phases.deep_hours, 3600, "data.sleep.phases.deep_hours"),
-      light_seconds: scaled(data.sleep.phases.light_hours, 3600, "data.sleep.phases.light_hours"),
-      rem_seconds: scaled(data.sleep.phases.rem_hours, 3600, "data.sleep.phases.rem_hours"),
-      awake_seconds: scaled(data.sleep.phases.awake_hours, 3600, "data.sleep.phases.awake_hours"),
+      deep_seconds: wholeSeconds(data.sleep.phases.deep_hours, 3600, "data.sleep.phases.deep_hours"),
+      light_seconds: wholeSeconds(data.sleep.phases.light_hours, 3600, "data.sleep.phases.light_hours"),
+      rem_seconds: wholeSeconds(data.sleep.phases.rem_hours, 3600, "data.sleep.phases.rem_hours"),
+      awake_seconds: wholeSeconds(data.sleep.phases.awake_hours, 3600, "data.sleep.phases.awake_hours"),
       unmeasurable_seconds: data.sleep.unmeasurable_sleep_s,
     } : undefined,
     sleep_score: data.sleep.sleep_score,
