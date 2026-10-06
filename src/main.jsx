@@ -5,7 +5,10 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptCoachPlannedSessionDuration, adaptCoachPlannedSessionEnvironment, adaptCoachRemainingWeek, cancelCoachPlannedSession, moveCoachPlannedSession, requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { requestEnqiduTool } from "@/services/enqiduToolsService";
+import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
+import CoachActionPreview from "@/components/CoachActionPreview";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -4134,6 +4137,8 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [cardActionBusy, setCardActionBusy] = useState(false);
+  const [pendingToolAction, setPendingToolAction] = useState(null);
+  const toolActionInFlight = useRef(false);
   const [coachContextState, setCoachContextState] = useState({ status: "loading" });
   const endRef = useRef(null);
 
@@ -4154,7 +4159,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
 
   const send = async (overrideDraft) => {
     const text = (overrideDraft ?? draft).trim();
-    if (!text || sending) return;
+    if (!text || sending || cardActionBusy || toolActionInFlight.current) return;
     const userMessage = { role: "user", content: text };
     const pendingAnswer = {
       role: "assistant",
@@ -4167,6 +4172,22 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
 
     try {
       setSending(true);
+
+      const previewCommand = detectPreviewConversationAction(text);
+      if (previewCommand) {
+        if (!pendingToolAction) {
+          setMessages((current) => replaceLastAssistantMessage(current, "No hay un cambio pendiente. Dime qué quieres ajustar en tu plan.", []));
+          return;
+        }
+        if (previewCommand === "review" || !pendingToolAction.reviewed) {
+          setPendingToolAction((current) => current ? { ...current, reviewed: true } : null);
+          setMessages((current) => replaceLastAssistantMessage(current, "Aquí tienes el estado anterior y el cambio propuesto. Revísalo y pulsa APLICAR para confirmarlo.", []));
+          return;
+        }
+        const result = await applyToolPreview({ conversational: true });
+        setMessages((current) => replaceLastAssistantMessage(current, result?.ok ? coachAppliedSummary(result.data) : result?.error?.safe_message || "No se ha aplicado el cambio.", []));
+        return;
+      }
 
       const fastPath = detectEnqiduFastPathCommand(text);
       if (fastPath?.tool === "set_training_unavailability") {
@@ -4192,219 +4213,24 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         return;
       }
 
-      if (fastPath?.tool === "adapt_remaining_week") {
-        const result = await adaptCoachRemainingWeek();
-        if (result.ok && result.adapted) {
-          const moveSummary = result.moves
-            .slice(0, 4)
-            .map((move) => {
-              const title = move.title || "Entrenamiento";
-              const target = formatCoachCardDate(move.target_date) || move.target_date;
-              return `${title} → ${target}`;
-            })
-            .join("; ");
-          const content = moveSummary
-            ? `He adaptado el resto de la semana y he recolocado ${result.movedCount} ${result.movedCount === 1 ? "sesión" : "sesiones"}: ${moveSummary}.`
-            : `He adaptado el resto de la semana y he recolocado ${result.movedCount} ${result.movedCount === 1 ? "sesión" : "sesiones"}.`;
-          setMessages((current) => replaceLastAssistantMessage(current, content, []));
-          const refreshed = await onPlanSaved?.();
-          setMicNotice(refreshed === false
-            ? "Semana adaptada. Actualiza Actividades si no aparece todavía."
-            : "Semana adaptada.");
+      if (isPlanPreviewCommand(fastPath)) {
+        let plannedContext = findLatestPlannedTrainingContext(messages);
+        if (fastPath.arguments?.source_weekday) {
+          const week = await requestEnqiduTool({ tool: "get_week_plan", arguments: {} });
+          plannedContext = week.ok ? plannedContextForWeekday(week.data, fastPath.arguments.source_weekday) : null;
+          if (!plannedContext) {
+            setMessages((current) => replaceLastAssistantMessage(current, week.error?.safe_message || "No hay una única sesión pendiente en ese día de tu semana actual. Dime qué sesión quieres mover.", []));
+            return;
+          }
+        }
+        const request = buildCoachPreviewRequest(fastPath, plannedContext);
+        if (!request) {
+          setMessages((current) => replaceLastAssistantMessage(current, "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.", []));
           return;
         }
-
-        if (result.ok && !result.adapted) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            result.message || "No hay sesiones pendientes de recolocar en lo que queda de la semana.",
-            [],
-          ));
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido adaptar el resto de la semana con seguridad.",
-          [],
-        ));
-        return;
-      }
-
-      if (fastPath?.tool === "cancel_planned_session") {
-        const plannedContext = findLatestPlannedTrainingContext(messages);
-        if (!plannedContext) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
-            [],
-          ));
-          return;
-        }
-
-        const result = await cancelCoachPlannedSession({
-          sourceDate: plannedContext.date,
-        });
-        if (result.ok && result.cancelled) {
-          const content = `He cancelado ${result.title || plannedContext.title || "el entrenamiento"} del ${formatCoachCardDate(result.sourceDate || plannedContext.date) || plannedContext.date}.`;
-          setMessages((current) => replaceLastAssistantMessage(
-            markLatestPlannedTrainingCancelled(current, {
-              date: result.sourceDate || plannedContext.date,
-            }),
-            content,
-            [],
-          ));
-          const refreshed = await onPlanSaved?.();
-          setMicNotice(refreshed === false
-            ? "Plan cancelado. Actualiza Actividades si no aparece todavía."
-            : "Plan cancelado.");
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido cancelar ese entrenamiento.",
-          [],
-        ));
-        return;
-      }
-
-      if (fastPath?.tool === "adapt_session_duration") {
-        const plannedContext = findLatestPlannedTrainingContext(messages);
-        if (!plannedContext) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
-            [],
-          ));
-          return;
-        }
-
-        const result = await adaptCoachPlannedSessionDuration({
-          sourceDate: plannedContext.date,
-          durationMinutes: fastPath.arguments?.duration_minutes,
-        });
-        if (result.ok && result.adapted && result.plannedSession) {
-          const content = `He ajustado ${result.plannedSession.title || plannedContext.title || "el entrenamiento"} a ${result.plannedSession.duration_minutes} minutos.`;
-          setMessages((current) => replaceLastAssistantMessage(
-            markLatestPlannedTrainingAdapted(current, {
-              date: result.sourceDate || plannedContext.date,
-              plannedSession: result.plannedSession,
-            }),
-            content,
-            [],
-          ));
-          const refreshed = await onPlanSaved?.();
-          setMicNotice(refreshed === false
-            ? "Duración adaptada. Actualiza Actividades si no aparece todavía."
-            : "Duración adaptada.");
-          return;
-        }
-
-        if (result.ok && !result.adapted) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            result.message || "La sesión ya tiene esa duración.",
-            [],
-          ));
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido adaptar la duración de ese entrenamiento.",
-          [],
-        ));
-        return;
-      }
-
-      if (fastPath?.tool === "adapt_session_environment") {
-        const plannedContext = findLatestPlannedTrainingContext(messages);
-        if (!plannedContext) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
-            [],
-          ));
-          return;
-        }
-
-        const result = await adaptCoachPlannedSessionEnvironment({
-          sourceDate: plannedContext.date,
-          environment: fastPath.arguments?.environment,
-        });
-        if (result.ok && result.adapted && result.plannedSession) {
-          const environmentLabel = {
-            home: "casa",
-            pool: "piscina",
-            trail: "trail",
-            outdoor: "aire libre",
-            functional_training_center: "centro de entrenamiento",
-          }[result.plannedSession.environment] || "el entorno solicitado";
-          const content = `He adaptado ${result.plannedSession.title || plannedContext.title || "el entrenamiento"} para ${environmentLabel}.`;
-          setMessages((current) => replaceLastAssistantMessage(
-            markLatestPlannedTrainingAdapted(current, {
-              date: result.sourceDate || plannedContext.date,
-              plannedSession: result.plannedSession,
-            }),
-            content,
-            [],
-          ));
-          const refreshed = await onPlanSaved?.();
-          setMicNotice(refreshed === false
-            ? "Plan adaptado. Actualiza Actividades si no aparece todavía."
-            : "Plan adaptado.");
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido adaptar ese entrenamiento al entorno solicitado.",
-          [],
-        ));
-        return;
-      }
-
-      if (fastPath?.tool === "move_planned_session") {
-        const plannedContext = findLatestPlannedTrainingContext(messages);
-        if (!plannedContext) {
-          setMessages((current) => replaceLastAssistantMessage(
-            current,
-            "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.",
-            [],
-          ));
-          return;
-        }
-
-        const result = await moveCoachPlannedSession({
-          sourceDate: plannedContext.date,
-          targetWeekday: fastPath.arguments?.target_weekday,
-        });
-        if (result.ok && result.moved && result.targetDate) {
-          const targetLabel = formatCoachCardDate(result.targetDate) || result.targetDate;
-          const content = result.title
-            ? `He movido ${result.title} al ${targetLabel}.`
-            : `He movido el entrenamiento al ${targetLabel}.`;
-          setMessages((current) => replaceLastAssistantMessage(
-            markLatestPlannedTrainingMoved(current, {
-              sourceDate: result.sourceDate || plannedContext.date,
-              targetDate: result.targetDate,
-            }),
-            content,
-            [],
-          ));
-          const refreshed = await onPlanSaved?.();
-          setMicNotice(refreshed === false
-            ? "Plan reprogramado. Actualiza Actividades si no aparece todavía."
-            : "Plan reprogramado.");
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido mover ese entrenamiento.",
-          [],
-        ));
+        const result = await prepareToolPreview(request);
+        setMessages((current) => replaceLastAssistantMessage(current,
+          result.ok ? coachPreviewSummary(result.data) : result.error?.safe_message || "No he podido preparar ese cambio con seguridad.", []));
         return;
       }
 
@@ -4451,12 +4277,67 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
     }
   };
 
+  const prepareToolPreview = async (request, { reviewed = false } = {}) => {
+    setPendingToolAction(null);
+    const result = await requestEnqiduTool(request);
+    if (result.ok && result.data?.requires_confirmation) {
+      setPendingToolAction({ request, preview: result.data, reviewed, error: null });
+    }
+    return result;
+  };
+
+  const applyToolPreview = async ({ conversational = false } = {}) => {
+    const request = buildCoachApplyRequest(pendingToolAction);
+    if (!request || toolActionInFlight.current || pendingToolAction?.error) return null;
+    toolActionInFlight.current = true;
+    setCardActionBusy(true);
+    try {
+      const result = await requestEnqiduTool(request);
+      if (!result.ok) {
+        const error = result.error?.code === "preview_stale"
+          ? "El plan ha cambiado desde la propuesta. Pide una nueva revisión antes de aplicar."
+          : result.error?.safe_message || "No se ha aplicado el cambio. Pide una nueva revisión.";
+        setPendingToolAction((current) => current ? { ...current, error } : null);
+        setMicNotice(error);
+        return result;
+      }
+      const persisted = result.data?.result || result.data || {};
+      setMessages((current) => {
+        let updated = current;
+        if (persisted.cancelled) updated = markLatestPlannedTrainingCancelled(updated, { date: persisted.source_date });
+        if (persisted.moved) updated = markLatestPlannedTrainingMoved(updated, { sourceDate: persisted.source_date, targetDate: persisted.target_date });
+        if (persisted.adapted && persisted.planned_session) updated = markLatestPlannedTrainingAdapted(updated, { date: persisted.source_date, plannedSession: persisted.planned_session });
+        return conversational ? updated : [...updated, { role: "assistant", content: coachAppliedSummary(result.data), cards: [] }];
+      });
+      setPendingToolAction(null);
+      const refreshed = await onPlanSaved?.();
+      setMicNotice(refreshed === false ? "Cambio aplicado. Actualiza Actividades para consultar tu plan." : "Cambio aplicado en tu plan.");
+      return result;
+    } finally {
+      toolActionInFlight.current = false;
+      setCardActionBusy(false);
+    }
+  };
+
   const startMemoryDraft = () => {
     setDraft("Recuerda que ");
     setMicNotice("Preparando una nota para el Coach; la aplicacion automatica queda pendiente.");
   };
 
   const handleCardAction = async (action) => {
+    if (action?.type === "review_closed_loop_proposal") {
+      if (cardActionBusy || sending || toolActionInFlight.current || typeof action.session_id !== "string") return;
+      toolActionInFlight.current = true;
+      setCardActionBusy(true);
+      try {
+        const result = await prepareToolPreview({ tool: "preview_closed_loop_proposal", arguments: { session_id: action.session_id } }, { reviewed: true });
+        setMicNotice(result.ok ? "Propuesta lista para revisar." : result.error?.safe_message || "No hay un cambio seguro que aplicar.");
+      } finally {
+        toolActionInFlight.current = false;
+        setCardActionBusy(false);
+      }
+      return;
+    }
     const resolved = resolveCoachCardAction(action, sessions);
     if (!resolved) return;
 
@@ -4574,6 +4455,13 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
             cardActionDisabled={cardActionBusy}
           />
         ))}
+        <CoachActionPreview
+          pending={pendingToolAction}
+          busy={cardActionBusy || sending}
+          onReview={() => setPendingToolAction((current) => current ? { ...current, reviewed: true } : null)}
+          onApply={() => applyToolPreview()}
+          onDismiss={() => setPendingToolAction(null)}
+        />
         <div ref={endRef} />
       </div>
       {micNotice && <p className="composerNotice">{micNotice}</p>}

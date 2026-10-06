@@ -135,8 +135,8 @@ test("COACH WEEK: App/OpenAI and future MCP share the same no-argument contract"
   assert.deepEqual(definition?.parameters?.properties, {});
   assert.equal(definition?.parameters?.additionalProperties, false);
 
-  const openai = toOpenAIResponsesTools().find((item) => item.name === "adapt_remaining_week");
-  const mcp = toMcpToolDescriptors().find((item) => item.name === "adapt_remaining_week");
+  const openai = toOpenAIResponsesTools().find((item) => item.name === "preview_adapt_remaining_week");
+  const mcp = toMcpToolDescriptors().find((item) => item.name === "preview_adapt_remaining_week");
   assert.ok(openai);
   assert.ok(mcp);
   assert.deepEqual(openai.parameters, mcp.inputSchema);
@@ -155,22 +155,17 @@ test("COACH WEEK: browser client sends no user-controlled dates or move list", a
   assert.doesNotMatch(block, /from_date:|to_date:|moves:|user_id:/);
 });
 
-test("COACH WEEK: server derives the week from profile timezone and remains LLM-free", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  const start = source.indexOf('if (action === "adapt_remaining_week")');
-  const end = source.indexOf('if (action === "cancel_planned_session")', start);
-  assert.ok(start >= 0 && end > start);
-  const block = source.slice(start, end);
-
-  assert.match(block, /resolveRemainingWeekEndDate\(calendar\.date\)/);
-  assert.match(block, /loadPlannedTrainingRange/);
-  assert.match(block, /loadTrainingAvailabilityRange/);
-  assert.match(block, /planRemainingWeekReschedule/);
-  assert.match(block, /adminDb\.rpc\("adapt_coach_remaining_week"/);
-  assert.match(block, /response_mode: "deterministic_action"/);
-  assert.match(block, /llm_used: false/);
-  assert.match(block, /usage: null/);
-  assert.doesNotMatch(block, /api\.openai\.com/);
+test("COACH WEEK: shared domain derives current profile week and remains LLM-free", async () => {
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(source, /resolveRemainingWeekEndDate\(calendar\.date\)/);
+  assert.match(source, /loadActionPlans\(db, userId, calendar\.date, end\)/);
+  assert.match(source, /loadAvailability\(db, userId, calendar\.date, end\)/);
+  assert.match(source, /planRemainingWeekReschedule/);
+  assert.match(source, /adminDb\.rpc\("adapt_coach_remaining_week"/);
+  assert.match(source, /response_mode: "deterministic_action"/);
+  assert.match(source, /llm_used: false/);
+  assert.match(source, /usage: null/);
+  assert.doesNotMatch(source, /api\.openai\.com/);
 });
 
 test("COACH WEEK: migration is atomic, service-role-only and does not delete plan history", async () => {

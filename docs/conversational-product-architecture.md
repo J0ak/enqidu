@@ -69,7 +69,7 @@ The current Phase-1 deterministic Coach remains valid while the OpenAI pilot is 
 
 ## Shared tool contract
 
-`src/coachTools/catalog.js` is the initial provider-independent contract. OpenAI function tools and future MCP tool descriptors are projections of the same source.
+`src/enqiduTools/registry.js` is the executable, provider-independent contract. App/Coach and local MCP share its authenticated runtime, canonical read domain and preview/apply actions. `src/coachTools/catalog.js` retains compatibility language-intent names; its transport exports project the official registry. See [ENQIDU Tools V1](enqidu-tools-v1.md), [Action Preview V1](enqidu-action-preview-v1.md) and [MCP V1](enqidu-mcp-v1.md). Strict transactional preview consistency remains an explicit write-rollout blocker under the no-migration constraint.
 
 Only implemented capabilities are model-visible. Roadmap tool names are documented but excluded until a validated executor exists.
 

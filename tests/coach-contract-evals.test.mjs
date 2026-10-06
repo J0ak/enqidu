@@ -457,8 +457,12 @@ test("EVAL: athlete profile timezone owns today semantics over the browser timez
 });
 
 test("EVAL: stale recommendation actions cannot silently write into yesterday after timezone rollover", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /if \(date !== calendar\.date\)/);
-  assert.match(source, /error: "stale_recommendation_date"/);
-  assert.match(source, /Vuelve a preguntar qué entrenar hoy/);
+  const { prepareEnqiduAction } = await import("../src/enqiduTools/actions.js");
+  const result = await prepareEnqiduAction({
+    db: { from() { throw new Error("must reject before querying"); } },
+    userId: "athlete-a", calendar: { date: "2026-10-02", timezone: "Europe/Madrid" },
+    action: "save_recommendation_today", args: { date: "2026-10-01", location: "home" },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "stale_recommendation_date");
 });

@@ -4736,3 +4736,20 @@ button:disabled {
 .coachInlineBreakdown { margin: 10px 0 0; }
 .coachInlineCard button { margin-top: 12px; border: 0; border-radius: 10px; padding: 8px 11px; display: inline-flex; align-items: center; gap: 4px; color: #06100d; background: var(--discipline); font-weight: 800; cursor: pointer; }
 .coachInlineCard button:disabled { opacity: .55; cursor: wait; }
+
+.coachActionPreview {
+  border: 1px solid rgba(35, 230, 193, .4);
+  border-radius: 16px;
+  background: rgba(18, 33, 39, .9);
+  padding: 18px;
+  margin: 12px 0;
+  max-width: 760px;
+}
+.coachActionPreview h3, .coachActionPreview h4 { margin: 0 0 10px; }
+.coachActionPreview p, .coachActionPreview li { line-height: 1.5; }
+.coachActionPreview > button { margin: 8px 10px 0 0; padding: 10px 14px; border-radius: 10px; }
+.coachPreviewComparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.coachPreviewSession { padding: 12px; background: rgba(255, 255, 255, .04); border-radius: 10px; margin-bottom: 10px; }
+.coachPreviewSession p { margin: 6px 0; }
+.coachPreviewSession ol { margin-bottom: 0; padding-left: 20px; }
+@media (max-width: 580px) { .coachPreviewComparison { grid-template-columns: 1fr; } }

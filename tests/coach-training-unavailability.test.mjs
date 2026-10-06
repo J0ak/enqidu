@@ -156,20 +156,18 @@ test("COACH UNAVAILABILITY: client sends only date reference and client timezone
   assert.doesNotMatch(block, /user_id:|calendar_date:|planned_session_id:|title:/);
 });
 
-test("COACH UNAVAILABILITY: server derives the date from athlete calendar and never mutates the plan", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /action === "set_training_unavailability"/);
-  assert.match(source, /dateReference === "today"/);
+test("COACH UNAVAILABILITY: shared domain derives profile date and preserves the plan", async () => {
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(source, /args\.date_reference === "today"/);
   assert.match(source, /shiftPlanCalendarDate\(calendar\.date, 1\)/);
   assert.match(source, /adminDb\.rpc\("set_coach_training_unavailability"/);
-  assert.match(source, /loadPlannedTraining\(userDb, userId, targetDate\)/);
-  assert.match(source, /planned_conflict: planned\.sessions\.length > 0/);
+  assert.match(source, /planned_conflict: active\(plans\)\.length > 0/);
   const start = source.indexOf('if (action === "set_training_unavailability")');
-  const end = source.indexOf('if (action === "move_planned_session")', start);
-  const block = source.slice(start, end);
-  assert.doesNotMatch(block, /move_coach_planned_session|delete\(|update\(/);
-  assert.match(block, /llm_used: false/);
-  assert.match(block, /usage: null/);
+  const end = source.indexOf('if (action === "adapt_remaining_week")', start);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(source.slice(start, end), /move_coach_planned_session|delete\(|update\(/);
+  assert.match(source, /llm_used: false/);
+  assert.match(source, /usage: null/);
 });
 
 test("COACH UNAVAILABILITY: migration keeps browser writes closed", async () => {
@@ -190,10 +188,14 @@ test("COACH UNAVAILABILITY: migration keeps browser writes closed", async () => 
 });
 
 
-test("COACH UNAVAILABILITY: Coach reads only the authenticated athlete override for the requested date", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  assert.match(source, /from\("training_availability_overrides"\)/);
-  assert.match(source, /\.eq\("user_id", userId\)/);
-  assert.match(source, /\.eq\("calendar_date", date\)/);
-  assert.match(source, /context\.training_availability = intents\.planToday[\s\S]*loadTrainingAvailability\(db, userId, contextDate\)/);
+test("COACH UNAVAILABILITY: Coach reuses owner-scoped Tools availability and profile dates", async () => {
+  const edge = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const read = await readFile(new URL("../src/enqiduTools/readTools.js", import.meta.url), "utf8");
+  const adapter = await readFile(new URL("../src/enqiduTools/coachAdapter.js", import.meta.url), "utf8");
+  assert.match(edge, /createEnqiduToolRuntime\(\{ db, source: "coach" \}\)/);
+  assert.match(edge, /tools\.executeMany\(requests\)/);
+  assert.match(edge, /tool: "get_today_plan", arguments: \{\}/);
+  assert.match(read, /from\("training_availability_overrides"\)/);
+  assert.match(read, /\.eq\("user_id", userId\)\.gte\("calendar_date", from\)\.lte\("calendar_date", to\)/);
+  assert.match(adapter, /context\.training_availability = availability \? \{ date: availability\.calendar_date/);
 });

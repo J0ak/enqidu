@@ -126,16 +126,19 @@ test("frontend service sends only action metadata to the write endpoint", async 
   assert.doesNotMatch(block, /title:|session_type:|blocks:/);
 });
 
-test("write Edge Function authenticates, recalculates and uses a separate server admin client", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /userDb\.auth\.getUser\(\)/);
-  assert.match(source, /buildTrainingRecommendation\(context, \{ requestedLocation \}\)/);
-  assert.match(source, /context\.planned_training = await loadPlannedTraining/);
-  assert.match(source, /if \(context\.planned_training\.sessions\.length\)/);
-  assert.match(source, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(source, /const adminDb = createClient/);
+test("write Edge Function authenticates and delegates to the sole shared domain writer", async () => {
+  const edge = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(edge, /userDb\.auth\.getUser\(\)/);
+  assert.match(edge, /prepareEnqiduAction\(\{ db: userDb, userId/);
+  assert.match(edge, /executePreparedEnqiduAction\(\{ adminDb, userId, prepared \}\)/);
+  assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(edge, /const adminDb = createClient/);
+  assert.match(edge, /validateEnqiduActionPreview/);
+  assert.match(source, /buildTrainingRecommendation\(context/);
+  assert.match(source, /if \(active\(plans\)\.length\) return reject\("plan_already_exists"\)/);
   assert.match(source, /adminDb\.rpc\("save_coach_recommendation_plan"/);
-  assert.doesNotMatch(source, /api\.openai\.com/);
+  assert.doesNotMatch(source + edge, /api\.openai\.com/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);
   assert.match(source, /usage: null/);
@@ -192,15 +195,14 @@ test("successful Coach save refreshes the read-only planned calendar state", asy
 });
 
 
-test("write Edge Function rejects a stale recommendation date using the profile calendar", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /const profileTimezone = await loadUserTimezone\(userDb, userId\)/);
-  assert.match(source, /resolveUserCalendar\(\{[\s\S]*profileTimezone/);
-  assert.match(source, /if \(date !== calendar\.date\)/);
-  assert.match(source, /error: "stale_recommendation_date"/);
-  assert.match(source, /calendar_timezone: calendar\.timezone/);
+test("shared action rejects stale recommendation dates using the profile calendar", async () => {
+  const edge = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(edge, /const profileTimezone = await loadUserTimezone\(userDb, userId\)/);
+  assert.match(edge, /resolveUserCalendar\(\{ profileTimezone/);
+  assert.match(source, /if \(date !== calendar\.date\) return reject\("stale_recommendation_date"\)/);
+  assert.match(source, /calendar_timezone: prepared\.state\.calendar\.timezone/);
 });
-
 
 test("stale Coach action expires the old card instead of leaving a repeatable write button", async () => {
   const source = await readFile(new URL("../src/main.jsx", import.meta.url), "utf8");

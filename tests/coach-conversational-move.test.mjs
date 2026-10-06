@@ -111,10 +111,10 @@ test("COACH MOVE: client sends only source date, weekday and client timezone", a
   assert.doesNotMatch(block, /planned_session_id:|title:|blocks:/);
 });
 
-test("COACH MOVE: server derives target date and never calls OpenAI", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /action === "move_planned_session"/);
-  assert.match(source, /resolveNextWeekdayDate\(sourceDate, targetWeekday\)/);
+test("COACH MOVE: shared domain derives target date and never calls OpenAI", async () => {
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(source, /action === "move_session"/);
+  assert.match(source, /resolveNextWeekdayDate\(sourceDate, args\.target_weekday\)/);
   assert.match(source, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
   assert.match(source, /adminDb\.rpc\("move_coach_planned_session"/);
   assert.doesNotMatch(source, /api\.openai\.com/);

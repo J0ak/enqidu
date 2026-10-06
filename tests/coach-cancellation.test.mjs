@@ -109,23 +109,17 @@ test("COACH CANCEL: client sends only source date and client timezone", async ()
   assert.doesNotMatch(block, /user_id:|planned_session_id:|status:|title:/);
 });
 
-test("COACH CANCEL: server rejects stale or ambiguous context, ignores cancelled rows and never calls OpenAI", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  assert.match(source, /\.neq\("status", "cancelled"\)/);
-
-  const start = source.indexOf('if (action === "cancel_planned_session")');
-  const end = source.indexOf('if (action === "adapt_session_duration")', start);
-  assert.ok(start >= 0 && end > start);
-  const block = source.slice(start, end);
-
-  assert.match(block, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
-  assert.match(block, /planned\.sessions\.length > 1/);
-  assert.match(block, /sourceSession\.linked_completed_session_id/);
-  assert.match(block, /adminDb\.rpc\("cancel_coach_planned_session"/);
-  assert.match(block, /response_mode: "deterministic_action"/);
-  assert.match(block, /llm_used: false/);
-  assert.match(block, /usage: null/);
-  assert.doesNotMatch(block, /api\.openai\.com/);
+test("COACH CANCEL: shared domain rejects stale, ambiguous, cancelled and executed plans", async () => {
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(source, /row\.status !== "cancelled"/);
+  assert.match(source, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
+  assert.match(source, /sessions\.length > 1/);
+  assert.match(source, /source\.linked_completed_session_id/);
+  assert.match(source, /adminDb\.rpc\("cancel_coach_planned_session"/);
+  assert.match(source, /response_mode: "deterministic_action"/);
+  assert.match(source, /llm_used: false/);
+  assert.match(source, /usage: null/);
+  assert.doesNotMatch(source, /api\.openai\.com/);
 });
 
 test("COACH CANCEL: migration preserves audit history and releases cancelled dates without opening browser writes", async () => {
