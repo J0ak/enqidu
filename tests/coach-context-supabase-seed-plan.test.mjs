@@ -184,7 +184,7 @@ test("SQL draft is documentation only and not under migrations", async () => {
   assert.match(content, /Do not place this SQL under supabase\/migrations/);
 });
 
-test("package scripts exist and dependencies were not added", async () => {
+test("package scripts exist and dependencies remain an audited allowlist", async () => {
   const packageJson = await readPackageJson();
 
   assert.equal(
@@ -197,6 +197,7 @@ test("package scripts exist and dependencies were not added", async () => {
   );
 
   assert.deepEqual(Object.keys(packageJson.dependencies).sort(), [
+    "@modelcontextprotocol/server",
     "@supabase/supabase-js",
     "@vitejs/plugin-react",
     "fit-file-parser",
