@@ -54,6 +54,7 @@ jobs:
           supabase --workdir e2e-local start
           supabase --workdir e2e-local db reset
           node e2e-local/bootstrap-health-intelligence.mjs
+          node e2e-local/bootstrap-browser-read-contract.mjs
           supabase --workdir e2e-local status -o env > /tmp/supabase.env
           cat > e2e-local/supabase/.env.e2e <<'EOF'
           OPENAI_COACH_ENABLED=false

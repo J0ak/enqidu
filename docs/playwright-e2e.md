@@ -20,6 +20,7 @@ cp -R src e2e-local/src
 supabase --workdir e2e-local start
 supabase --workdir e2e-local db reset
 node e2e-local/bootstrap-health-intelligence.mjs
+node e2e-local/bootstrap-browser-read-contract.mjs
 supabase --workdir e2e-local status -o env > /tmp/supabase.env
 source /tmp/supabase.env
 
@@ -98,3 +99,11 @@ managed proxy's JSR certificate limitation. The official PostgreSQL 17.11.0.002
 image was flattened into one local Docker layer, preserving its filesystem and
 runtime configuration, after the managed daemon's `vfs` layer copies exceeded
 the available disk. The daemon/storage driver was unchanged.
+
+The Tools/Coach browser suite includes an athlete with executed training. Run
+`bootstrap-browser-read-contract.mjs` after reset to reconstruct the existing
+Activity-detail read columns and four empty lookup tables omitted from the slim
+local baseline. Its provenance is the current `src/main.jsx` read projections and
+canonical session service; it cannot accept a remote URL/container and does not
+add a product migration. Local owner-read policies apply to the lookup fixtures.
+No Garmin/FIT values or history are synthesized by this bootstrap.
