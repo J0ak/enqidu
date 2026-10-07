@@ -8,7 +8,8 @@ import { isValidTimeZone } from "../time/userCalendar.js";
 import { loadHealthIntelligence } from "../health/loadHealthIntelligence.js";
 
 // Only this module constructs writer arguments. No caller supplies RPC names,
-// ownership, block replacements or arbitrary changes. The writer is unchanged.
+// ownership, block replacements or arbitrary changes. A closed transaction
+// contract compares canonical authority before invoking the unchanged writer.
 const preparedActions = new WeakSet();
 const aliases = Object.freeze({
   move_planned_session: "move_session", adapt_session_duration: "adapt_duration",
@@ -28,6 +29,14 @@ const allowedArguments = Object.freeze({
 });
 const planColumns = "id,user_id,planned_date,planned_time,title,status,source,linked_completed_session_id,location_type,session_type,planned_intensity,planned_duration_min,planned_duration_max,objective,coach_notes,constraints,created_at,updated_at";
 const blockColumns = "id,planned_session_id,block_order,block_type,title,objective,planned_duration_seconds,planned_rounds,planned_exercises,constraints,notes,created_at";
+const availabilityColumns = "user_id,calendar_date,availability_status,source";
+const prescriptionColumns = Object.freeze({
+  constraints: "id,user_id,constraint_type,severity,description,active,updated_at",
+  locations: "id,user_id,display_name,location_type,access_mode,prescription_scope,coached_sessions_available,is_active,updated_at",
+  equipment: "id,user_id,equipment_id,quantity,unit,location_label,available,valid_from,valid_to,updated_at",
+  catalog: "id,name,equipment_category,unit,updated_at",
+});
+const transactionalActions = new Set(["move_session", "adapt_duration", "adapt_environment", "cancel_session", "adapt_remaining_week"]);
 const reject = (error) => ({ ok: false, error });
 const own = (rows, userId) => rows.filter((row) => row.user_id === userId);
 const active = (rows) => rows.filter((row) => row.status !== "cancelled");
@@ -57,9 +66,29 @@ async function loadBlocks(db, ids) {
 
 async function loadAvailability(db, userId, from, to = from) {
   return own(await rows(db.from("training_availability_overrides")
-    .select("user_id,calendar_date,availability_status,source")
+    .select(availabilityColumns)
     .eq("user_id", userId).gte("calendar_date", from).lte("calendar_date", to)
     .order("calendar_date", { ascending: true }), 100), userId);
+}
+
+async function loadPrescriptionAuthority(db, userId) {
+  const [constraints, locations, equipment] = await Promise.all([
+    rows(db.from("coach_athlete_constraints").select(prescriptionColumns.constraints)
+      .eq("user_id", userId).eq("active", true).order("id", { ascending: true }), 100),
+    rows(db.from("user_training_locations").select(prescriptionColumns.locations)
+      .eq("user_id", userId).order("id", { ascending: true }), 100),
+    rows(db.from("user_equipment").select(prescriptionColumns.equipment)
+      .eq("user_id", userId).order("id", { ascending: true }), 100),
+  ]);
+  const ids = [...new Set(own(equipment, userId).map((row) => row.equipment_id))];
+  const catalog = ids.length ? await rows(db.from("equipment_catalog").select(prescriptionColumns.catalog)
+    .in("id", ids).order("id", { ascending: true }), 100) : [];
+  return {
+    constraints: own(constraints, userId).map((row) => project(row, prescriptionColumns.constraints)),
+    locations: own(locations, userId).map((row) => project(row, prescriptionColumns.locations)),
+    equipment: own(equipment, userId).map((row) => project(row, prescriptionColumns.equipment)),
+    catalog: catalog.filter((row) => ids.includes(row.id)).map((row) => project(row, prescriptionColumns.catalog)),
+  };
 }
 
 function boundedPlanJson(value) {
@@ -114,10 +143,45 @@ function freeze(value) {
   return value;
 }
 
+function project(row, columns) {
+  // Every selected database field is explicit, including nullable fields. Never
+  // forward transport values or the open-ended recommendation/evidence objects.
+  return Object.fromEntries(columns.split(",").map((key) => [key, row[key] ?? null]));
+}
+
+function transactionContract(action, mutation, state, calendar) {
+  if (!mutation || !transactionalActions.has(action)) return null;
+  const { kind, ...command } = mutation;
+  if (action === "adapt_environment") {
+    command.session = project(mutation.session, "title,session_type,environment,intensity,objective,duration_minutes");
+    command.session.blocks = mutation.session.blocks.map((block) => project(block, "title,duration_minutes"));
+  }
+  if (action === "adapt_remaining_week") {
+    command.moves = mutation.moves.map((move) => project(move, "planned_session_id,source_date,target_date"));
+  }
+  const fromDate = state.selection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1)
+    : action === "adapt_remaining_week" ? command.from : command.sourceDate;
+  const toDate = action === "adapt_remaining_week" ? command.to : command.targetDate || command.sourceDate;
+  const blockSessionIds = action === "adapt_remaining_week" ? state.plans.map((row) => row.id)
+    : [command.sessionId || state.plans.find((row) => row.planned_date === fromDate && row.status !== "cancelled").id];
+  return {
+    action, command,
+    expected: {
+      version: 1, calendar: { date: calendar.date, timezone: calendar.timezone },
+      scope: { selection: state.selection || "action", from_date: fromDate, to_date: toDate, block_session_ids: blockSessionIds.sort() },
+      plans: state.plans.map((row) => project(row, planColumns)),
+      blocks: state.blocks.map((row) => project(row, blockColumns)),
+      availability: state.availability.map((row) => project(row, availabilityColumns)),
+      prescription: state.prescription || null,
+    },
+  };
+}
+
 function prepare({ userId, calendar, action, args, before = [], after = [], state, mutation = null, legacy = {}, reasons = [], consequences = [] }) {
   const result = freeze({
     ok: true, action, args: { ...args }, before, after,
     state: { userId, calendar: { date: calendar.date, timezone: calendar.timezone }, ...state }, mutation, legacy,
+    transaction: transactionContract(action, mutation, state, calendar),
     affected_entities: before.map((session) => ({ type: "planned_session", id: session.id, date: session.date })),
     reasons, consequences, warnings: [],
   });
@@ -125,8 +189,10 @@ function prepare({ userId, calendar, action, args, before = [], after = [], stat
   return result;
 }
 
-/** Bind already-derived canonical evidence (for example Closed Loop) without
- * accepting any replacement mutation from a transport or language model. */
+/** Bind canonical advisory evidence (for example Closed Loop) to preflight
+ * consistency. Evidence is not transaction authority: the resolved action,
+ * target, exact command and planning state are the closed transaction contract.
+ * Never replace its mutation with transport/model/evidence values. */
 export function bindEnqiduActionEvidence(prepared, evidence) {
   if (!preparedActions.has(prepared)) throw new TypeError("A server-prepared action is required");
   const proposalReasons = Array.isArray(evidence?.proposal?.reasons)
@@ -147,13 +213,14 @@ function sourceError(sessions, action) {
   return null;
 }
 
-async function recommendationContext(db, userId, calendar, date, availability, now) {
+async function recommendationContext(db, userId, calendar, date, availability, now, prescription = null) {
   const [contextResult, constraints, health] = await Promise.all([
     db.rpc("get_ai_coach_context", {
       p_user_id: userId, p_date: date, p_mode: "today_coach", p_from_date: null, p_to_date: null, p_session_id: null,
     }),
-    rows(db.from("coach_athlete_constraints").select("user_id,constraint_type,severity,description,active,updated_at")
-      .eq("user_id", userId).eq("active", true).order("id", { ascending: true }), 100),
+    prescription ? Promise.resolve(prescription.constraints)
+      : rows(db.from("coach_athlete_constraints").select("user_id,constraint_type,severity,description,active,updated_at")
+        .eq("user_id", userId).eq("active", true).order("id", { ascending: true }), 100),
     loadHealthIntelligence(db, { userId, calendarDate: date, timezone: calendar.timezone, generatedAt: new Date(now).toISOString() }),
   ]);
   if (contextResult.error) throw new Error("canonical_read_failed");
@@ -166,17 +233,33 @@ async function recommendationContext(db, userId, calendar, date, availability, n
     date: availability[0].calendar_date, status: availability[0].availability_status, source: availability[0].source,
   } : null;
   context.recommendation_context = { constraints: own(constraints, userId) };
+  if (prescription) {
+    // Use the exact facts that the transaction will compare. A second context
+    // RPC snapshot must not supply changed constraints, access or equipment.
+    context.athlete_context = { ...(context.athlete_context || {}),
+      constraints: prescription.locations.filter((row) => row.is_active === true),
+      equipment: prescription.equipment.filter((row) => row.available === true
+        && (!row.valid_from || row.valid_from <= date) && (!row.valid_to || row.valid_to >= date))
+        .flatMap((row) => {
+          const item = prescription.catalog.find((entry) => entry.id === row.equipment_id);
+          return item ? [{ name: item.name, category: item.equipment_category, location: row.location_label,
+            available: row.available, quantity: row.quantity, unit: row.unit || item.unit }] : [];
+        }),
+    };
+  }
   context.health_recovery = health;
   context.readiness = health.readiness;
   return context;
 }
 
 /** Pure preparation after canonical reads: this function never writes. */
-export async function prepareEnqiduAction({ db, userId, calendar, action: requestedAction, args = {}, now = new Date() } = {}) {
+export async function prepareEnqiduAction({ db, userId, calendar, action: requestedAction, args = {}, now = new Date(), targetSelection = "action" } = {}) {
   const action = aliases[requestedAction] || requestedAction;
   if (!userId || typeof userId !== "string") return reject("auth_required");
   if (!calendar || !isValidPlanCalendarDate(calendar.date) || !isValidTimeZone(calendar.timezone)) return reject("invalid_calendar");
   if (!Object.hasOwn(allowedArguments, action)) return reject("unsupported_action");
+  if (!["action", "closed_loop_target"].includes(targetSelection)
+    || (targetSelection === "closed_loop_target" && action !== "adapt_duration")) return reject("invalid_arguments");
   if (!args || typeof args !== "object" || Array.isArray(args)
     || Object.keys(args).some((key) => !allowedArguments[action].includes(key))) return reject("invalid_arguments");
 
@@ -239,6 +322,7 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
   const sourceDate = args.source_date;
   if (!isValidPlanCalendarDate(sourceDate)) return reject("invalid_date");
   if (!isPlanDateOnOrAfter(sourceDate, calendar.date)) return reject("stale_plan_source_date");
+  if (targetSelection === "closed_loop_target" && sourceDate <= calendar.date) return reject("proposal_not_actionable");
   if (action === "adapt_duration" && (!Number.isInteger(args.duration_minutes) || args.duration_minutes < 10 || args.duration_minutes > 180)) return reject("invalid_duration");
   const environment = action === "adapt_environment" ? normalizeCoachPlanLocation(args.environment) : null;
   if (action === "adapt_environment" && !environment) return reject("invalid_location");
@@ -247,16 +331,25 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     && (!isValidPlanCalendarDate(args.target_date) || args.target_date <= sourceDate)) return reject("invalid_target_date");
   const targetDate = action === "move_session" ? (args.target_date || resolveNextWeekdayDate(sourceDate, args.target_weekday)) : sourceDate;
   if (!targetDate) return reject("invalid_target_weekday");
+  // Match the bounded transaction scope before presenting an applicable
+  // preview. The SQL boundary must not acquire an unbounded set of date locks.
+  if (Date.parse(`${targetDate}T12:00:00Z`) - Date.parse(`${sourceDate}T12:00:00Z`) > 366 * 86400000) return reject("invalid_target_date");
   const [plans, availability] = await Promise.all([
-    loadActionPlans(db, userId, sourceDate, targetDate), loadAvailability(db, userId, sourceDate, targetDate),
+    loadActionPlans(db, userId, targetSelection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1) : sourceDate, targetDate),
+    loadAvailability(db, userId, targetSelection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1) : sourceDate, targetDate),
   ]);
   const sources = active(plans).filter((row) => row.planned_date === sourceDate);
   const error = sourceError(sources, action);
   if (error) return reject(error);
   const source = sources[0];
+  if (targetSelection === "closed_loop_target") {
+    const candidates = plans.filter((row) => !["cancelled", "canceled", "completed", "enriched", "skipped"].includes(row.status)
+      && !row.linked_completed_session_id);
+    if (candidates[0]?.id !== source.id) return reject("proposal_not_actionable");
+  }
   const blocks = await loadBlocks(db, [source.id]);
   const before = [snapshot(source, blocks)];
-  const state = { plans, blocks, availability };
+  const state = { plans, blocks, availability, selection: targetSelection };
   const base = { userId, calendar, action, args, before, state,
     reasons: [`explicit_${action}`], consequences: ["executed_training_unchanged"],
     legacy: { source_date: sourceDate, planned_session_id: source.id, title: source.title },
@@ -289,35 +382,30 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     legacy: { ...base.legacy, adapted: changed }, consequences: ["block_structure_preserved", "executed_training_unchanged"],
     });
   }
-  const context = await recommendationContext(db, userId, calendar, sourceDate, availability, now);
+  const prescription = await loadPrescriptionAuthority(db, userId);
+  const context = await recommendationContext(db, userId, calendar, sourceDate, availability, now, prescription);
   const recommendation = buildTrainingRecommendation(context, { requestedLocation: { key: environment } });
   if (!recommendation || recommendation.insufficient) return reject(recommendation?.reason === "athlete_unavailable" ? "athlete_unavailable" : "recommendation_unavailable");
   const storage = toPlannedRecommendationPayload({ ...recommendation, environment: recommendation.environment || environment });
   if (!storage || storage.environment !== environment) return reject("unsupported_recommendation_type");
   return prepare({ ...base, after: [recommendationSnapshot(storage, sourceDate, source)],
-    state: { ...state, recommendation_context: context }, mutation: { kind: action, sourceDate, sessionId: source.id, session: storage },
+    state: { ...state, prescription, recommendation_context: context }, mutation: { kind: action, sourceDate, sessionId: source.id, session: storage },
     legacy: { ...base.legacy, adapted: true }, consequences: ["planned_blocks_replaced", "executed_training_unchanged"],
   });
 }
 
-/** Execute only a server-prepared action via the existing transactional writer. */
+/** Compare expected authority and invoke the existing writer in one transaction.
+ * The preview digest is a preflight consistency check, never write authority. */
 export async function executePreparedEnqiduAction({ adminDb, userId, prepared } = {}) {
   if (!preparedActions.has(prepared) || prepared.state.userId !== userId) return reject("invalid_prepared_action");
   const command = prepared.mutation;
   let response = { ok: true };
   if (command) {
     let result;
-    switch (command.kind) {
-      case "move_session":
-        result = await adminDb.rpc("move_coach_planned_session", { p_user_id: userId, p_source_date: command.sourceDate, p_target_date: command.targetDate }); break;
-      case "adapt_duration":
-        result = await adminDb.rpc("adapt_coach_planned_session_duration", { p_user_id: userId, p_planned_date: command.sourceDate, p_planned_session_id: command.sessionId, p_duration_minutes: command.duration, p_blocks: command.blocks }); break;
-      case "adapt_environment":
-        result = await adminDb.rpc("adapt_coach_planned_session_environment", { p_user_id: userId, p_planned_date: command.sourceDate, p_planned_session_id: command.sessionId, p_session: command.session }); break;
-      case "cancel_session":
-        result = await adminDb.rpc("cancel_coach_planned_session", { p_user_id: userId, p_planned_date: command.sourceDate, p_planned_session_id: command.sessionId }); break;
-      case "adapt_remaining_week":
-        result = await adminDb.rpc("adapt_coach_remaining_week", { p_user_id: userId, p_from_date: command.from, p_to_date: command.to, p_moves: command.moves.map(({ planned_session_id, source_date, target_date }) => ({ planned_session_id, source_date, target_date })) }); break;
+    if (prepared.transaction) {
+      result = await adminDb.rpc("apply_enqidu_action_v1", { p_user_id: userId,
+        p_action: prepared.transaction.action, p_expected: prepared.transaction.expected, p_command: prepared.transaction.command });
+    } else switch (command.kind) {
       case "save_recommendation_today":
         result = await adminDb.rpc("save_coach_recommendation_plan", { p_user_id: userId, p_planned_date: command.date, p_session: command.session }); break;
       case "set_training_unavailability":
@@ -344,6 +432,7 @@ export async function executePreparedEnqiduAction({ adminDb, userId, prepared } 
 }
 
 const safeCodes = new Set([
+  "preview_stale",
   "invalid_request", "invalid_duration", "invalid_blocks", "invalid_location", "invalid_recommendation", "too_many_blocks",
   "source_plan_not_found", "source_plan_ambiguous", "source_plan_not_movable", "source_plan_not_adaptable", "source_plan_not_cancellable",
   "source_plan_already_completed", "unsupported_plan_source", "target_plan_already_exists", "block_set_mismatch", "invalid_block",

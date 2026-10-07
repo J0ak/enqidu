@@ -103,7 +103,9 @@ test("COACH DURATION: shared server domain derives block durations and never cal
   assert.match(source, /source\.source !== "enkidu_coach"/);
   assert.match(source, /loadBlocks\(db, \[source\.id\]\)/);
   assert.match(source, /scalePlannedBlockDurations\(blocks, args\.duration_minutes\)/);
-  assert.match(source, /adminDb\.rpc\("adapt_coach_planned_session_duration"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.adapt_coach_planned_session_duration\(/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);
   assert.match(source, /usage: null/);

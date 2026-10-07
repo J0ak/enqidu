@@ -117,9 +117,11 @@ test("COACH ENVIRONMENT: shared domain recalculates canonical context without Op
   assert.match(source, /normalizeCoachPlanLocation\(args\.environment\)/);
   assert.match(source, /source\.source !== "enkidu_coach"/);
   assert.match(source, /context\.planned_training = \{ date, sessions: \[\] \}/);
-  assert.match(source, /loadAvailability\(db, userId, sourceDate, targetDate\)/);
+  assert.match(source, /loadAvailability\(db, userId, targetSelection === "closed_loop_target" \? shiftPlanCalendarDate\(calendar\.date, 1\) : sourceDate, targetDate\)/);
   assert.match(source, /buildTrainingRecommendation\(context, \{ requestedLocation: \{ key: environment \} \}\)/);
-  assert.match(source, /adminDb\.rpc\("adapt_coach_planned_session_environment"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.adapt_coach_planned_session_environment\(/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);
   assert.match(source, /usage: null/);

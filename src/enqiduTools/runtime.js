@@ -93,7 +93,8 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
           if (isApply) throw toolError("preview_stale");
           throw error;
         }
-        let prepared = await prepareEnqiduAction({ db, userId: scope.authenticated_user_id, calendar: calendarFor(scope), action: resolved.action, args: resolved.args, now: new Date(scope.generated_at) });
+        let prepared = await prepareEnqiduAction({ db, userId: scope.authenticated_user_id, calendar: calendarFor(scope), action: resolved.action, args: resolved.args,
+          now: new Date(scope.generated_at), targetSelection: action === "closed_loop_proposal" ? "closed_loop_target" : "action" });
         if (!prepared.ok) throw toolError(isApply ? "preview_stale" : prepared.error);
         if (action === "closed_loop_proposal") prepared = bindEnqiduActionEvidence(prepared, { policy_version: resolved.policy_version, proposal: resolved.proposal, assessment: resolved.assessment });
         const preview = await buildEnqiduActionPreview({ prepared, calendar: calendarFor(scope), now: new Date(scope.generated_at) });

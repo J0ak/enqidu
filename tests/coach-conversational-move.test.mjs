@@ -116,7 +116,9 @@ test("COACH MOVE: shared domain derives target date and never calls OpenAI", asy
   assert.match(source, /action === "move_session"/);
   assert.match(source, /resolveNextWeekdayDate\(sourceDate, args\.target_weekday\)/);
   assert.match(source, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
-  assert.match(source, /adminDb\.rpc\("move_coach_planned_session"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.move_coach_planned_session\(/);
   assert.doesNotMatch(source, /api\.openai\.com/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);

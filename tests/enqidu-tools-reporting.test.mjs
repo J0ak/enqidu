@@ -50,9 +50,10 @@ function fixture({ title = "Fuerza", morePlans = [], rejectWrite = false } = {})
   const adminDb = {
     async rpc(name, args) {
       writes.push({ name, args });
-      assert.equal(name, "cancel_coach_planned_session");
+      assert.equal(name, "apply_enqidu_action_v1");
+    assert.equal(args.p_action, "cancel_session");
       assert.equal(args.p_user_id, USER);
-      assert.equal(args.p_planned_session_id, source.id);
+      assert.equal(args.p_command.sessionId, source.id);
       if (rejectWrite) return { error: null, data: { ok: false, error: "source_plan_already_completed" } };
       source.status = "cancelled";
       return { error: null, data: { ok: true, planned_session_id: source.id } };

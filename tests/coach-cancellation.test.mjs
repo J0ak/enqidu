@@ -115,7 +115,9 @@ test("COACH CANCEL: shared domain rejects stale, ambiguous, cancelled and execut
   assert.match(source, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
   assert.match(source, /sessions\.length > 1/);
   assert.match(source, /source\.linked_completed_session_id/);
-  assert.match(source, /adminDb\.rpc\("cancel_coach_planned_session"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.cancel_coach_planned_session\(/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);
   assert.match(source, /usage: null/);

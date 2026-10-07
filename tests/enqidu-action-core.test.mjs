@@ -148,7 +148,8 @@ test("ACTION MATRIX: week remains one atomic existing RPC, errors never expose d
   const result = await executePreparedEnqiduAction({ adminDb: fixture.adminDb, userId: ACTION_USER, prepared });
   assert.equal(result.moved_count, 2);
   assert.equal(writeCalls(fixture).length, 1);
-  assert.equal(writeCalls(fixture)[0].name, "adapt_coach_remaining_week");
+  assert.equal(writeCalls(fixture)[0].name, "apply_enqidu_action_v1");
+  assert.equal(writeCalls(fixture)[0].args.p_action, "adapt_remaining_week");
 });
 
 test("ACTION MATRIX: unchanged duration/week previews require no confirmation and never call writer", async () => {
@@ -221,7 +222,7 @@ test("ACTION MATRIX: block revision, availability and recommendation equipment a
   for (const edit of [
     (fixture) => { fixture.state.planned_training_sessions[0].updated_at = "2026-10-05T12:01:00Z"; },
     (fixture) => { fixture.state.planned_session_blocks[0].created_at = "2026-10-05T12:01:00Z"; },
-    (fixture) => { fixture.context.athlete_context.equipment_summary[0].name = "New equipment"; },
+    (fixture) => { fixture.state.equipment_catalog[0].name = "New equipment"; },
     (fixture) => { fixture.state.training_availability_overrides.push({ user_id: ACTION_USER, calendar_date: ACTION_DATE, availability_status: "available" }); },
   ]) {
     const fixture = actionDatabase();

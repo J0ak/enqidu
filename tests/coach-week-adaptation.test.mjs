@@ -161,7 +161,9 @@ test("COACH WEEK: shared domain derives current profile week and remains LLM-fre
   assert.match(source, /loadActionPlans\(db, userId, calendar\.date, end\)/);
   assert.match(source, /loadAvailability\(db, userId, calendar\.date, end\)/);
   assert.match(source, /planRemainingWeekReschedule/);
-  assert.match(source, /adminDb\.rpc\("adapt_coach_remaining_week"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.adapt_coach_remaining_week\(/);
   assert.match(source, /response_mode: "deterministic_action"/);
   assert.match(source, /llm_used: false/);
   assert.match(source, /usage: null/);

@@ -24,6 +24,12 @@ export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER,
       user_id: owner, calendar_date: ACTION_DATE, availability_status: "unavailable", source: "coach_explicit",
     }] : [],
     coach_athlete_constraints: [], training_sessions: [], session_blocks: [], session_metrics: [], weekly_plans: [],
+    user_training_locations: [{ id: "50000000-0000-4000-8000-000000000001", user_id: ACTION_USER,
+      display_name: "Home", location_type: "home", access_mode: "independent", prescription_scope: "autonomous",
+      coached_sessions_available: false, is_active: true }],
+    user_equipment: [{ id: "50000000-0000-4000-8000-000000000002", user_id: ACTION_USER,
+      equipment_id: "50000000-0000-4000-8000-000000000003", quantity: 2, unit: "piece", location_label: "home", available: true }],
+    equipment_catalog: [{ id: "50000000-0000-4000-8000-000000000003", name: "Dumbbells", equipment_category: "free_weights", unit: "piece" }],
     wearable_health_daily: [], wearable_sleep_sessions: [], wearable_hrv_nightly_summaries: [], wearable_health_imports: [],
     wearable_body_battery_samples: [], wearable_hrv_nightly_samples: [],
   };
@@ -78,6 +84,25 @@ export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER,
   const adminDb = {
     async rpc(name, args) {
       calls.push({ type: "write_rpc", name, args: structuredClone(args) });
+      // Transport fixture only. Actual compare/locks/writer behavior is covered
+      // by the PostgreSQL acceptance and concurrent transaction suites.
+      if (name === "apply_enqidu_action_v1") {
+        const command = args.p_command;
+        const userId = args.p_user_id;
+        if (args.p_action === "move_session") {
+          name = "move_coach_planned_session";
+          args = { p_user_id: userId, p_source_date: command.sourceDate, p_target_date: command.targetDate };
+        } else if (args.p_action === "adapt_remaining_week") {
+          name = "adapt_coach_remaining_week";
+          args = { p_user_id: userId, p_moves: command.moves };
+        } else {
+          const names = { adapt_duration: "adapt_coach_planned_session_duration", adapt_environment: "adapt_coach_planned_session_environment",
+            cancel_session: "cancel_coach_planned_session" };
+          name = names[args.p_action];
+          args = { p_user_id: userId, p_planned_session_id: command.sessionId, p_duration_minutes: command.duration,
+            p_blocks: command.blocks, p_session: command.session };
+        }
+      }
       const plan = state.planned_training_sessions.find((row) => row.user_id === args.p_user_id
         && (args.p_planned_session_id ? row.id === args.p_planned_session_id : row.planned_date === args.p_source_date));
       if (name === "adapt_coach_remaining_week") {

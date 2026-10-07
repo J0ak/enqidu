@@ -152,9 +152,10 @@ test("MCP: trusted embedding applies through the existing writer and stale repla
   const writes = [];
   const adminDb = { async rpc(name, args) {
     writes.push({ name, args });
-    assert.equal(name, "cancel_coach_planned_session");
+    assert.equal(name, "apply_enqidu_action_v1");
+    assert.equal(args.p_action, "cancel_session");
     assert.equal(args.p_user_id, TOOL_USER_A);
-    const plan = fixture.tables.planned_training_sessions.find((row) => row.id === args.p_planned_session_id);
+    const plan = fixture.tables.planned_training_sessions.find((row) => row.id === args.p_command.sessionId);
     assert.equal(plan.user_id, TOOL_USER_A);
     plan.status = "cancelled";
     return { data: { ok: true, planned_session_id: plan.id }, error: null };

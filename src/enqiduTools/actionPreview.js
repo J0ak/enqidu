@@ -18,7 +18,8 @@ function canonical(value, path = []) {
 /** A standard digest for consistency, NOT an authorization token. */
 export async function fingerprintEnqiduAction(prepared) {
   const payload = canonical({ version: ACTION_PREVIEW_VERSION, action: prepared.action, args: prepared.args,
-    before: prepared.before, after: prepared.after, state: prepared.state, reasons: prepared.reasons });
+    before: prepared.before, after: prepared.after, state: prepared.state, reasons: prepared.reasons,
+    transaction: prepared.transaction });
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
   return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }

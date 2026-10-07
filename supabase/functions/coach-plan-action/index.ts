@@ -67,7 +67,8 @@ Deno.serve(async (req: Request) => {
     const calendar = resolveUserCalendar({ profileTimezone, now });
     const args = Object.fromEntries(actionArgs[action].filter((key) => key in body).map((key) => [key, body[key]]));
     const prepared = await prepareEnqiduAction({ db: userDb, userId, calendar, action, args, now });
-    if (!prepared.ok) return reply(prepared);
+    if (!prepared.ok) return previewRequired.has(action)
+      ? reply({ ok: false, error: "preview_stale" }, 409) : reply(prepared);
     if (previewRequired.has(action)) {
       const check = await validateEnqiduActionPreview({ prepared,
         fingerprint: body.fingerprint ?? body.preview_fingerprint,
@@ -81,7 +82,7 @@ Deno.serve(async (req: Request) => {
     const result = await executePreparedEnqiduAction({ adminDb, userId, prepared });
     console.info(JSON.stringify({ request_id: requestId, tool_id: action, tool_version: "enqidu_tools_v1",
       timestamp: now.toISOString(), status: result.ok ? "ok" : "error", error_code: result.ok ? null : result.error }));
-    return reply(result);
+    return reply(result, !result.ok && result.error === "preview_stale" ? 409 : 200);
   } catch {
     console.error(JSON.stringify({ request_id: requestId, status: "error", error_code: "coach_plan_action_failed" }));
     return reply({ ok: false, error: "coach_plan_action_failed", message: "No se ha podido validar el cambio. Vuelve a consultar el plan." }, 500);
