@@ -30,6 +30,7 @@
     "mcp:local": "node scripts/mcp-local.mjs",
     "test:mcp": "node --test tests/enqidu-mcp*.test.mjs",
     "test:tools": "node --test tests/enqidu-tools*.test.mjs tests/enqidu-action*.test.mjs",
+    "test:transactional-actions": "node --test --test-concurrency=1 tests/transactional-actions/*.test.mjs",
     "tools:manifest": "node scripts/enqidu-tools-manifest.mjs"
   },
   "dependencies": {
@@ -47,6 +48,7 @@
     "@electric-sql/pglite": "0.5.8",
     "@modelcontextprotocol/client": "2.3.1",
     "@modelcontextprotocol/core": "2.3.1",
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "pg": "8.16.3"
   }
 }

@@ -25,6 +25,7 @@ test("COACH PREVIEW: apply needs review and explicit confirmation, never sends p
     tool: "apply_adapt_duration", arguments: { source_date: "2026-10-05", duration_minutes: 30, fingerprint: "state-check", expires_at: "2026-10-05T10:15:00Z", confirmation: true },
   });
   assert.equal(buildCoachApplyRequest({ ...pending, reviewed: true, request: { tool: "execute_query" } }), null);
+  assert.equal(buildCoachApplyRequest({ ...pending, reviewed: true, error: "El plan ha cambiado" }), null);
 });
 test("COACH PREVIEW: conversational acceptance is explicit and negative/ambiguous text cannot apply", () => {
   for (const text of ["Aplícalo", "Aplica el cambio", "Apply it"]) assert.equal(detectPreviewConversationAction(text), "apply");

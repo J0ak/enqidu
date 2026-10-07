@@ -133,3 +133,29 @@ test("profile Madrid calendar survives caller timezone, UTC midnight, and both D
     }
   } finally { await fixture.dispose(); }
 });
+
+test("Coach compatibility rejects receiptless edits and accepts only the reviewed transactional change", async ({ request }) => {
+  const fixture = await createToolsFixture("atomic-compat");
+  try {
+    const initial = await fixture.snapshot();
+    const command = { action: "adapt_session_duration", source_date: fixture.date(1), duration_minutes: 40 };
+    const legacyUrl = `${fixture.url}/functions/v1/coach-plan-action`;
+    const oldClient = await request.post(legacyUrl, { headers: fixture.headers, data: command });
+    expect(oldClient.status()).toBe(400);
+    expect(await oldClient.json()).toMatchObject({ ok: false, error: "explicit_confirmation_required" });
+    expect(await fixture.snapshot()).toEqual(initial);
+    const response = await request.post(`${fixture.url}/functions/v1/enqidu-tools`, { headers: fixture.headers,
+      data: { tool: "preview_adapt_duration", arguments: { source_date: command.source_date, duration_minutes: command.duration_minutes } } });
+    const preview = successful(await response.json());
+    const confirmed = acceptance(preview, command);
+    const applied = await request.post(legacyUrl, { headers: fixture.headers, data: confirmed });
+    expect(applied.status()).toBe(200);
+    expect(await applied.json()).toMatchObject({ ok: true, adapted: true, planned_session: { duration_minutes: 40 } });
+    const committed = await fixture.snapshot();
+    expect(persistedHistory(committed)).toEqual(persistedHistory(initial));
+    const retry = await request.post(legacyUrl, { headers: fixture.headers, data: confirmed });
+    expect(retry.status()).toBe(409);
+    expect(await retry.json()).toMatchObject({ ok: false, error: "preview_stale" });
+    expect(await fixture.snapshot()).toEqual(committed);
+  } finally { await fixture.dispose(); }
+});

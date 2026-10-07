@@ -4179,6 +4179,10 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
           setMessages((current) => replaceLastAssistantMessage(current, "No hay un cambio pendiente. Dime qué quieres ajustar en tu plan.", []));
           return;
         }
+        if (pendingToolAction.error) {
+          setMessages((current) => replaceLastAssistantMessage(current, pendingToolAction.error, []));
+          return;
+        }
         if (previewCommand === "review" || !pendingToolAction.reviewed) {
           setPendingToolAction((current) => current ? { ...current, reviewed: true } : null);
           setMessages((current) => replaceLastAssistantMessage(current, "Aquí tienes el estado anterior y el cambio propuesto. Revísalo y pulsa APLICAR para confirmarlo.", []));

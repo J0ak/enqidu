@@ -55,6 +55,7 @@ jobs:
           supabase --workdir e2e-local db reset
           node e2e-local/bootstrap-health-intelligence.mjs
           node e2e-local/bootstrap-browser-read-contract.mjs
+          node e2e-local/bootstrap-transactional-actions.mjs
           supabase --workdir e2e-local status -o env > /tmp/supabase.env
           cat > e2e-local/supabase/.env.e2e <<'EOF'
           OPENAI_COACH_ENABLED=false
@@ -79,6 +80,11 @@ jobs:
           done
           cat /tmp/supabase-functions.log || true
           exit 1
+      - name: Transactional action acceptance and real PostgreSQL races
+        env:
+          ENQIDU_TRANSACTION_LOCAL: "1"
+          ENQIDU_TRANSACTION_ENV_FILE: /tmp/supabase.env
+        run: npm run test:transactional-actions
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Playwright E2E

@@ -581,6 +581,38 @@ test("stale preview is rejected in Coach and preserves the concurrent canonical 
   expect((await planRowsOnDate(request, user.id, madridDate()))[0]).toMatchObject({ title: "Fuerza editada mientras revisabas", planned_duration_min: 35, planned_duration_max: 35 });
   const blocks = await request.get(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${created.planned_session_id}&select=planned_duration_seconds`, { headers: headers() });
   expect((await blocks.json())[0].planned_duration_seconds).toBe(2100);
+  let repeatedApplies = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/enqidu-tools") && req.method() === "POST" && req.postDataJSON()?.tool?.startsWith("apply_")) repeatedApplies += 1;
+  });
+  for (const text of ["Revisar cambio", "Aplícalo"]) {
+    await page.getByPlaceholder("Escribe o dicta tu actualización").fill(text);
+    await page.getByRole("button", { name: "Enviar" }).click();
+    await expect(page.getByRole("button", { name: "Enviar" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "APLICAR", exact: true })).toHaveCount(0);
+  }
+  expect(repeatedApplies).toBe(0);
+});
+
+test("new frontend with unavailable Tools backend fails safely without a legacy write fallback", async ({ page, request, expectedToolStatuses }) => {
+  const user = await provision(request, "tools-rollout");
+  await createPlan(request, user.id, "Fuerza durante actualización");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+  const original = await planRowsOnDate(request, user.id, madridDate());
+  let writes = 0;
+  page.on("request", (req) => {
+    if (req.method() !== "POST") return;
+    if (req.url().includes("/functions/v1/coach-plan-action") || (req.url().includes("/functions/v1/enqidu-tools") && req.postDataJSON()?.tool?.startsWith("apply_"))) writes += 1;
+  });
+  expectedToolStatuses.add(404);
+  await page.route("**/functions/v1/enqidu-tools", (route) => route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ message: "Function not found" }) }));
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Déjalo en 30 minutos");
+  await page.getByRole("button", { name: "Enviar" }).click();
+  await expect(page.getByText("No se pudo consultar ENQIDU. Vuelve a intentarlo.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Cambio propuesto" })).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(await planRowsOnDate(request, user.id, madridDate())).toEqual(original);
 });
 
 test("Closed Loop Coach proposal reviews exact 50-to-40 minute change and applies only after acceptance", async ({ page }) => {

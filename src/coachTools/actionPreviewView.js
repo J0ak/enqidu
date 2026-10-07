@@ -49,7 +49,7 @@ export function detectPreviewConversationAction(text) {
 }
 
 export function buildCoachApplyRequest(pending) {
-  if (!pending?.reviewed || !pending?.preview?.requires_confirmation || !pending?.preview?.fingerprint || !pending?.preview?.expires_at) return null;
+  if (pending?.error || !pending?.reviewed || !pending?.preview?.requires_confirmation || !pending?.preview?.fingerprint || !pending?.preview?.expires_at) return null;
   if (!/^preview_(move_session|adapt_duration|adapt_environment|cancel_session|adapt_remaining_week|closed_loop_proposal)$/.test(pending.request?.tool || "")) return null;
   return {
     tool: pending.request.tool.replace(/^preview_/, "apply_"),
