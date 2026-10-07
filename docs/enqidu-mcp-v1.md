@@ -122,15 +122,17 @@ authentication or authorization token. `expires_at` is unsigned client-returned
 metadata, not proof that the server issued a preview or that a human reviewed it.
 Preview never writes.
 
-**Strict atomic TOCTOU protection remains a write-rollout blocker.** Rebuilding
-the preview and comparing fingerprints catches state changed before the final
-preflight read, but existing writer RPCs do not compare a revision/fingerprint
-inside the same transaction. A concurrent edit between that read and the RPC can
-still win the race; duration/environment RPCs also lack a cancelled-state guard.
-This epic does not change their schema or claim atomic compare-and-swap. Before
-enabling any new write surface, review and resolve these existing RPC limitations
-in a separately authorized database change, then add concurrent transaction tests.
-The transport feature gate must remain off until that blocker is resolved.
+The shared apply runtime now calls `apply_enqidu_action_v1`: expected mutation
+authority is compared under locks and the existing writer executes in the same
+PostgreSQL transaction. This closes the intervening plan-state race; it does not
+make observational Health/feedback a transaction-wide snapshot. See
+[the exact consistency boundary](enqidu-action-preview-v1.md#closed-loop-and-user-acceptance)
+and the real local concurrent acceptance suite. The one authorized migration has
+not been deployed to production.
+
+**MCP writes remain disabled.** Atomic domain acceptance does not enable remote
+transport, OAuth, hosting, user consent or write rollout. Those boundaries need
+their own later authorization and implementation; this task changes none of them.
 
 For current local use: inspect reads/previews through MCP, then review and apply
 through ENQIDU's authenticated explicit acceptance flow. No unattended mutation

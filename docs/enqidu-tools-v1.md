@@ -2,7 +2,9 @@
 
 ENQIDU Tools is the authenticated domain boundary shared by the App, deterministic
 Coach, future agents and the local MCP adapter. It runs without an LLM or API key.
-It adds no tables, migrations, grants, RLS policies, paid service or production deployment.
+It adds no tables, RLS policies, paid service or production deployment. One incremental
+migration adds a service-role-only transactional acceptance function, with no new
+client execution or table grants.
 
 ```text
 App / Coach / MCP
@@ -12,7 +14,9 @@ closed registry → authenticated runtime → canonical read domain
                                                               ↓ explicit acceptance
                                                     reload + compare fingerprint
                                                               ↓
-                                                    existing Coach Action RPC
+                                    apply_enqidu_action_v1: locks + compare
+                                                              ↓ same transaction
+                                                    existing Coach Action writer
 ```
 
 ## Implementation and discovery
@@ -111,7 +115,9 @@ See [Action Preview V1](enqidu-action-preview-v1.md) for the full contract and a
 matrix. The shared preparation calls the existing date, scaling, reschedule and
 recommendation helpers. It performs reads only. Apply reconstructs the preview
 from current state and compares a standard SHA-256 consistency digest before
-calling the same pre-existing narrow Coach Action RPCs. Private preparations are
+calling `apply_enqidu_action_v1`, which compares the closed expected state under
+database locks and invokes the same pre-existing narrow Coach Action writer in
+that transaction. Private preparations are
 branded and frozen; clients cannot submit block replacements or an RPC descriptor.
 
 The bridge recomputes the existing Closed Loop assessment and proposal. For an
@@ -123,14 +129,17 @@ The preview includes the original evidence/proposal in its private digest state.
 recovery proposals return `proposal_not_actionable` instead of inventing changes.
 There is no automatic acceptance or clinical inference.
 
-**Rollout blocker:** existing RPCs do not accept expected revisions. The preflight
-reload/compare and mutation are separate transactions. The RPC mutations are atomic,
-but strict compare-and-write is not guaranteed. In particular, a concurrent
-cancellation after validation can be overwritten by duration/environment RPCs.
-No migration was made to fix this. Production write rollout and MCP write enablement
-must wait for an explicitly approved transactional contract. The fingerprint and
-unsigned expiry are coherence metadata, not authorization, a signed receipt, or
-proof that a person reviewed a previously issued preview.
+The atomic boundary covers mutation authority: current parent/child state,
+availability, occupancy, the profile calendar, prescription permissions and
+Closed Loop target selection. Observational evidence is checked at preflight;
+it is not locked until commit. The confirmed command cannot change afterward.
+See the precise boundary and concurrency tradeoff in
+[Transactional acceptance](enqidu-action-preview-v1.md#transactional-acceptance).
+The fingerprint and unsigned expiry remain coherence metadata, not authorization,
+a signed receipt, or proof that a person reviewed a previously issued preview.
+The migration must precede the matching Edge deployment. Missing/old backends fail
+closed; there is no direct-writer fallback. MCP writes remain disabled independently
+of the transactional guarantee.
 
 ## Coach and App
 
@@ -168,13 +177,17 @@ npm run test:tools
 npm run test:mcp
 npm run build
 npm run test:e2e
+npm run test:transactional-actions
 ```
 
 E2E needs the repository's isolated Supabase local stack and existing canonical
 Health bootstrap, with `OPENAI_COACH_ENABLED=false`. It creates actual Auth users,
 canonical Health and baseline history, a plan, FIT-linked execution and confirmed
 feedback, then tests preview/no-write, explicit apply, unchanged history, Coach
-response and SDK MCP parity. Contract tests add hostile args, A/B isolation,
+response and SDK MCP parity. The transactional suite additionally requires an
+explicit disposable-local PostgreSQL opt-in and loopback URL; it refuses remote
+database URLs. Separate connections force real lock waits and compare full rows
+after stale acceptance. Contract tests add hostile args, A/B isolation,
 bounded/safe output, stale state, clock boundaries and failed readback behavior.
 
 MCP's local-only transport, annotations, feature gate and remote authentication

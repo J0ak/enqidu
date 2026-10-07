@@ -8,18 +8,20 @@ and calls existing Coach Actions; Closed Loop produces a reviewable 50 → 40 mi
 adaptation; subsequent plan reads show the persisted change. MCP defaults to
 read/preview and has no remote deployment.
 
-**One requested guarantee remains technically blocked:** strict atomic
-preview-state comparison and write cannot be implemented through the unchanged
-existing RPC interfaces. See the exact race and required interface change in
-[Action Preview V1](enqidu-action-preview-v1.md#explicit-database-transaction-limitation).
-The task must not be represented as 100% complete against that strict guarantee
-or ready for production write rollout. No migration was created to bypass the
-user's boundary. Everything else in this handoff is implemented and tested.
+The follow-up on the same PR adds the explicitly authorized minimal database
+interface: `apply_enqidu_action_v1` compares expected mutation authority and calls
+the existing writer under locks in one transaction. The previous preflight/RPC
+TOCTOU window is closed and verified by the real concurrent tests described below.
+The precise guarantee is atomic acceptance of the reviewed command and its
+mutation authority; observational Health/feedback evidence remains a preflight
+snapshot. See [Action Preview V1](enqidu-action-preview-v1.md#transactional-acceptance).
 
 Started from fetched `origin/main` at
 `88830df5a4c2523259f0726033499a1c2ab0d46e`; no open PRs were present at audit time.
 Branch: `feat/enqidu-tools-preview-mcp-v1`. The Git history separates shared
-Tools/Coach, MCP and local E2E/handoff. The PR records the final commit SHA.
+Tools/Coach, MCP and local E2E/handoff. The atomic follow-up continues PR **#94**
+from `0c1cfd791dd3f471af1e783e0e8d3da77c39adc5`; no new PR is opened.
+The PR records the final commit SHA.
 
 ## Validation evidence
 
@@ -28,21 +30,22 @@ All commands used Node **22.23.3**, no paid calls and no OpenAI key requirement.
 | Command | Final result |
 | --- | --- |
 | `npm run setup:cloud` | PASS; clean dependency install, existing local environment retained |
-| `npm test` | **616/616**, 0 skipped |
+| `npm test` | **626/626**, 0 skipped |
 | `npm run test:coach-evals` | **25/25** |
-| `npm run test:tools` | **85/85** |
+| `npm run test:tools` | **95/95** |
 | `npm run test:mcp` | **32/32** |
 | `npm run build` | PASS |
-| `npm run test:e2e` | **27/27**, 0 skipped, actual local Supabase/Auth/RLS |
+| `npm run test:e2e` | **29/29**, 0 skipped, actual local Supabase/Auth/RLS |
+| `npm run test:transactional-actions` | **28/28**, 0 skipped; actual PostgreSQL locks/connections |
 | `git diff --check` | PASS |
-| Browser verification | Page, navigation, Coach composer, no error overlay/console errors; screenshot inspected |
+| Browser verification | Review/apply, stale card cannot retry, old/new transport compatibility; no unexpected browser errors |
 
-The build reports the existing single-bundle size warning (503.84 kB minified,
-155.10 kB gzip); it does not fail. No tests were removed or skipped to make the
+The build reports the existing single-bundle size warning (503.90 kB minified,
+155.11 kB gzip); it does not fail. No tests were removed or skipped to make the
 epic pass. Old source-location assertions were updated to follow the extracted
 shared implementation while preserving their ownership/timezone/action guards.
 
-The E2E suite includes 20 Coach UI tests, three Tools integration tests, three
+The E2E suite includes 21 Coach UI tests, four Tools integration tests, three
 Health intelligence tests and the existing language-lab test. The Tools/Closed
 Loop test creates actual Auth athletes, sets Europe/Madrid, ingests canonical
 Health with baseline history, persists plan and FIT execution linkage, confirms
@@ -55,8 +58,32 @@ duration action and adds evidence/target revalidation. Tests cover malformed and
 unknown requests, foreign identities, missing/ambiguous/completed/skipped/cancelled
 targets, calendar/duration/environment bounds, availability, zero preview writes,
 stale state and expiry, deterministic repeatability, safe output limits and failed
-readback after acknowledged commits. Existing week RPC atomicity is tested locally.
-These tests do not claim the missing atomic compare-and-write guarantee.
+readback after acknowledged commits. `test:transactional-actions` adds independent
+PostgreSQL connections, real held/waiting locks and full-row plus `xmin` comparisons
+for zero-write stale rejection. These tests exercise the actual wrapper and existing
+writers, not a mock of transactional acceptance.
+
+| Forced concurrent race | Verified result |
+| --- | --- |
+| A: duration vs cancellation | `preview_stale`; cancelled state and blocks untouched |
+| B: two duration applies | First commit wins; second is stale, no silent overwrite |
+| C: environment vs cancellation | Stale; no resurrection or block replacement |
+| D: move vs newly occupied target | Stale; source and competing target preserved |
+| E: move vs changed source date | Stale; no mutation on a substituted source |
+| F: remaining week vs availability | Stale; zero partial moves |
+| G: remaining week vs changed member | Stale; unchanged batch members remain untouched |
+| H: block edit/replacement/insertion | Stale despite unchanged parent revision |
+
+Additional real races cover profile timezone, active constraints, location,
+inventory/catalog and an earlier Closed Loop target. A concurrent execution/Health
+update can commit independently while the exact accepted duration is preserved.
+Tests also prove locks remain held after the nested writer until outer commit,
+outer rollback reverts parent and child writes, duplicate acceptance is stale,
+non-READ-COMMITTED snapshots cannot bypass comparison, client-role execution is
+denied, and 19 hostile DTO variants plus foreign ownership produce zero writes.
+The test domain clock is a fixed Monday so the full remaining-week batch runs on
+every CI weekday. The database, migration, transactions and locks are real and
+unchanged; no database clock replacement or test-only RPC parameter is used.
 
 ## Where to review
 
@@ -66,6 +93,8 @@ These tests do not claim the missing atomic compare-and-write guarantee.
 | Authenticated context, capabilities, results, telemetry | `src/enqiduTools/runtime.js`, `http.js`, `errors.js` |
 | Nine reads and existing canonical algorithms | `src/enqiduTools/readTools.js`, `readSchemas.js` |
 | Six previews and six applies | `src/enqiduTools/actions.js`, `actionPreview.js` |
+| Atomic compare and existing writer dispatch | `supabase/migrations/20261007045422_apply_enqidu_action_v1.sql` |
+| Real concurrency and SQL privilege acceptance | `tests/transactional-actions/` |
 | Closed Loop bridge | `resolveClosedLoopAction`, `bindEnqiduActionEvidence` |
 | App/Coach review and acceptance | `CoachActionPreview.jsx`, `actionPreviewView.js`, `enqiduToolsService.js`, `coachAdapter.js` |
 | MCP and default write gate | `src/mcp/server.js`, `localAuth.js`, `scripts/mcp-local.mjs` |
@@ -101,7 +130,9 @@ The six action suffixes are `move_session`, `adapt_duration`, `adapt_environment
   Previews never mutate. Applying does not rewrite executed training or FIT.
 - No paid LLM calls, upgrades, new billable infrastructure, production changes,
   production environment variables, Edge deployments or MCP deployments occurred.
-- **No product migration or production schema/RLS/grant change.** The isolated
+- **One authorized product migration; zero production schema/RLS/grant changes.**
+  It adds the service-only wrapper and leaves existing writers and tables intact.
+  The isolated
   E2E bootstrap reconstructs existing Activity-detail read columns and four empty
   lookup tables omitted from the slim local baseline, with owner-read fixture
   policies. It is restricted to the local Docker socket and the named disposable
@@ -113,26 +144,55 @@ The six action suffixes are `move_session`, `adapt_duration`, `adapt_environment
 
 ## Subsequent rollout
 
-No rollout has been performed. The changed deployable Edge units are:
+No rollout has been performed. After merge, a separately authorized rollout must
+follow this order; do not release the frontend first:
 
-1. **`enqidu-tools`** — new authenticated tool boundary.
-2. **`coach-plan-action`** — compatibility endpoint using shared preparation/writers
-   and requiring confirmation/receipt for existing-plan changes.
-3. **`coach-reply`** — shared read-tool routing and Closed Loop review card.
+1. Apply only `20261007045422_apply_enqidu_action_v1.sql` through the normal reviewed
+   migration pipeline. Verify function signature, `SECURITY INVOKER`, fixed search
+   path, revoked public/client execution, service-role execution and the required
+   existing table privileges. Existing function signatures remain compatible.
+2. Deploy **`enqidu-tools`** and **`coach-plan-action`** with this exact shared
+   module revision. These are the acceptance boundaries: both must use the new
+   wrapper before announcing atomic writes. Verify authenticated preview, explicit
+   apply and stale rejection against disposable non-production data first.
+3. Deploy **`coach-reply`** from the same revision, then the matching **frontend**.
+   Existing reads remain compatible. Check proposal → review → apply → persisted
+   readback and a stale card that cannot be retried.
+4. Keep `ENQIDU_MCP_WRITES_ENABLED=false`, local-only MCP and OpenAI calls disabled.
+   No step here authorizes production deployment or remote MCP.
 
-Their imported shared modules must ship together with the matching App UI. Old
-clients attempting immediate plan mutation will receive a confirmation-required
-error; coordinate frontend/backend versions.
+New frontend + unavailable old Tools backend produces a safe unavailable message
+and no legacy writer fallback. New Edge + missing wrapper also fails closed. Old
+clients making receiptless existing-plan edits to new Edge receive
+`explicit_confirmation_required`; reload the App to use review/apply. Explicit
+legacy save/unavailability keep their existing one-step contracts. Old preview
+fingerprints may become stale across deployment and must be regenerated. A brief
+read-only/reload interval is acceptable; silently restoring immediate mutation is
+not compatibility.
 
-Before production writes: approve and implement expected-state comparison inside
-the existing action transaction, including ownership, cancelled/completed status,
-blocks, availability, source identity and relevant proposal evidence; add real
-concurrent race tests. Keep MCP writes disabled. Revalidate locally/CI, review
-the diff, then separately authorize any deployment. Remote ChatGPT MCP additionally
-requires the appropriate existing ENQIDU authentication/OAuth discovery and hosting
-decision; do not expose a pasted local bearer token as a remote auth substitute.
+### Rollback
 
-Recommended next epic: **transactional acceptance and authenticated remote MCP
-rollout**. Resolve atomic consistency first; add durable idempotency/audit only if
-the approved product interface needs it, then implement proper remote auth without
-duplicating domain logic or enabling paid infrastructure implicitly.
+Rollback the frontend independently while retaining the guarded Edge functions.
+For an acceptance incident, an authorized operator can revoke `service_role`
+execution of the new wrapper to fail closed while reads/previews remain available;
+drain in-flight transactions before further changes. Do not roll Edge back to a
+version that dispatches the five writers without expected-state validation. The
+additive wrapper may remain installed harmlessly while disabled; dropping it is
+optional only after all callers are retired. No data reversal, FIT rewrite or
+schema rollback is needed. Restore execution only after the corrected version is
+validated. These are future operating instructions, not actions run by this task.
+
+### Remaining debt
+
+Conservative table locks serialize short planning writes across users; finer
+concurrency needs a uniform protocol for legacy/direct writers. Advisory evidence
+is not a transaction-wide snapshot. Legacy recommendation save has no reviewed
+expected-state receipt. Timeout/lost-response retries have no persisted idempotency
+ledger; reread and re-preview. Tool telemetry is not durable audit history. Remote
+MCP still needs real authorization/discovery, consent and an approved hosting
+decision; local Bearer tokens are not an OAuth substitute.
+
+Recommended next epic: **authenticated remote MCP read/preview with audited
+operational rollout**. Keep remote writes off; design durable idempotency and audit
+only when required by an explicitly approved write product. No new paid service is
+implicitly authorized.

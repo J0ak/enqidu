@@ -1,6 +1,6 @@
 # ENQIDU Action Preview V1
 
-`src/enqiduTools/actions.js` is the single preparation and execution layer for existing Coach Actions. App, Coach, the ENQIDU Tools endpoint and MCP previews use the same code. No new planning writer, table, migration, RLS policy or grant is introduced.
+`src/enqiduTools/actions.js` is the single preparation and execution layer for existing Coach Actions. App, Coach, the ENQIDU Tools endpoint and MCP previews use the same code. One incremental migration adds a service-only transactional wrapper around the unchanged planning writers. It creates no table and changes no RLS policy or client grant.
 
 ## Reuse and ownership
 
@@ -58,17 +58,58 @@ Preview lifetime is five minutes. Apply reauthenticates, reloads the canonical s
 
 The digest is a consistency check, **not an authorization token or proof that a UI was viewed**. Expiry is a client-returned, bounded freshness hint, not signed or persisted issuance. A client can request another preview (or alter an untrusted expiry within the accepted window); it cannot change ownership or bypass current server validation. No signing scheme or token store is invented.
 
-## Explicit database transaction limitation
+## Transactional acceptance
 
-The existing RPCs do **not** accept an expected fingerprint, session revision or full expected state. PostgREST reloads and the subsequent existing-writer RPC are separate transactions. A concurrent write can occur after the last comparison but before the writer acquires its database locks. The existing RPCs atomically validate their own narrow invariants and commit their mutation (the week writer validates every move before any write), but this is **not an atomic compare-and-write of the entire preview**.
+`apply_enqidu_action_v1(p_user_id uuid, p_action text, p_expected jsonb, p_command jsonb)` is the only apply dispatcher for the five existing-plan actions. Closed Loop resolves to the same duration action. `p_user_id` is supplied by the authenticated Edge boundary, never a tool argument. The function is `SECURITY INVOKER`, has a fixed search path, revokes execution from `PUBLIC`, `anon` and `authenticated`, and grants execution only to `service_role`.
 
-For example, two duration requests against identical block IDs can pass their separate comparisons; a later writer can overwrite the earlier duration. The duration/environment RPCs also do not reject a cancellation that happens after the preflight read. The move RPC does not accept an expected source-session ID, and the week RPC does not recheck availability. Preflight rejects these states when already visible, but cannot close the intervening database race.
+The command and expected-state DTOs are internal, closed and versioned. They are not public mutation JSON. The wrapper accepts fixed actions only, rejects unknown keys and invalid types, and never executes a client-selected RPC or SQL. PostgreSQL compares canonical facts; it does not run the JavaScript fingerprint or duplicate recommendation/scaling algorithms.
 
-Strict transaction-wide stale-preview protection is blocked by the existing database interface. Closing it requires an explicitly reviewed database-interface change (a revision/expected-state check under the existing transaction locks) or an approved transaction-capable adapter that holds locks across read, comparison and the same existing writer. No migration, production schema change, alternate writer, compensating history rewrite or unsafe claim of compare-and-write protection is included. This limitation must be resolved before claiming strict concurrent preview/apply guarantees or enabling remote mutations.
+```js
+// Server-only; never accepted from browser/MCP tool arguments.
+expected = {
+  version: 1,
+  calendar: { date, timezone },
+  scope: { selection: "action" /* or "closed_loop_target" */,
+    from_date, to_date, block_session_ids },
+  plans: [/* fixed canonical parent projection, including updated_at */],
+  blocks: [/* fixed complete child projection, including IDs/order/prescription */],
+  availability: [/* user_id, calendar_date, availability_status, source */],
+  prescription: null /* environment only: {constraints, locations, equipment, catalog} */,
+};
+```
+
+Commands are closed per action: move `{sourceDate,targetDate}`; duration
+`{sourceDate,sessionId,duration,blocks:[{id,duration_seconds}]}`; environment
+`{sourceDate,sessionId,session:{title,session_type,environment,intensity,objective,
+duration_minutes,blocks:[{title,duration_minutes}]}}`; cancel `{sourceDate,sessionId}`;
+week `{from,to,moves:[{planned_session_id,source_date,target_date}]}`. Scope is at
+most 366 days (remaining-week at most seven), 100 plans and 1,200 expected blocks;
+writer-specific block/move bounds remain in force. A move beyond that span is
+rejected during preparation, before an applicable preview is offered.
+
+The transaction acquires the existing `user|date` and `user|availability|date` advisory namespaces in chronological order. It then locks the relevant authority tables and rows, rereads the current facts, compares them to the expected facts and calls the existing writer. All locks remain held through the single commit. A mismatch returns `{ok:false,error:"preview_stale"}` before any writer call. The HTTP boundary reports a safe conflict, not SQL or a generic 500.
+
+The expected contract covers the owned source identity, dates, source/status/completion link, parent revision and prescription, exact child identities/order/durations/prescription, availability membership and target occupancy. Remaining-week covers the whole bounded plan set and availability, so no member can change while a batch partially proceeds. Environment adaptation additionally guards mutable prescription authority. Profile timezone and Closed Loop candidate selection are also checked; the executable SQL and preparation projection are the authoritative field lists.
+
+The request calendar and receipt expiry are validated at authenticated server admission. The admitted command contains absolute dates; SQL compares the persisted profile timezone and scoped facts, not a second wall-clock date. Time cannot be locked through commit. A request admitted before midnight keeps its confirmed absolute dates if it waits across midnight; a new request after rollover must re-preview. This is an explicit request-snapshot boundary, without a database clock override or a test-only RPC parameter.
+
+Table locks are a deliberate conservative V1 choice. Existing legacy writers and direct service-role DML do not all cooperate with advisory locks; row locks alone cannot protect missing-row predicates and independently mutable child membership. `SHARE ROW EXCLUSIVE` prevents these inserts, updates and deletes during comparison and write. This can serialize short planning transactions across athletes. It does not lock Health, FIT or training history. Refining concurrency requires a reviewed shared locking protocol across *all* writers, not merely removing these locks.
+
+Advisory locks precede table locks to match existing writers. Arbitrary administrative transactions taking locks in another order can still deadlock; PostgreSQL aborts a participant atomically. This is a safe failure, not a guarantee of unlimited concurrency or automatic retry. There is no fallback to an unguarded writer when the wrapper is missing, denied or fails.
+
+### Retry and commit acknowledgement
+
+A successful non-no-op apply changes the compared plan state/revision. A second acceptance from the same preview therefore becomes stale, including concurrent double taps. There is no idempotency ledger: after a timeout or a lost commit response, the client must reread the plan and obtain a new preview rather than automatically replay a mutation. It cannot infer failure from a missing response. If the writer acknowledged success but a later readback/report fails, the runtime returns its bounded successful receipt with a warning. Durable request replay would require a separately designed persisted idempotency contract.
+
+### Existing save and unavailability
+
+Recommendation save is outside the six preview/apply Tools. Its existing date lock and check prevent a second active plan among cooperating date writers; it does not provide an expected-state acceptance guarantee over all recommendation inputs. Do not describe legacy save as transactionally accepting a reviewed preview. Any future `preview_save`/`apply_save` must join this contract, including availability and prescription authority. Unavailability is an explicit idempotent upsert protected by its own unique date key and advisory namespace; it intentionally preserves plans and has no preview-state predicate. The new wrapper takes that namespace when availability conditions an existing-plan action.
 
 ## Closed Loop and user acceptance
 
-The canonical assessment creates `adaptation_proposal_v1`. The bridge selects an owned actionable future session and resolves an allowed duration reduction through a versioned deterministic policy. It never accepts an LLM-created target or block payload. The full assessment/proposal evidence is rebound on apply, so changed feedback, health, linkage or target state invalidates the reviewed proposal.
+The canonical assessment creates `adaptation_proposal_v1`. The bridge selects an owned actionable future session and resolves an allowed duration reduction through a versioned deterministic policy. It never accepts an LLM-created target or block payload. The full assessment/proposal evidence is rebound during apply preflight, so evidence changed before that read invalidates the reviewed proposal.
+
+The transaction distinguishes **mutation authority** (confirmed target/action/exact payload, candidate plans, target state, blocks, availability and profile calendar) from **advisory evidence** (execution metrics, feedback, Health, readiness and the derived explanation). Advisory evidence is the snapshot that justified the reviewed proposal, not a requirement that measurements remain unchanged until commit. After successful preflight, an observational update cannot change the immutable command passed to PostgreSQL. The wrapper never recalculates a proposal using newer observations. A changed target plan or selection predicate is stale; a later Health observation alone may coexist with the same exact accepted change. This is strict atomic acceptance of mutation authority, not an atomic snapshot of every observational source or a promise of the latest clinical advice.
 
 App presents the proposal, then a review with before/after and reasons, then an explicit Apply action. Successful application is reported from the existing writer and followed by a canonical plan readback. A readback/reporting failure after an acknowledged write must remain an acknowledged success with a warning, avoiding a misleading retry. No automatic adaptation occurs.
 
@@ -76,6 +117,8 @@ App presents the proposal, then a review with before/after and reasons, then an 
 
 `tests/enqidu-action-core.test.mjs` exercises five action families: deterministic previews with zero writes; exact execution through the existing writer dispatch; stale receipts after block changes; owner isolation and payload injection; nonexistent, completed, skipped, cancelled and ambiguous targets; real invalid dates, past dates, invalid durations/environments; unavailable dates; exact block replacement previews; unchanged no-op results; safe RPC errors; and single-call week dispatch. It also tests expiry, recommendation input/revision changes, real HRV loader cutoff repeatability and count changes, and bound Closed Loop reasons.
 
-Existing Coach action/evaluation tests follow the extracted shared code and retain auth, timezone, no-LLM and fixed-writer guards. Tools/MCP tests cover runtime confirmation, transport parity and feature gating. Local integration/E2E verifies actual existing RPC transactions and retained execution/FIT data. Unit mocks deliberately do not claim to prove the missing database compare-and-write guarantee.
+Existing Coach action/evaluation tests follow the extracted shared code and retain auth, timezone, no-LLM and fixed-writer guards. Tools/MCP tests cover runtime confirmation, transport parity and feature gating. Local integration/E2E verifies actual existing RPC transactions and retained execution/FIT data.
 
-No incremental paid service, LLM call, production deployment or migration is needed to run these checks.
+`npm run test:transactional-actions` uses actual independent PostgreSQL connections. Writer A mutates while retaining its transaction locks; acceptance B attempts the wrapper; the monitor verifies `pg_blocking_pids` and a waiting `pg_locks` entry before releasing A. Assertions compare complete persisted rows and `xmin` to prove stale B wrote nothing. The suite covers cancellation, competing duration applies, environment cancellation, occupied move targets, moved sources, week availability/set changes and independent block changes. Happy-path acceptance and privilege/hostile DTO checks run against the same database.
+
+The single product migration is applied only to disposable Supabase local/CI for these tests. No incremental paid service, LLM call or production deployment is required.

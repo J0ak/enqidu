@@ -69,7 +69,7 @@ The current Phase-1 deterministic Coach remains valid while the OpenAI pilot is 
 
 ## Shared tool contract
 
-`src/enqiduTools/registry.js` is the executable, provider-independent contract. App/Coach and local MCP share its authenticated runtime, canonical read domain and preview/apply actions. `src/coachTools/catalog.js` retains compatibility language-intent names; its transport exports project the official registry. See [ENQIDU Tools V1](enqidu-tools-v1.md), [Action Preview V1](enqidu-action-preview-v1.md) and [MCP V1](enqidu-mcp-v1.md). Strict transactional preview consistency remains an explicit write-rollout blocker under the no-migration constraint.
+`src/enqiduTools/registry.js` is the executable, provider-independent contract. App/Coach and local MCP share its authenticated runtime, canonical read domain and preview/apply actions. `src/coachTools/catalog.js` retains compatibility language-intent names; its transport exports the official registry. The service-only `apply_enqidu_action_v1` compares expected mutation authority and invokes existing writers within one locked transaction; observational evidence has an explicitly narrower preflight consistency boundary. See [ENQIDU Tools V1](enqidu-tools-v1.md), [Action Preview V1](enqidu-action-preview-v1.md) and [MCP V1](enqidu-mcp-v1.md). MCP writes remain disabled and no production rollout has occurred.
 
 Only implemented capabilities are model-visible. Roadmap tool names are documented but excluded until a validated executor exists.
 
