@@ -56,11 +56,14 @@ test("coach-reply resolves yesterday against the previous calendar date before q
 test("coach-reply loads today's RLS-protected planned sessions before building the deterministic reply", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
 
-  assert.match(source, /from\("planned_training_sessions"\)/);
-  assert.match(source, /from\("planned_session_blocks"\)/);
-  assert.match(source, /\.eq\("user_id", userId\)/);
-  assert.match(source, /\.eq\("planned_date", date\)/);
-  assert.match(source, /context\.planned_training = intents\.planToday \|\| intents\.healthTraining[\s\S]*loadPlannedTraining\(db, userId, contextDate\)/);
+  const domain = await readFile(new URL("../src/enqiduTools/readTools.js", import.meta.url), "utf8");
+  assert.match(domain, /from\("planned_training_sessions"\)/);
+  assert.match(domain, /from\("planned_session_blocks"\)/);
+  assert.match(domain, /\.eq\("user_id", userId\)/);
+  assert.match(domain, /planRows\(calendar\.date, calendar\.date\)/);
+  assert.match(source, /intents\.planToday \|\| intents\.healthTraining[\s\S]*tool: "get_today_plan"/);
+  assert.match(source, /await tools\.executeMany\(requests\)/);
+  assert.match(source, /applyToolResultsToCoachContext\(context, toolResults\)/);
   assert.match(source, /buildDeterministicCoachReply\(\{ message, context \}\)/);
 });
 
@@ -76,10 +79,12 @@ test("frontend does not impose the browser calendar date on Coach relative-day s
 
 test("coach-reply loads only authenticated active athlete constraints for recommendation context", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  assert.match(source, /from\("coach_athlete_constraints"\)/);
-  assert.match(source, /\.eq\("user_id", userId\)/);
-  assert.match(source, /\.eq\("active", true\)/);
-  assert.match(source, /context\.recommendation_context = \{[\s\S]*loadRecommendationConstraints\(db, userId\)/);
+  const domain = await readFile(new URL("../src/enqiduTools/readTools.js", import.meta.url), "utf8");
+  const adapter = await readFile(new URL("../src/enqiduTools/coachAdapter.js", import.meta.url), "utf8");
+  assert.match(domain, /from\("coach_athlete_constraints"\)/);
+  assert.match(domain, /\.eq\("user_id", userId\)\.eq\("active", true\)/);
+  assert.match(source, /tool: "get_athlete_context"/);
+  assert.match(adapter, /context\.recommendation_context = \{ constraints: data\.constraints \}/);
 });
 
 
@@ -106,9 +111,10 @@ test("trend intent returns before the optional OpenAI call", async () => {
 
 test("coach-reply loads weekly planning only for weekly-plan intent", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  assert.match(source, /from\("planned_training_sessions"\)[\s\S]*linked_completed_session_id/);
-  assert.match(source, /from\("weekly_plans"\)[\s\S]*weekly_focus/);
-  assert.match(source, /context\.weekly_planning = intents\.weekPlan/);
+  const domain = await readFile(new URL("../src/enqiduTools/readTools.js", import.meta.url), "utf8");
+  assert.match(domain, /PLAN_SELECT = .*linked_completed_session_id/);
+  assert.match(domain, /from\("weekly_plans"\)[\s\S]*weekly_focus/);
+  assert.match(source, /if \(intents\.weekPlan\) requests\.push\(\{ tool: "get_week_plan"/);
 });
 
 

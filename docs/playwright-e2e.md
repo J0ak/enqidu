@@ -20,6 +20,7 @@ cp -R src e2e-local/src
 supabase --workdir e2e-local start
 supabase --workdir e2e-local db reset
 node e2e-local/bootstrap-health-intelligence.mjs
+node e2e-local/bootstrap-browser-read-contract.mjs
 supabase --workdir e2e-local status -o env > /tmp/supabase.env
 source /tmp/supabase.env
 
@@ -98,3 +99,35 @@ managed proxy's JSR certificate limitation. The official PostgreSQL 17.11.0.002
 image was flattened into one local Docker layer, preserving its filesystem and
 runtime configuration, after the managed daemon's `vfs` layer copies exceeded
 the available disk. The daemon/storage driver was unchanged.
+
+The Tools/Coach browser suite includes an athlete with executed training. Run
+`bootstrap-browser-read-contract.mjs` after reset to reconstruct the existing
+Activity-detail read columns and four empty lookup tables omitted from the slim
+local baseline. Its provenance is the current `src/main.jsx` read projections and
+canonical session service; it cannot accept a remote URL/container and does not
+add a product migration. Local owner-read policies apply to the lookup fixtures.
+No Garmin/FIT values or history are synthesized by this bootstrap.
+
+## Transactional action acceptance
+
+After both bootstraps above, run `node e2e-local/bootstrap-transactional-actions.mjs`.
+It applies the exact single product migration `20261007045422_apply_enqidu_action_v1.sql`
+to `supabase_db_enqidu-e2e` through the local Docker socket, without a remote URL
+option or a second SQL implementation. Refresh served functions after source changes.
+
+The dedicated real-PostgreSQL suite is invoked in the CI E2E job before Playwright:
+
+```bash
+supabase --workdir e2e-local status -o env > /tmp/supabase.env
+chmod 600 /tmp/supabase.env
+ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/tmp/supabase.env npm run test:transactional-actions
+```
+
+The environment file stays outside Git. The suite refuses non-loopback database
+hosts, URL connection options and missing explicit local opt-in. Pinned `pg`
+**8.16.3** is a development-only dependency for independent database connections;
+it is not shipped in the browser or Edge and adds no hosted service. A fixed
+trusted request clock makes remaining-week cases weekday-independent without
+changing the database clock or production function. Real `pg_blocking_pids` and
+`pg_locks` barriers determine interleaving, not sleeps. Full rows and `xmin` prove
+zero stale writes; disposable evidence is cleaned through the existing service role.

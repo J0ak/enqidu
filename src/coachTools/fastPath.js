@@ -206,6 +206,19 @@ export function detectEnqiduFastPathCommand(message = "") {
     };
   }
 
+  const explicitMove = text.match(/^(?:mueve|pasa|cambia) (?:el )?(lunes|martes|miercoles|jueves|viernes|sabado|domingo) al (lunes|martes|miercoles|jueves|viernes|sabado|domingo)$/);
+  if (explicitMove) {
+    const definition = getEnqiduTool("move_planned_session");
+    if (!definition?.enabled || definition.access !== "write") return null;
+    return {
+      tool: definition.name,
+      arguments: { source_weekday: WEEKDAY_ALIASES[explicitMove[1]], target_weekday: WEEKDAY_ALIASES[explicitMove[2]] },
+      explicit_user_command: true,
+      confidence: 1,
+      source: "deterministic_fast_path",
+    };
+  }
+
   const targetWeekday = detectMoveWeekday(text);
   if (targetWeekday) {
     const definition = getEnqiduTool("move_planned_session");

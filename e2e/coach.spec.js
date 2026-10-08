@@ -1,10 +1,17 @@
 import { test as base, expect } from "@playwright/test";
+import { createToolsFixture, TOOLS_PASSWORD } from "./tools-fixture.js";
 
 const test = base.extend({
-  page: async ({ page }, use) => {
+  expectedToolStatuses: async ({}, use) => { await use(new Set()); },
+  page: async ({ page, expectedToolStatuses }, use) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-    page.on("console", (message) => { if (message.type() === "error") errors.push(`console.error: ${message.text()} @ ${message.location().url || "unknown"}`); });
+    page.on("console", (message) => {
+      if (message.type() !== "error") return;
+      const expectedDomainError = message.location().url?.includes("/functions/v1/enqidu-tools")
+        && [...expectedToolStatuses].some((status) => message.text().includes(`status of ${status}`));
+      if (!expectedDomainError) errors.push(`console.error: ${message.text()} @ ${message.location().url || "unknown"}`);
+    });
     await use(page);
     expect(errors, errors.join("\n")).toEqual([]);
   },
@@ -56,7 +63,7 @@ async function login(page, user) {
   await page.goto("/#/profile");
   await page.getByRole("button", { name: "Perfil" }).click();
   await page.getByPlaceholder("email").fill(user.email);
-  await page.getByPlaceholder("password").fill(password);
+  await page.getByPlaceholder("password").fill(user.password || password);
   await page.getByRole("button", { name: "Conectar" }).click();
   await expect(page.getByText("Sesión iniciada.")).toBeVisible();
   await page.locator('button.railButton[aria-label="Coach"]').click();
@@ -69,6 +76,39 @@ async function ask(page, text) {
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   return response.json();
+}
+
+async function previewCommand(page, text, tool) {
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/enqidu-tools")
+    && response.request().method() === "POST"
+    && response.request().postDataJSON()?.tool === tool
+  );
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill(text);
+  await page.getByRole("button", { name: "Enviar" }).click();
+  const response = await responsePromise;
+  const body = await response.json();
+  expect(body.ok, JSON.stringify(body)).toBe(true);
+  expect(body.timezone).toBe("Europe/Madrid");
+  expect(body.calendar_date).toBe(madridDate());
+  return body;
+}
+
+async function applyReviewedPreview(page, tool) {
+  await page.getByRole("button", { name: "REVISAR CAMBIO", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Antes", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Después", exact: true })).toBeVisible();
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes("/functions/v1/enqidu-tools")
+    && response.request().method() === "POST"
+    && response.request().postDataJSON()?.tool === tool
+  );
+  await page.getByRole("button", { name: "APLICAR", exact: true }).click();
+  const response = await responsePromise;
+  const body = await response.json();
+  expect(body.ok, JSON.stringify(body)).toBe(true);
+  expect(body.timezone).toBe("Europe/Madrid");
+  return { ...body.data, calendar_timezone: body.timezone, request_date: body.calendar_date };
 }
 
 async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate(), environment = "home") {
@@ -161,16 +201,11 @@ test("explicit conversational move reprograms the persisted plan without Coach L
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const moveResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Muévelo al viernes");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const moveResponse = await moveResponsePromise;
-  expect(moveResponse.status()).toBe(200);
-  const body = await moveResponse.json();
+  const preview = await previewCommand(page, "Muévelo al viernes", "preview_move_session");
+  expect(preview.data.requires_confirmation).toBe(true);
+  expect(await planRowsOnDate(request, user.id, madridDate())).toHaveLength(1);
+  expect(await planRowsOnDate(request, user.id, nextWeekdayDate(madridDate(), "friday"))).toHaveLength(0);
+  const body = await applyReviewedPreview(page, "apply_move_session");
   const targetDate = nextWeekdayDate(madridDate(), "friday");
   expect(body).toMatchObject({
     ok: true,
@@ -207,16 +242,10 @@ test("explicit environment adaptation recalculates an ENQIDU plan for home witho
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const actionResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Hazlo en casa");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const actionResponse = await actionResponsePromise;
-  expect(actionResponse.status()).toBe(200);
-  const body = await actionResponse.json();
+  await previewCommand(page, "Hazlo en casa", "preview_adapt_environment");
+  const beforeApply = await planRowsOnDate(request, user.id, madridDate());
+  expect(beforeApply[0]).toMatchObject({ title: "Plan exterior a adaptar", location_type: "outdoor" });
+  const body = await applyReviewedPreview(page, "apply_adapt_environment");
   expect(body).toMatchObject({
     ok: true,
     action: "adapt_session_environment",
@@ -270,16 +299,10 @@ test("explicit duration adaptation rescales an ENQIDU plan without Coach LLM", a
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const actionResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Hazlo de 30 minutos");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const actionResponse = await actionResponsePromise;
-  expect(actionResponse.status()).toBe(200);
-  const body = await actionResponse.json();
+  await previewCommand(page, "Hazlo de 30 minutos", "preview_adapt_duration");
+  const beforeApply = await planRowsOnDate(request, user.id, madridDate());
+  expect(beforeApply[0].planned_duration_min).toBe(35);
+  const body = await applyReviewedPreview(page, "apply_adapt_duration");
   expect(body).toMatchObject({
     ok: true,
     action: "adapt_session_duration",
@@ -374,29 +397,12 @@ test("explicit remaining-week adaptation is deterministic and LLM-free when no m
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const actionResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Adapta el resto de la semana");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const actionResponse = await actionResponsePromise;
-  expect(actionResponse.status()).toBe(200);
-  const body = await actionResponse.json();
-  expect(body).toMatchObject({
-    ok: true,
-    action: "adapt_remaining_week",
-    adapted: false,
-    moves: [],
-    response_mode: "deterministic_action",
-    llm_used: false,
-    usage: null,
-    calendar_timezone: "Europe/Madrid",
-    request_date: madridDate(),
-  });
+  const body = await previewCommand(page, "Adapta el resto de la semana", "preview_adapt_remaining_week");
+  expect(body.data.requires_confirmation).toBe(false);
   expect(coachReplyCalls).toBe(0);
-  await expect(page.getByText(/No hay sesiones de ENQIDU pendientes de recolocar/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "APLICAR", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/No hay sesiones.*pendientes de recolocar/i)).toBeVisible();
+
 });
 
 test("explicit cancellation preserves audit history and releases the date for a new active plan", async ({ page, request }) => {
@@ -410,16 +416,10 @@ test("explicit cancellation preserves audit history and releases the date for a 
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const actionResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Cancélalo");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const actionResponse = await actionResponsePromise;
-  expect(actionResponse.status()).toBe(200);
-  const body = await actionResponse.json();
+  await previewCommand(page, "Cancélalo", "preview_cancel_session");
+  const beforeApply = await planRowsOnDate(request, user.id, madridDate());
+  expect(beforeApply[0].status).not.toBe("cancelled");
+  const body = await applyReviewedPreview(page, "apply_cancel_session");
   expect(body).toMatchObject({
     ok: true,
     action: "cancel_planned_session",
@@ -531,4 +531,132 @@ test("trend reports volume without claiming performance improvement", async ({ p
 test("Coach cards and primary navigation render without browser exceptions", async ({ page, request }) => {
   const user=await provision(request,"smoke"); await login(page,user); await ask(page,"¿Qué entreno hoy?"); await expect(page.locator("article.coachInlineCard")).toBeVisible();
   await page.getByRole("button",{name:"Actividades"}).click(); await expect(page.getByRole("heading",{name:"ENQIDU"})).toBeVisible(); await page.getByRole("button",{name:"Perfil"}).click(); await expect(page.getByText("Cuenta e ingesta", { exact: true })).toBeVisible(); await expect(page.getByText(user.email, { exact: true }).first()).toBeVisible();
+});
+
+test("preview can be dismissed and conversational acceptance first requires reviewing the exact change", async ({ page, request }) => {
+  const user = await provision(request, "preview-review");
+  await createPlan(request, user.id, "Fuerza para revisar");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+  await previewCommand(page, "Déjalo en 30 minutos", "preview_adapt_duration");
+  let applies = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/enqidu-tools") && req.method() === "POST" && req.postDataJSON()?.tool?.startsWith("apply_")) applies += 1;
+  });
+  await expect(page.getByRole("button", { name: "APLICAR", exact: true })).toHaveCount(0);
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Aplícalo");
+  await page.getByRole("button", { name: "Enviar" }).click();
+  await expect(page.getByRole("heading", { name: "Antes", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Después", exact: true })).toBeVisible();
+  const panel = page.getByRole("region", { name: "Cambio propuesto" });
+  await expect(panel.getByText(/35 min/).first()).toBeVisible();
+  await expect(panel.getByText(/30 min/).first()).toBeVisible();
+  expect(applies).toBe(0);
+  expect((await planRowsOnDate(request, user.id, madridDate()))[0].planned_duration_min).toBe(35);
+  await page.getByRole("button", { name: "Descartar propuesta" }).click();
+  await expect(panel).toHaveCount(0);
+  expect(applies).toBe(0);
+  expect((await planRowsOnDate(request, user.id, madridDate()))[0].planned_duration_min).toBe(35);
+});
+
+test("stale preview is rejected in Coach and preserves the concurrent canonical plan", async ({ page, request, expectedToolStatuses }) => {
+  const user = await provision(request, "preview-stale");
+  const created = await createPlan(request, user.id, "Fuerza antes de editar");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+  await previewCommand(page, "Déjalo en 30 minutos", "preview_adapt_duration");
+  await page.getByRole("button", { name: "REVISAR CAMBIO", exact: true }).click();
+  const concurrent = await request.patch(`${supabaseUrl}/rest/v1/planned_training_sessions?id=eq.${created.planned_session_id}`, {
+    headers: headers(), data: { title: "Fuerza editada mientras revisabas" },
+  });
+  expect(concurrent.ok(), await concurrent.text()).toBe(true);
+  expectedToolStatuses.add(409);
+  const responsePromise = page.waitForResponse((response) => response.url().includes("/functions/v1/enqidu-tools") && response.request().method() === "POST" && response.request().postDataJSON()?.tool === "apply_adapt_duration");
+  await page.getByRole("button", { name: "APLICAR", exact: true }).click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(409);
+  expect(await response.json()).toMatchObject({ ok: false, error: { code: "preview_stale" } });
+  await expect(page.getByRole("alert")).toContainText("El plan ha cambiado");
+  await expect(page.getByRole("button", { name: "APLICAR", exact: true })).toHaveCount(0);
+  expect((await planRowsOnDate(request, user.id, madridDate()))[0]).toMatchObject({ title: "Fuerza editada mientras revisabas", planned_duration_min: 35, planned_duration_max: 35 });
+  const blocks = await request.get(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${created.planned_session_id}&select=planned_duration_seconds`, { headers: headers() });
+  expect((await blocks.json())[0].planned_duration_seconds).toBe(2100);
+  let repeatedApplies = 0;
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/enqidu-tools") && req.method() === "POST" && req.postDataJSON()?.tool?.startsWith("apply_")) repeatedApplies += 1;
+  });
+  for (const text of ["Revisar cambio", "Aplícalo"]) {
+    await page.getByPlaceholder("Escribe o dicta tu actualización").fill(text);
+    await page.getByRole("button", { name: "Enviar" }).click();
+    await expect(page.getByRole("button", { name: "Enviar" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "APLICAR", exact: true })).toHaveCount(0);
+  }
+  expect(repeatedApplies).toBe(0);
+});
+
+test("new frontend with unavailable Tools backend fails safely without a legacy write fallback", async ({ page, request, expectedToolStatuses }) => {
+  const user = await provision(request, "tools-rollout");
+  await createPlan(request, user.id, "Fuerza durante actualización");
+  await login(page, user);
+  await ask(page, "¿Qué entreno hoy?");
+  const original = await planRowsOnDate(request, user.id, madridDate());
+  let writes = 0;
+  page.on("request", (req) => {
+    if (req.method() !== "POST") return;
+    if (req.url().includes("/functions/v1/coach-plan-action") || (req.url().includes("/functions/v1/enqidu-tools") && req.postDataJSON()?.tool?.startsWith("apply_"))) writes += 1;
+  });
+  expectedToolStatuses.add(404);
+  await page.route("**/functions/v1/enqidu-tools", (route) => route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ message: "Function not found" }) }));
+  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Déjalo en 30 minutos");
+  await page.getByRole("button", { name: "Enviar" }).click();
+  await expect(page.getByText("No se pudo consultar ENQIDU. Vuelve a intentarlo.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Cambio propuesto" })).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(await planRowsOnDate(request, user.id, madridDate())).toEqual(original);
+});
+
+test("Closed Loop Coach proposal reviews exact 50-to-40 minute change and applies only after acceptance", async ({ page }) => {
+  const fixture = await createToolsFixture("coach-closed-loop");
+  try {
+    const before = await fixture.snapshot();
+    await login(page, { email: fixture.email, password: TOOLS_PASSWORD });
+    const response = await ask(page, "Evalúa mi entrenamiento de ayer");
+    expect(response.llm_used).toBe(false);
+    expect(response.response_mode).toBe("deterministic");
+    expect(response.answer).toMatch(/propuesta/i);
+    const proposal = response.cards.find((card) => card.actions?.some((action) => action.type === "review_closed_loop_proposal"));
+    expect(proposal).toBeTruthy();
+    expect(await fixture.snapshot()).toEqual(before);
+    const previewPromise = page.waitForResponse((result) => result.url().includes("/functions/v1/enqidu-tools") && result.request().method() === "POST" && result.request().postDataJSON()?.tool === "preview_closed_loop_proposal");
+    await page.getByRole("button", { name: "Revisar cambio", exact: true }).click();
+    const previewResponse = await previewPromise;
+    const preview = await previewResponse.json();
+    expect(preview.ok, JSON.stringify(preview)).toBe(true);
+    expect(preview.timezone).toBe("Europe/Madrid");
+    expect(preview.data.before[0]).toMatchObject({ title: "Lower Strength siguiente", duration_minutes: 50 });
+    expect(preview.data.after[0]).toMatchObject({ title: "Lower Strength siguiente", duration_minutes: 40 });
+    const panel = page.getByRole("region", { name: "Cambio propuesto" });
+    await expect(panel.getByRole("heading", { name: "Antes", exact: true })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Después", exact: true })).toBeVisible();
+    await expect(panel.getByText(/50 min/).first()).toBeVisible();
+    await expect(panel.getByText(/40 min/).first()).toBeVisible();
+    await expect(panel.getByText("El esfuerzo que confirmaste superó el rango previsto.", { exact: true })).toBeVisible();
+    expect(await fixture.snapshot()).toEqual(before);
+    const applyPromise = page.waitForResponse((result) => result.url().includes("/functions/v1/enqidu-tools") && result.request().method() === "POST" && result.request().postDataJSON()?.tool === "apply_closed_loop_proposal");
+    await page.getByRole("button", { name: "APLICAR", exact: true }).click();
+    const applied = await (await applyPromise).json();
+    expect(applied.ok, JSON.stringify(applied)).toBe(true);
+    expect(applied.data.planned_session).toMatchObject({ title: "Lower Strength siguiente", duration_minutes: 40 });
+    await expect(page.getByText("He ajustado Lower Strength siguiente a 40 minutos.", { exact: true })).toBeVisible();
+    const after = await fixture.snapshot();
+    expect(after.plans.find((plan) => plan.id === fixture.identities.futurePlan.id)).toMatchObject({ planned_duration_min: 40, planned_duration_max: 40, status: "modified" });
+    expect(after.fit).toEqual(before.fit);
+    expect(after.executions).toEqual(before.executions);
+    expect(after.metrics).toEqual(before.metrics);
+    const week = await ask(page, "Muéstrame mi plan semanal");
+    expect(week.llm_used).toBe(false);
+    expect(week.cards.some((card) => card.id === "weekly_plan_progress")).toBe(true);
+  } finally {
+    await fixture.dispose();
+  }
 });

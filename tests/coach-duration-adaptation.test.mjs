@@ -97,22 +97,19 @@ test("COACH DURATION: client sends only source date, target duration and client 
   assert.doesNotMatch(block, /user_id:|planned_session_id:|blocks:|status:/);
 });
 
-test("COACH DURATION: server derives block durations and never calls OpenAI", async () => {
-  const source = await readFile(new URL("../supabase/functions/coach-plan-action/index.ts", import.meta.url), "utf8");
-  const start = source.indexOf('if (action === "adapt_session_duration")');
-  const end = source.indexOf('if (action === "adapt_session_environment")', start);
-  assert.ok(start >= 0 && end > start);
-  const block = source.slice(start, end);
-
-  assert.match(block, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
-  assert.match(block, /sourceSession\.source !== "enkidu_coach"/);
-  assert.match(block, /loadPlannedBlocks\(userDb, sourceSession\.id\)/);
-  assert.match(block, /scalePlannedBlockDurations\(blocks, targetDurationMinutes\)/);
-  assert.match(block, /adminDb\.rpc\("adapt_coach_planned_session_duration"/);
-  assert.match(block, /response_mode: "deterministic_action"/);
-  assert.match(block, /llm_used: false/);
-  assert.match(block, /usage: null/);
-  assert.doesNotMatch(block, /api\.openai\.com/);
+test("COACH DURATION: shared server domain derives block durations and never calls OpenAI", async () => {
+  const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
+  assert.match(source, /isPlanDateOnOrAfter\(sourceDate, calendar\.date\)/);
+  assert.match(source, /source\.source !== "enkidu_coach"/);
+  assert.match(source, /loadBlocks\(db, \[source\.id\]\)/);
+  assert.match(source, /scalePlannedBlockDurations\(blocks, args\.duration_minutes\)/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const boundary = await readFile(new URL("../supabase/migrations/20261007045422_apply_enqidu_action_v1.sql", import.meta.url), "utf8");
+  assert.match(boundary, /public\.adapt_coach_planned_session_duration\(/);
+  assert.match(source, /response_mode: "deterministic_action"/);
+  assert.match(source, /llm_used: false/);
+  assert.match(source, /usage: null/);
+  assert.doesNotMatch(source, /api\.openai\.com/);
 });
 
 test("COACH DURATION: migration validates exact block set and exact duration sum before writes", async () => {

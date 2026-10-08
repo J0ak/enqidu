@@ -1,3 +1,8 @@
+import { listEnqiduTools as listDomainTools } from "../enqiduTools/registry.js";
+
+// Compatibility vocabulary for deterministic language routing. These legacy
+// names are intents, not executable model/MCP capabilities. The official closed
+// registry and transport descriptors live in enqiduTools/registry.js.
 export const ENQIDU_TOOL_CONTRACT_VERSION = "enqidu_tools_v1";
 
 const noArgs = Object.freeze({
@@ -225,20 +230,23 @@ export function listEnqiduTools({ includeWrites = true } = {}) {
 }
 
 export function toOpenAIResponsesTools(options = {}) {
-  return listEnqiduTools(options).map((item) => ({
+  return listDomainTools({ includeWrites: false, ...options }).map((item) => ({
     type: "function",
-    name: item.name,
+    name: item.id,
     description: item.description,
-    parameters: item.parameters,
-    strict: true,
+    parameters: item.input_schema,
+    // Optional arguments are intentionally optional. Runtime performs strict
+    // validation independently; this projection does not grant write authority.
+    strict: false,
   }));
 }
 
 export function toMcpToolDescriptors(options = {}) {
-  return listEnqiduTools(options).map((item) => ({
-    name: item.name,
+  return listDomainTools({ includeWrites: false, ...options }).map((item) => ({
+    name: item.id,
     description: item.description,
-    inputSchema: item.parameters,
+    inputSchema: item.input_schema,
+    outputSchema: item.output_schema,
   }));
 }
 

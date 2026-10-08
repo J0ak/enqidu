@@ -284,7 +284,7 @@ test("package scripts do not apply migrations or run real seed", async () => {
   assert.doesNotMatch(scripts, /\bpsql\b/i);
 });
 
-test("schema branch does not create forbidden runtime files", async () => {
+test("runtime Edge functions remain an audited closed list", async () => {
   assert.equal(await fileExists("src/main.jsx"), true);
 
   const functionEntries = await readdir(path.join(root, "supabase", "functions"));
@@ -294,6 +294,7 @@ test("schema branch does not create forbidden runtime files", async () => {
     "coach-context-memory",
     "coach-plan-action",
     "coach-reply",
+    "enqidu-tools",
     "session-context",
     "session-correction-apply",
     "session-correction-preview",

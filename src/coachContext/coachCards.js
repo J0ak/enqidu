@@ -112,6 +112,7 @@ export function detectCoachIntents(message = "") {
     "comparada con el plan", "comparado con el plan", "cumpli mi plan",
     "evaluacion de mi sesion", "evaluacion de la sesion", "evalua mi sesion",
     "balance de mi sesion", "que adaptacion propones", "que ajustar despues",
+    "evalua mi entrenamiento", "evalua el entrenamiento", "evalua lo de ayer",
   ]);
 
   return {
@@ -134,7 +135,7 @@ export function detectCoachIntents(message = "") {
       "estoy recuperado",
       "afecta al entrenamiento",
       "fatiga",
-      "como estoy hoy",
+      "como estoy",
       "puedo entrenar hoy",
       "pulso",
       "frecuencia cardiaca",

@@ -4,8 +4,8 @@ import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDet
 import { detectCoachIntents } from "../../../src/coachContext/coachCards.js";
 import { buildTrainingTrendRanges } from "../../../src/coachContext/trainingTrend.js";
 import { isValidTimeZone, resolveUserCalendar } from "../../../src/time/userCalendar.js";
-import { loadHealthIntelligence } from "../../../src/health/loadHealthIntelligence.js";
-import { loadClosedLoopAssessments } from "../../../src/closedLoop/loadClosedLoopAssessments.js";
+import { createEnqiduToolRuntime } from "../../../src/enqiduTools/runtime.js";
+import { applyToolResultsToCoachContext, closedLoopReviewCard } from "../../../src/enqiduTools/coachAdapter.js";
 import { requestOpenAiResponses } from "../../../src/llm/openAiResponsesProvider.js";
 
 const headers = {
@@ -55,118 +55,6 @@ async function loadTrainingPeriod(db: any, userId: string, from: string, to: str
 
   if (result.error) throw result.error;
   return result.data || null;
-}
-
-async function loadPlannedTraining(db: any, userId: string, date: string) {
-  const sessionsResult = await db
-    .from("planned_training_sessions")
-    .select("id, planned_date, planned_time, title, session_type, status, location_type, planned_intensity, planned_duration_min, planned_duration_max, objective, coach_notes, source")
-    .eq("user_id", userId)
-    .eq("planned_date", date)
-    .neq("status", "cancelled")
-    .order("planned_time", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: true });
-
-  if (sessionsResult.error) throw sessionsResult.error;
-  const sessions = Array.isArray(sessionsResult.data) ? sessionsResult.data : [];
-  if (!sessions.length) return { date, sessions: [] };
-
-  const ids = sessions.map((session: any) => session.id).filter(Boolean);
-  const blocksResult = await db
-    .from("planned_session_blocks")
-    .select("planned_session_id, block_order, block_type, title, objective, planned_duration_seconds, planned_rounds")
-    .in("planned_session_id", ids)
-    .order("block_order", { ascending: true });
-
-  if (blocksResult.error) throw blocksResult.error;
-  const blocks = Array.isArray(blocksResult.data) ? blocksResult.data : [];
-
-  return {
-    date,
-    sessions: sessions.map((session: any) => {
-      const sessionBlocks = blocks.filter((block: any) => block.planned_session_id === session.id);
-      return {
-        ...session,
-        blocks_count: sessionBlocks.length,
-        blocks: sessionBlocks.map((block: any) => ({
-          block_order: block.block_order,
-          block_type: block.block_type,
-          title: block.title,
-          objective: block.objective,
-          planned_duration_seconds: block.planned_duration_seconds,
-          planned_rounds: block.planned_rounds,
-        })),
-      };
-    }),
-  };
-}
-
-async function loadWeeklyPlanning(
-  db: any,
-  userId: string,
-  from: string,
-  to: string,
-  referenceDate: string,
-) {
-  const sessionsResult = await db
-    .from("planned_training_sessions")
-    .select("id, planned_date, planned_time, title, session_type, status, location_type, planned_intensity, planned_duration_min, planned_duration_max, objective, source, linked_completed_session_id")
-    .eq("user_id", userId)
-    .gte("planned_date", from)
-    .lte("planned_date", to)
-    .order("planned_date", { ascending: true })
-    .order("planned_time", { ascending: true, nullsFirst: false });
-
-  if (sessionsResult.error) throw sessionsResult.error;
-
-  const focusResult = await db
-    .from("weekly_plans")
-    .select("weekly_focus")
-    .eq("user_id", userId)
-    .eq("week_start", from)
-    .order("updated_at", { ascending: false })
-    .limit(1);
-
-  if (focusResult.error) throw focusResult.error;
-
-  return {
-    from,
-    to,
-    reference_date: referenceDate,
-    weekly_focus: Array.isArray(focusResult.data) ? focusResult.data[0]?.weekly_focus || null : null,
-    sessions: Array.isArray(sessionsResult.data) ? sessionsResult.data : [],
-  };
-}
-
-async function loadTrainingAvailability(db: any, userId: string, date: string) {
-  const result = await db
-    .from("training_availability_overrides")
-    .select("calendar_date, availability_status, source")
-    .eq("user_id", userId)
-    .eq("calendar_date", date)
-    .limit(1);
-
-  if (result.error) throw result.error;
-  const row = Array.isArray(result.data) ? result.data[0] : null;
-  return row
-    ? {
-        date: row.calendar_date || date,
-        status: row.availability_status || null,
-        source: row.source || null,
-      }
-    : null;
-}
-
-async function loadRecommendationConstraints(db: any, userId: string) {
-  const result = await db
-    .from("coach_athlete_constraints")
-    .select("constraint_type, severity, description, active")
-    .eq("user_id", userId)
-    .eq("active", true)
-    .order("created_at", { ascending: true });
-
-  if (result.error) throw result.error;
-  return Array.isArray(result.data) ? result.data : [];
 }
 
 Deno.serve(async (req: Request) => {
@@ -228,40 +116,29 @@ Deno.serve(async (req: Request) => {
       calendar_timezone: calendar.timezone,
       date_source: calendar.source,
     };
-    context.health_recovery = await loadHealthIntelligence(db, {
-      userId,
-      calendarDate: contextDate,
-      timezone: calendar.timezone,
-      generatedAt: new Date().toISOString(),
-    });
-    context.readiness = context.health_recovery.readiness;
-    context.closed_loop_assessments = intents.closedLoop
-      ? await loadClosedLoopAssessments(db, {
-          userId,
-          calendarDate: contextDate,
-          timezone: calendar.timezone,
-          generatedAt: context.health_recovery.generated_at,
-          sessionId: body.session_id || null,
-          fromDate: body.from_date || null,
-          toDate: body.to_date || null,
-        })
-      : [];
-    context.planned_training = intents.planToday || intents.healthTraining
-      ? await loadPlannedTraining(db, userId, contextDate)
-      : { date: contextDate, sessions: [] };
-    context.training_availability = intents.planToday || intents.healthTraining
-      ? await loadTrainingAvailability(db, userId, contextDate)
-      : null;
-    context.recommendation_context = {
-      constraints: intents.planToday || intents.healthTraining
-        ? await loadRecommendationConstraints(db, userId)
-        : [],
-    };
+    const tools = await createEnqiduToolRuntime({ db, source: "coach" });
+    const requests: Array<{ tool: string; arguments: Record<string, unknown> }> = [
+      { tool: "get_health_status", arguments: contextDate === tools.context.request_calendar_date ? {} : { date: contextDate } },
+    ];
+    if (intents.closedLoop) requests.push({ tool: "get_closed_loop_assessment", arguments: {
+      ...(body.session_id ? { session_id: body.session_id } : {}), date: contextDate,
+    } });
+    if (intents.planToday || intents.healthTraining) {
+      requests.push({ tool: "get_today_plan", arguments: {} }, { tool: "get_athlete_context", arguments: {} });
+    }
+    if (intents.weekPlan) requests.push({ tool: "get_week_plan", arguments: {} });
+    if (intents.session && !intents.period) requests.push({ tool: "get_recent_training", arguments: { date: contextDate, limit: 10 } });
+    const toolResults = await tools.executeMany(requests);
+    const toolFailure = toolResults.find((result: any) => !result.ok);
+    if (toolFailure) return reply({ ok: false, error: toolFailure.error.code, message: toolFailure.error.safe_message }, 400);
+    applyToolResultsToCoachContext(context, toolResults);
+    context.closed_loop_assessments ||= [];
+    context.planned_training ||= { date: contextDate, sessions: [] };
+    context.training_availability ||= null;
+    context.recommendation_context ||= { constraints: [] };
     const currentFrom = context?.request?.from_date || null;
     const currentTo = context?.request?.to_date || null;
-    context.weekly_planning = intents.weekPlan && currentFrom && currentTo
-      ? await loadWeeklyPlanning(db, userId, currentFrom, currentTo, requestDate)
-      : null;
+    context.weekly_planning ||= null;
     const trendRanges = intents.trend && currentFrom && currentTo
       ? buildTrainingTrendRanges({
           from: currentFrom,
@@ -291,7 +168,8 @@ Deno.serve(async (req: Request) => {
       context.training_comparison = null;
     }
     const deterministic = buildDeterministicCoachReply({ message, context });
-    const cards = deterministic.cards;
+    const reviewCard = intents.closedLoop ? closedLoopReviewCard(context) : null;
+    const cards = reviewCard ? [...deterministic.cards, reviewCard] : deterministic.cards;
     const contextVersion = context?.context_version || "ai_context_v1";
     const llmEnabled = String(Deno.env.get("OPENAI_COACH_ENABLED") || "").toLowerCase() === "true";
 
@@ -423,7 +301,7 @@ Deno.serve(async (req: Request) => {
       usage: usagePayload,
     });
   } catch (error) {
-    console.error(error);
-    return reply({ error: "coach_reply_failed", detail: String((error as Error)?.message || error) }, 500);
+    console.error("coach_reply_failed");
+    return reply({ error: "coach_reply_failed" }, 500);
   }
 });
