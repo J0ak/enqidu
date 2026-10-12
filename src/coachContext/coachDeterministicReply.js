@@ -1,3 +1,4 @@
+import { isMorningCoachRequest, morningCoachCard } from "../health/morningCoachV1.js";
 import {
   buildCoachCards,
   detectCoachIntents,
@@ -293,6 +294,14 @@ function buildGreetingAnswer() {
 
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
   const intents = detectCoachIntents(message);
+  if (isMorningCoachRequest(message) && context.morning_coach_brief) {
+    const brief = context.morning_coach_brief;
+    const card = morningCoachCard(brief);
+    const planNames = brief.today_plan.sessions.filter((session) => session.status === "planned").map((session) => session.title).join(", ");
+    return { answer: `${brief.explanation}${planNames ? ` Hoy tienes: ${planNames}.` : ""}`,
+      cards: card ? [card] : [], intents, responseMode: "deterministic", llmUsed: false,
+      response_mode: "deterministic", llm_used: false, usage: null };
+  }
   const answers = [];
   const plannedSessions = Array.isArray(context?.planned_training?.sessions)
     ? context.planned_training.sessions

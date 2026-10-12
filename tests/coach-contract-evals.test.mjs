@@ -75,7 +75,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
   assert.equal(reply.llmUsed, false);
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const deterministicGate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAiCall = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
@@ -108,7 +108,7 @@ test("EVAL: every supported health question returns deterministic metadata and b
     assert.equal(reply.usage, null, message);
   }
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const gate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   assert.ok(gate > 0);
   assert.ok(source.indexOf("requestOpenAiResponses({") > gate);
 });
@@ -275,7 +275,7 @@ test("EVAL: trend comparison never turns higher volume into a performance verdic
 
 test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const gate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAi = source.indexOf("requestOpenAiResponses({");
   assert.ok(gate >= 0);
   assert.ok(openAi > gate);
@@ -465,4 +465,20 @@ test("EVAL: stale recommendation actions cannot silently write into yesterday af
   });
   assert.equal(result.ok, false);
   assert.equal(result.error, "stale_recommendation_date");
+});
+
+test("EVAL: morning greeting consumes canonical brief deterministically and only offers existing preview", async () => {
+  const { createToolsDb, TOOL_NOW } = await import("./support/enqiduToolsDb.mjs");
+  const { createEnqiduToolRuntime } = await import("../src/enqiduTools/runtime.js");
+  const fixture = createToolsDb();
+  const before = structuredClone(fixture.tables);
+  const runtime = await createEnqiduToolRuntime({ db: fixture.db, now: TOOL_NOW });
+  const result = await runtime.execute("get_morning_coach_brief");
+  assert.equal(result.ok, true);
+  const reply = buildDeterministicCoachReply({ message: "Buenos días", context: { morning_coach_brief: result.data } });
+  assert.equal(reply.llm_used, false);
+  assert.equal(reply.response_mode, "deterministic");
+  assert.equal(reply.usage, null);
+  assert.equal(result.data.applied, false);
+  assert.deepEqual(fixture.tables, before);
 });

@@ -157,7 +157,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
       return invoke(tool, args, context, domain);
     },
     async executeMany(requests) {
-      if (!Array.isArray(requests) || !requests.length || requests.length > 9 || requests.some((request) => getEnqiduTool(request?.tool)?.access !== "read")) throw toolError("invalid_request");
+      if (!Array.isArray(requests) || !requests.length || requests.length > 11 || requests.some((request) => getEnqiduTool(request?.tool)?.access !== "read")) throw toolError("invalid_request");
       await refresh();
       // Intentional only-read batching shares health, plan and assessment loads.
       return Promise.all(requests.map(({ tool, arguments: args = {} }) => invoke(tool, args, context, domain)));

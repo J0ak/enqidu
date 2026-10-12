@@ -1,3 +1,5 @@
+import { buildMorningCoachBrief } from "../health/morningCoachV1.js";
+import { loadHealthIngestionStatus } from "../health/healthIngestionStatus.js";
 import { loadHealthIntelligence } from "../health/loadHealthIntelligence.js";
 import { loadClosedLoopAssessments } from "../closedLoop/loadClosedLoopAssessments.js";
 import { isValidCalendarDate, isValidTimeZone } from "../time/userCalendar.js";
@@ -154,6 +156,24 @@ export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() 
         boundedRows(db.from("session_metrics").select("session_id,metric_code,value_numeric,unit,metric_scope,confidence").eq("session_id", session_id).eq("metric_scope", "session").in("metric_code", METRIC_CODES).order("id", { ascending: true }), 100),
       ]);
       return { schema_version: "enqidu_training_session_v1", ...scope, session: compactExecution(sessions[0]), blocks: blocks.filter((row) => row.session_id === session_id).map((row) => pick(row, ["id", "block_order", "name", "block_type", "duration_seconds", "rounds_completed"])), metrics: metrics.filter((row) => row.session_id === session_id).map((row) => pick(row, ["metric_code", "value_numeric", "unit", "confidence"])) };
+    },
+    async get_health_ingestion_status() { return loadHealthIngestionStatus(db, { userId, date: calendar.date, timezone: calendar.timezone }); },
+    async get_morning_coach_brief() {
+      const yesterdayDate = shiftHealthCalendarDate(calendar.date, -1);
+      const to = shiftHealthCalendarDate(calendar.date, 6);
+      const [evidence, today, yesterday, closedLoop, future, available] = await Promise.all([
+        health(), handlers.get_today_plan(), handlers.get_recent_training({ date: yesterdayDate, limit: 20 }),
+        assessments({ date: yesterdayDate }), planRows(shiftHealthCalendarDate(calendar.date, 1), to),
+        availability(shiftHealthCalendarDate(calendar.date, 1), to),
+      ]);
+      // Executed yesterday can be linked to a plan from another day. Resolve by the
+      // existing persisted link as well, never guess plan/execution identity by date.
+      const assessedIds = new Set(closedLoop.map((item) => item.executed_session?.id).filter(Boolean));
+      const linked = await Promise.all(yesterday.sessions.filter((item) => !assessedIds.has(item.id)).map((item) => assessments({ session_id: item.id })));
+      const combined = [...new Map([...closedLoop, ...linked.flat()].map((item) => [item.planned_session?.id, item])).values()];
+      const blocks = await blocksFor(future);
+      return buildMorningCoachBrief({ date: calendar.date, timezone: calendar.timezone, health: evidence, today, yesterday,
+        upcoming: { from: shiftHealthCalendarDate(calendar.date, 1), to, sessions: future.map((row) => compactPlan(row, blocks)), availability: available }, closedLoop: combined });
     },
     async get_health_status({ date = calendar.date } = {}) { return health(date); },
     async get_readiness({ date = calendar.date } = {}) { return (await health(date)).readiness; },

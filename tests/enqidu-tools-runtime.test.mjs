@@ -30,8 +30,8 @@ test("TOOLS AUTH: no identity or profile means fail closed without client timezo
 });
 
 test("TOOLS CONTRACT: closed manifest is versioned, typed, bounded and fails unknown/malformed/injected calls", async () => {
-  assert.equal(listEnqiduTools().length, 21);
-  assert.equal(listEnqiduTools({ includeWrites: false }).length, 15);
+  assert.equal(listEnqiduTools().length, 23);
+  assert.equal(listEnqiduTools({ includeWrites: false }).length, 17);
   const { db } = createToolsDb();
   const runtime = await createEnqiduToolRuntime({ db, now: TOOL_NOW });
   for (const definition of listEnqiduTools()) {
