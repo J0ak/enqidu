@@ -11,6 +11,10 @@ const secretKey = /^(?:authorization|cookie|(?:access|refresh|auth|bearer)_?toke
 const fail = (code) => { throw Object.assign(new Error(code), { code }); };
 export function ingestionErrorCode(error) {
   const cause = error?.cause || error;
+  const safeCodes = ["connector_runtime_unavailable", "consent_missing", "consent_revoked", "connection_unavailable", "binding_unverified", "binding_read_unavailable", "sync_authorization_changed", "sync_deadline_exceeded"];
+  if (safeCodes.includes(error?.code)) return error.code;
+  if (cause?.code === "P0001") return "sync_authorization_changed";
+  if (cause?.status === 429) return "source_rate_limited";
   if ([401, 403].includes(cause?.status) || ["28000", "42501"].includes(cause?.code)) return "source_auth_failed";
   if (transientCodes.has(cause?.code) || [408, 429, 500, 502, 503, 504].includes(cause?.status)) return "transient_unavailable";
   if (error instanceof TypeError || error instanceof RangeError) return "invalid_source_record";
@@ -36,7 +40,7 @@ export function dailyWindow({ timezone, now = new Date(), days = 2 }) {
  * Each RPC is atomic. A failed record cannot roll back another family. No raw result escapes.
  */
 export async function ingestGarminDaily({ db, authenticatedUser, source, timezone, now = new Date(), days = 2,
-  attempts = 3, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), observe = () => {} } = {}) {
+  signal = null, attempts = 3, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), observe = () => {} } = {}) {
   if (typeof window !== "undefined") fail("server_only");
   if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(authenticatedUser?.id || "")) fail("authenticated_context_required");
   if (!db?.rpc || !source?.getHealthRecords || !Number.isInteger(attempts) || attempts < 1 || attempts > 3) fail("invalid_server_configuration");
@@ -52,8 +56,8 @@ export async function ingestGarminDaily({ db, authenticatedUser, source, timezon
     ignored_stale: report.ignored_stale, failed: report.failed, retry_count: report.retry_count, error_codes: [...report.warnings], duration_ms: Math.round(performance.now() - started) }); } catch { /* telemetry cannot change persistence outcome */ } };
   const retry = async (operation) => {
     for (let attempt = 1; ; attempt++) {
-      try { return await operation(); } catch (error) {
-        if (ingestionErrorCode(error) !== "transient_unavailable" || attempt >= attempts) throw error;
+      try { if (signal?.aborted) fail("sync_deadline_exceeded"); return await operation(); } catch (error) {
+        if (!["transient_unavailable", "source_rate_limited"].includes(ingestionErrorCode(error)) || attempt >= attempts) throw error;
         report.retry_count++;
         warning("transient_retry");
         await sleep(100 * 2 ** (attempt - 1));
@@ -78,6 +82,7 @@ export async function ingestGarminDaily({ db, authenticatedUser, source, timezon
         if (isValidCalendarDate(latest) && latest <= range.to && (!report.latest_available_date || latest > report.latest_available_date)) report.latest_available_date = latest;
         if (page.source_metadata?.data_status === "partial") warning("source_partial");
         for (const dto of page.records) {
+          if (signal?.aborted) fail("sync_deadline_exceeded");
           report.records_seen++;
           const family = Object.hasOwn(families, dto?.data_type) ? families[dto.data_type] : null;
           try {

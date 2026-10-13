@@ -35,6 +35,7 @@ export function createToolsDb({ userId = TOOL_USER_A, empty = false } = {}) {
     wearable_hrv_nightly_samples: [{ id: "hrv-sample", user_id: TOOL_USER_A, hrv_summary_id: "hrv-9", hrv_ms: 50, recorded_at: "2026-10-05T05:00:00Z" }],
     wearable_body_battery_samples: [{ id: "battery-sample", user_id: TOOL_USER_A, ...provenance, body_battery_value: 75, recorded_at: "2026-10-05T08:00:00Z" }],
     wearable_health_imports: [],
+    user_wearable_connections: [],
   };
   if (empty) for (const name of Object.keys(tables)) if (name !== "profiles") tables[name] = [];
   const calls = [];

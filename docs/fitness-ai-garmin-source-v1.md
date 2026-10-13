@@ -1,5 +1,7 @@
 # Fitness AI Garmin Source V1
 
+> Updated 2026-10-13: see [runtime/terms evidence](fitness-ai-runtime-audit.md) and [owned sync implementation](garmin-owned-sync.md). Paid personal developer access now exists; no verified free multiuser runtime is available. The new consent migration and concrete disabled binding supersede the prior `sourceForUser=null` state.
+
 ## Boundary and status
 
 `FitnessAiGarminSource` is a provisional, server-only Garmin transport adapter. It implements the stable `GarminSource.getHealthRecords({ from_date, to_date, timezone, cursor })` contract and emits the same internal DTOs consumed by `GarminAdapter` and the Health Foundation persistence path.

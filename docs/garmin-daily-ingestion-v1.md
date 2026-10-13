@@ -1,5 +1,7 @@
 # Garmin daily ingestion V1
 
+> Updated 2026-10-13: see [runtime/terms evidence](fitness-ai-runtime-audit.md) and [owned sync implementation](garmin-owned-sync.md). Paid personal developer access now exists; no verified free multiuser runtime is available. The new consent migration and concrete disabled binding supersede the prior `sourceForUser=null` state.
+
 ## Architecture and audited base
 
 Based on origin/main ffde3e2b8eb275139fa6b99d62d1f2107379a238 (after #94).

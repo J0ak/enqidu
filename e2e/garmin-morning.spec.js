@@ -22,8 +22,12 @@ test("live-shaped transport → actual RPC → Health → Readiness → Morning 
     let payload = rebase(raw), retrieved = new Date(now).toISOString();
     payload.data.sleep.duration_hours = 4; payload.data.sleep.sleep_score = 35;
     const source = new FitnessAiGarminSource({ clock: () => new Date(retrieved), transport: { getHealthSummary: async (input) => input.from_date === date() ? structuredClone(payload) : { data_status: "no_data" } } });
+    const consent = await db.rpc('set_garmin_sync_consent', { p_action: 'enable', p_consent_version: 'garmin_daily_v1' });
+    expect(consent.error).toBeNull();
+    const binding = await adminDb.from('user_wearable_connections').update({ connection_status: 'connected', connected_at: now, binding_verified_at: now, external_user_reference: `test-${fixture.user.id}` }).eq('user_id', fixture.user.id).eq('provider', 'garmin').select('binding_revision').single();
+    expect(binding.error).toBeNull();
     const before = await fixture.snapshot();
-    const flow = () => runAutonomousMorning({ readDb: db, serviceDb: adminDb, now, sourceForUser: async (id) => { expect(id).toBe(fixture.user.id); return source; } });
+    const flow = () => runAutonomousMorning({ readDb: db, serviceDb: adminDb, now, sourceForUser: async (id) => { expect(id).toBe(fixture.user.id); return { user_id: id, binding_revision: binding.data.binding_revision, source }; } });
     const first = await flow();
     expect(first.ingestion.inserted).toBe(8); expect(first.ingestion.failed).toBe(0);
     expect(first.brief.health_status).toBe("fresh"); expect(first.brief.readiness.score).not.toBeNull();
