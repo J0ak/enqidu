@@ -78,7 +78,8 @@ Rollback: disable/unschedule cron first if ever activated, revoke scheduler secr
 
 ## Verification evidence for this PR
 
-- Node 22.23.3: **26 Coach contract evals**, **653 full-suite tests**, all passed. Final targeted ownership/deadline/status/runtime checks: **34 passed**. Production Vite build passed (existing >500 kB bundle warning remains).
+- Node 22.23.3: **26 Coach contract evals**, **654 full-suite tests**, all passed. The Deno runtime regression also passed in the focused suite. Production Vite build passed (existing >500 kB bundle warning remains).
+- Supabase Edge Runtime v1.77.4 exposes `window` without a DOM. The server guard now accepts that Deno runtime while rejecting browsers; a regression verifies consent resolution and guarded persistence. An actual Edge Runtime container with an explicit mock database returned `403 consent_missing` and `503 connector_runtime_unavailable` as expected.
 - Actual migration plus canonical Foundation writer tested both in PGlite and an empty disposable **PostgreSQL 17** container. `scripts/verify-garmin-sync-postgres.mjs` proves an ungranted lock on the waiting writer, committed revoke rejection, preserved Health, reconnect requiring renewed verification, and concurrent `SKIP LOCKED` claims. Post-migration RLS/grant assertions all true.
 - Chromium component check with an **explicit mock client**: checkbox/version, enable/disable/revoke/reconnect, unavailable manual sync and account-change reset; zero page errors. This is not a production-auth or Fitness AI end-to-end claim.
 - Full local Supabase startup was blocked by this executor's 32 GB filesystem and VFS image-layer expansion (`failed to register layer: no space left on device`), including a reduced service attempt. The attempt was stopped. A small PostgreSQL 17 container provided the real SQL concurrency checks without altering the managed daemon or bypassing network policy.
