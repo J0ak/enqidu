@@ -33,3 +33,10 @@ if (alreadyBootstrapped === "1") {
 
 const secured = query("select (to_regprocedure('public.ingest_garmin_health_record(uuid,jsonb)') is not null and not has_function_privilege('authenticated','public.ingest_garmin_health_record(uuid,jsonb)','EXECUTE') and not has_table_privilege('authenticated','public.wearable_health_daily','INSERT') and not has_table_privilege('authenticated','public.planned_training_sessions','UPDATE'))::text;", ["-At"]);
 if (secured !== "true") throw new Error("Disposable local Health/plan security contract is incomplete.");
+
+// Rebuild the previously incomplete UI connection fixture from the inspected contract, locally only.
+if (query("select count(*) from information_schema.columns where table_schema='public' and table_name='user_wearable_connections' and column_name='consent_status';", ["-At"]) === "0") {
+  const connections = await readFile(new URL("../tests/fixtures/garmin-connections-live-schema.sql", import.meta.url), "utf8");
+  const consent = await readFile(new URL("../supabase/migrations/20261013104703_garmin_sync_ownership_consent.sql", import.meta.url), "utf8");
+  query(`drop table public.user_wearable_connections;\n${connections}\n${consent}\nnotify pgrst, 'reload schema';`);
+}

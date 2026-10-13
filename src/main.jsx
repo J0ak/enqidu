@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
 import { requestEnqiduTool } from "@/services/enqiduToolsService";
 import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
+import GarminSyncConsent from "@/components/GarminSyncConsent";
 import CoachActionPreview from "@/components/CoachActionPreview";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
@@ -1380,6 +1381,7 @@ function HealthView({ health, healthSeries }) {
 
   return (
     <section className="viewStack">
+      <GarminSyncConsent db={supabase} />
       {hasHealthData ? (
         <>
           <section className="healthHero">

@@ -1,3 +1,4 @@
+import { loadGarminSyncStatus } from "./garminSyncStatus.js";
 import { isValidCalendarDate } from "../time/userCalendar.js";
 import { shiftHealthCalendarDate } from "./healthEvidence.js";
 
@@ -8,6 +9,7 @@ export async function loadHealthIngestionStatus(db, { userId, date, timezone }) 
     last_success_at: null, latest_calendar_date_seen: null, latest_available_date: null,
     families_present: [], families_missing: [...families], last_error_code: null,
     status_scope: "persisted_observations_last_seven_days", attempt_history_available: false };
+  Object.assign(result, await loadGarminSyncStatus(db, userId));
   const response = await db.from("wearable_health_imports").select("user_id,observation_date,provider,provider_mode,ingestion_channel,retrieved_at,canonical_data_type:normalized_payload->>data_type")
     .eq("normalized_payload->>schema_version", "enqidu.wearable.v1").in("normalized_payload->>data_type", families)
     .eq("user_id", userId).eq("provider", "garmin").eq("provider_mode", "aggregator").eq("ingestion_channel", "fitness_ai_connector")

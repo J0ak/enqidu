@@ -1,5 +1,7 @@
 # Garmin daily ingestion + autonomous Morning Coach V1 — handoff
 
+> Updated 2026-10-13: see [runtime/terms evidence](fitness-ai-runtime-audit.md) and [owned sync implementation](garmin-owned-sync.md). Paid personal developer access now exists; no verified free multiuser runtime is available. The new consent migration and concrete disabled binding supersede the prior `sourceForUser=null` state.
+
 Production automation is **not enabled**. The native server capability and read/UX
 flow are implemented; the actual Fitness AI server transport is an explicit rollout
 blocker. No production resources, deployments, credentials or schedules were changed.

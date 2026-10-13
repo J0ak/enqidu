@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.coach-plan-action]
 verify_jwt = true
+
+[functions.garmin-daily-sync]
+verify_jwt = false
