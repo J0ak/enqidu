@@ -21,7 +21,7 @@ closed registry → authenticated runtime → canonical read domain
 
 ## Implementation and discovery
 
-`src/enqiduTools/registry.js` owns 21 executable contracts, globally versioned
+`src/enqiduTools/registry.js` owns 23 executable contracts, globally versioned
 `enqidu_tools_v1`; each tool is version `1.0.0`. `listEnqiduTools()` returns only
 safe metadata: ID, description, read/preview/write access, JSON input/output schemas,
 authentication, side effects, fixed domain-handler identifier and traceability.
@@ -44,6 +44,8 @@ availability operations also use the extracted shared action implementation.
 | `get_recent_training` | Optional `date`, `limit` 1–20 | Executed canonical identities and allowlisted metrics |
 | `get_training_session` | `session_id` | Owned execution, bounded blocks and permitted metrics |
 | `get_health_status` | Optional historical `date` | Existing `health_recovery_v1`; no provider payload |
+| `get_morning_coach_brief` | `{}` | Deterministic morning brief; review-only action, no ingestion or apply |
+| `get_health_ingestion_status` | `{}` | Safe, bounded import-ledger status |
 | `get_readiness` | Optional historical `date` | Existing `readiness_v1`; no alternative algorithm |
 | `get_closed_loop_assessment` | Optional `session_id`, `date` | Existing `closed_loop_assessment_v1` assessments |
 | `get_adaptation_proposal` | Optional `session_id`, `date` | Existing `adaptation_proposal_v1` with canonical identities |
@@ -158,7 +160,7 @@ the plan. Save recommendation and availability remain explicit existing operatio
 
 ## Performance, observability and tests
 
-`executeMany` accepts at most nine reads and shares a request-scoped canonical cache.
+`executeMany` accepts at most eleven reads and shares a request-scoped canonical cache.
 Health/readiness reuse evidence; Closed Loop reuses health dates. No request cache
 is carried into apply. There is no N+1 block loading for plan lists.
 
@@ -193,3 +195,19 @@ bounded/safe output, stale state, clock boundaries and failed readback behavior.
 MCP's local-only transport, annotations, feature gate and remote authentication
 boundary are specified in [MCP V1](enqidu-mcp-v1.md). No remote MCP/OAuth deployment
 is included. No OpenAI calls are needed to run domain, contract or E2E tests.
+
+## Daily Garmin / Morning Coach extension
+
+Two authenticated, no-argument reads extend the registry to 11 reads (23 entries
+including six previews and six existing writes):
+
+- `get_morning_coach_brief`: `morning_coach_brief_v1`, persisted plan + canonical
+  Health/Readiness + yesterday execution/Closed Loop + upcoming availability.
+  Deterministic explanation and optional existing preview request; no sync or apply.
+- `get_health_ingestion_status`: `health_ingestion_status_v1`, bounded import ledger
+  projection, no raw payloads. Last failed attempt is unknown unless present in the
+  current sync report; no synthetic last-success or failure history.
+
+Both are shared by App/Coach/MCP and reject identity/date/table/RPC arguments.
+MCP writes remain disabled. No sync tool or generic provider operation is exposed.
+See [Morning Coach](morning-coach-v1.md) and [Garmin ingestion](garmin-daily-ingestion-v1.md).

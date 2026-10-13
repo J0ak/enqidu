@@ -1,3 +1,4 @@
+import { isMorningCoachRequest } from "../../../src/health/morningCoachV1.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildDeterministicCoachReply } from "../../../src/coachContext/coachDeterministicReply.js";
@@ -94,6 +95,7 @@ Deno.serve(async (req: Request) => {
 
     const requestDate = calendar.date;
     const intents = detectCoachIntents(message);
+    const morningRequest = isMorningCoachRequest(message);
     const contextDate = intents.yesterday && !intents.period
       ? shiftIsoDate(requestDate, -1)
       : requestDate;
@@ -120,6 +122,7 @@ Deno.serve(async (req: Request) => {
     const requests: Array<{ tool: string; arguments: Record<string, unknown> }> = [
       { tool: "get_health_status", arguments: contextDate === tools.context.request_calendar_date ? {} : { date: contextDate } },
     ];
+    if (morningRequest) requests.push({ tool: "get_morning_coach_brief", arguments: {} });
     if (intents.closedLoop) requests.push({ tool: "get_closed_loop_assessment", arguments: {
       ...(body.session_id ? { session_id: body.session_id } : {}), date: contextDate,
     } });
@@ -175,7 +178,7 @@ Deno.serve(async (req: Request) => {
 
     // Health, closed loop, today's plan, weekly progress and trend are deterministic,
     // even when the optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop) {
+    if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop) {
       return reply({
         ok: true,
         answer: deterministic.answer,

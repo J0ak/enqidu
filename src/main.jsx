@@ -4329,6 +4329,19 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
   };
 
   const handleCardAction = async (action) => {
+    if (action?.type === "review_morning_proposal") {
+      if (cardActionBusy || sending || toolActionInFlight.current || !["preview_adapt_duration", "preview_closed_loop_proposal"].includes(action.tool)) return;
+      toolActionInFlight.current = true;
+      setCardActionBusy(true);
+      try {
+        const result = await prepareToolPreview({ tool: action.tool, arguments: action.arguments }, { reviewed: true });
+        setMicNotice(result.ok ? "Propuesta lista para revisar." : result.error?.safe_message || "No hay un cambio seguro que aplicar.");
+      } finally {
+        toolActionInFlight.current = false;
+        setCardActionBusy(false);
+      }
+      return;
+    }
     if (action?.type === "review_closed_loop_proposal") {
       if (cardActionBusy || sending || toolActionInFlight.current || typeof action.session_id !== "string") return;
       toolActionInFlight.current = true;

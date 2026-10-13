@@ -16,7 +16,7 @@ function schemaErrors(value, schema, path = "data") {
   return [`${path}: ${JSON.stringify(value)} does not match ${JSON.stringify(schema)}`];
 }
 
-for (const empty of [false, true]) test(`TOOLS READ: all nine canonical outputs match schemas (${empty ? "empty" : "full evidence"})`, async () => {
+for (const empty of [false, true]) test(`TOOLS READ: all eleven canonical outputs match schemas (${empty ? "empty" : "full evidence"})`, async () => {
   const state = createToolsDb({ empty });
   const domain = domainFor(state);
   for (const [name, schema] of Object.entries(READ_OUTPUT_SCHEMAS)) {

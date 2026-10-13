@@ -12,11 +12,11 @@ export async function persistGarminHealthRecord({ db, authenticatedUser, record 
   if (!USER_ID.test(authenticatedUser?.id || "")) throw new TypeError("A server-authenticated user UUID is required");
   if (typeof db?.rpc !== "function") throw new TypeError("A server database client is required");
   const canonicalRecord = validateCanonicalHealthRecord(record);
-  const { data, error } = await db.rpc("ingest_garmin_health_record", {
+  const { data, error, status } = await db.rpc("ingest_garmin_health_record", {
     p_user_id: authenticatedUser.id,
     p_record: canonicalRecord,
   });
-  if (error) throw new Error(`Garmin health persistence failed: ${error.message || "database error"}`, { cause: error });
+  if (error) throw new Error(`Garmin health persistence failed: ${error.message || "database error"}`, { cause: { code: error.code, status: status ?? error.status } });
   if (!data || !["inserted", "updated", "unchanged", "ignored_stale"].includes(data.status)) {
     throw new Error("Garmin health persistence returned an invalid result");
   }

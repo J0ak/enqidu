@@ -45,6 +45,8 @@ function resultSchema(data) {
   }, ["tool", "tool_version", "ok", "data", "warnings", "evidence", "traceability", "generated_at", "calendar_date", "timezone"]);
 }
 const reads = [
+  ["get_morning_coach_brief", "Read the deterministic morning brief, current persisted plan and optional review-only proposal. Never syncs or applies changes.", noArgs],
+  ["get_health_ingestion_status", "Read bounded Garmin import ledger status without raw payloads or fabricated attempt history.", noArgs],
   ["get_athlete_context", "Read the authenticated athlete's profile, goals, constraints and location-scoped equipment.", noArgs],
   ["get_today_plan", "Read persisted sessions and blocks for today in the athlete profile timezone.", noArgs],
   ["get_week_plan", "Read the canonical Monday–Sunday plan, availability and progress in the profile timezone.", noArgs],

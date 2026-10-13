@@ -31,7 +31,9 @@
     "test:mcp": "node --test tests/enqidu-mcp*.test.mjs",
     "test:tools": "node --test tests/enqidu-tools*.test.mjs tests/enqidu-action*.test.mjs",
     "test:transactional-actions": "node --test --test-concurrency=1 tests/transactional-actions/*.test.mjs",
-    "tools:manifest": "node scripts/enqidu-tools-manifest.mjs"
+    "tools:manifest": "node scripts/enqidu-tools-manifest.mjs",
+    "test:garmin-ingestion": "node --test tests/garmin-daily-ingestion*.test.mjs",
+    "test:morning-coach": "node --test tests/morning-coach*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
