@@ -1,3 +1,4 @@
+import { isGarminBrowserRuntime } from './garminServerRuntime.js';
 import { GarminAdapter } from "../../../src/health/garminAdapter.js";
 import { validateGarminSourceRequest } from "../../../src/health/garminSource.js";
 import { persistGarminHealthRecord } from "./garminHealthPersistence.js";
@@ -9,7 +10,7 @@ import { persistGarminHealthRecord } from "./garminHealthPersistence.js";
  * A failed page returns no cursor; retry the page through the idempotent RPC.
  */
 export async function ingestGarminHealthPage({ db, authenticatedUser, source, request }) {
-  if (typeof window !== "undefined") throw new Error("Health ingestion requires a server runtime");
+  if (isGarminBrowserRuntime()) throw new Error("Health ingestion requires a server runtime");
   if (!authenticatedUser || typeof authenticatedUser.id !== "string" ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authenticatedUser.id)) {
     throw new TypeError("Health ingestion requires a verified server user identity");

@@ -85,3 +85,17 @@ test('production wrapper refuses invalid profile timezone before requesting or p
   await assert.rejects(runMorningForOwner({readDb:f.db,serviceDb:f.db,userId:A,sourceForUser:async()=>({...row(),source:{getHealthRecords:()=>{requests++;}}}),now:TOOL_NOW}),{code:'profile_timezone_required'});
   assert.equal(requests,0);
 });
+
+test('Supabase Deno window alias can resolve consent and persist, but a browser DOM cannot',async()=>{
+  const original={window:globalThis.window,Deno:globalThis.Deno,document:globalThis.document};
+  globalThis.window=globalThis;globalThis.Deno={version:{deno:'supabase-edge-runtime-1.77.4'}};
+  try {
+    const f=fixture();let writes=0;
+    assert.equal((await readGarminSourceBinding(f.db,A)).user_id,A);
+    const source={getHealthRecords:async({from_date,timezone})=>({next_cursor:null,records:from_date==='2026-10-05'?[{provider:'garmin',provider_mode:'aggregator',ingestion_channel:'fitness_ai_connector',data_type:'sleep',calendar_date:from_date,timezone,retrieved_at:TOOL_NOW,measurements:{sleep_score:{value:80,unit:'score'}}}]:[]})};
+    const result=await runMorningForOwner({readDb:f.db,serviceDb:{rpc:async name=>{assert.equal(name,'ingest_owned_garmin_health_record');writes++;return {data:{status:'inserted'}};}},userId:A,sourceForUser:async()=>({...row(),source}),now:TOOL_NOW});
+    assert.equal(writes,1);assert.equal(result.ingestion.failed,0);assert.equal(result.ingestion.inserted,1);
+    globalThis.document={};
+    await assert.rejects(readGarminSourceBinding(f.db,A),{code:'server_only'});
+  } finally {for(const [key,value] of Object.entries(original)) {if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
+});

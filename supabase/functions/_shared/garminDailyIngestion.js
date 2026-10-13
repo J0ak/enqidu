@@ -1,3 +1,4 @@
+import { isGarminBrowserRuntime } from './garminServerRuntime.js';
 import { GarminAdapter } from "../../../src/health/garminAdapter.js";
 import { validateHealthTimezone } from "../../../src/health/garminSource.js";
 import { calendarDateInTimeZone, isValidCalendarDate } from "../../../src/time/userCalendar.js";
@@ -41,7 +42,7 @@ export function dailyWindow({ timezone, now = new Date(), days = 2 }) {
  */
 export async function ingestGarminDaily({ db, authenticatedUser, source, timezone, now = new Date(), days = 2,
   signal = null, attempts = 3, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), observe = () => {} } = {}) {
-  if (typeof window !== "undefined") fail("server_only");
+  if (isGarminBrowserRuntime()) fail("server_only");
   if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(authenticatedUser?.id || "")) fail("authenticated_context_required");
   if (!db?.rpc || !source?.getHealthRecords || !Number.isInteger(attempts) || attempts < 1 || attempts > 3) fail("invalid_server_configuration");
   const range = dailyWindow({ timezone, now, days });

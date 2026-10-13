@@ -1,3 +1,4 @@
+import { isGarminBrowserRuntime } from './garminServerRuntime.js';
 import { withSyncDeadline } from './garminSyncDeadline.js';
 import { FitnessAiGarminSource } from '../../../src/health/fitnessAiGarminSource.js';
 import { FitnessAiServerTransportUnavailable } from '../../../src/health/fitnessAiServerTransport.js';
@@ -8,7 +9,7 @@ export const SYNC_ERROR_CODES = new Set(['connector_runtime_unavailable','consen
 export function safeSyncError(error) { return SYNC_ERROR_CODES.has(error?.code) ? error.code : 'morning_sync_failed'; }
 
 export async function readGarminSourceBinding(db, userId) {
-  if (typeof window !== 'undefined') fail('server_only');
+  if (isGarminBrowserRuntime()) fail('server_only');
   if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(userId || '')) fail('binding_read_unavailable');
   const { data, error } = await db.from('user_wearable_connections').select(GARMIN_BINDING_SELECT)
     .eq('user_id', userId).eq('provider', 'garmin').limit(1);

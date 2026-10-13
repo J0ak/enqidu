@@ -1,3 +1,4 @@
+import { isGarminBrowserRuntime } from './garminServerRuntime.js';
 import { withSyncDeadline } from './garminSyncDeadline.js';
 import { createToolExecutionContext } from "../../../src/enqiduTools/runtime.js";
 import { createEnqiduReadDomain } from "../../../src/enqiduTools/readTools.js";
@@ -10,14 +11,14 @@ import { ingestGarminDaily } from "./garminDailyIngestion.js";
  * No apply capability is accepted, imported, or invoked.
  */
 export async function runAutonomousMorning({ readDb, serviceDb, sourceForUser, now = new Date(), days = 2, observe } = {}) {
-  if (typeof window !== "undefined") throw new Error("server_only");
+  if (isGarminBrowserRuntime()) throw new Error("server_only");
   const context = await createToolExecutionContext({ db: readDb, source: "agent", now, capabilities: { writes: false } });
   return runMorningForOwner({ readDb, serviceDb, sourceForUser, userId: context.authenticated_user_id, now: context.generated_at, days, observe });
 }
 
 /** Internal server entrypoint for a DB-claimed owner. Never export through tools or request payloads. */
 export async function runMorningForOwner({ readDb, serviceDb, sourceForUser, userId, now = new Date(), days = 2, observe, signal = AbortSignal.timeout(20_000) }) {
-  if (typeof window !== "undefined") throw new Error("server_only");
+  if (isGarminBrowserRuntime()) throw new Error("server_only");
   const binding = await withSyncDeadline(() => sourceForUser(userId), signal);
   if (!binding?.source || binding.user_id !== userId || !Number.isSafeInteger(binding.binding_revision)) throw Object.assign(new Error("binding_unverified"), { code: "binding_unverified" });
   const profile = await withSyncDeadline(() => readDb.from("profiles").select("timezone").eq("id", userId).limit(1), signal);
