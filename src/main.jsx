@@ -10,6 +10,7 @@ import { requestEnqiduTool } from "@/services/enqiduToolsService";
 import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
 import GarminSyncConsent from "@/components/GarminSyncConsent";
 import CoachActionPreview from "@/components/CoachActionPreview";
+import DailyCoach from "@/components/DailyCoach";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -1234,6 +1235,7 @@ function App() {
         )}
         {route === "coach" && (
           <CoachView
+            userId={session?.user?.id}
             messages={messages}
             setMessages={setMessages}
             discipline={activeDiscipline}
@@ -4134,12 +4136,13 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
   );
 }
 
-function CoachView({ messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession, onPlanSaved }) {
+function CoachView({ userId, messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession, onPlanSaved }) {
   const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [cardActionBusy, setCardActionBusy] = useState(false);
   const [pendingToolAction, setPendingToolAction] = useState(null);
+  const [dailyRevision, setDailyRevision] = useState(0);
   const toolActionInFlight = useRef(false);
   const [coachContextState, setCoachContextState] = useState({ status: "loading" });
   const endRef = useRef(null);
@@ -4316,6 +4319,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
         return conversational ? updated : [...updated, { role: "assistant", content: coachAppliedSummary(result.data), cards: [] }];
       });
       setPendingToolAction(null);
+      setDailyRevision((n) => n + 1);
       const refreshed = await onPlanSaved?.();
       setMicNotice(refreshed === false ? "Cambio aplicado. Actualiza Actividades para consultar tu plan." : "Cambio aplicado en tu plan.");
       return result;
@@ -4398,7 +4402,8 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
             }),
           };
         }));
-        const refreshed = await onPlanSaved?.();
+        setDailyRevision((n) => n + 1);
+      const refreshed = await onPlanSaved?.();
         setMicNotice(refreshed === false
           ? "Entrenamiento guardado. Actualiza Actividades si no aparece todavía."
           : "Entrenamiento guardado en tu plan.");
@@ -4463,6 +4468,7 @@ function CoachView({ messages, setMessages, discipline, sessions, onOpenActiviti
 
   return (
     <section className="coachView">
+      <DailyCoach userId={userId} revision={dailyRevision} busy={cardActionBusy || sending} onReview={handleCardAction} />
       <CoachContextStatusCard context={coachContextState} onMemoryPrompt={startMemoryDraft} />
       <div className="chatLog">
         {messages.map((message, index) => (

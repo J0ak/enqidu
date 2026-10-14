@@ -14,3 +14,10 @@ const result = spawnSync("docker", ["--host=unix:///var/run/docker.sock", "exec"
 });
 if (result.status !== 0) throw new Error(`Disposable transactional migration failed: ${result.stderr || result.error?.message}`);
 console.log("Transactional action migration ready in disposable local Supabase; no remote changes.");
+
+const dailySql = await readFile(new URL("../supabase/migrations/20261014044007_daily_coach_events.sql", import.meta.url), "utf8");
+const dailyResult = spawnSync("docker", ["--host=unix:///var/run/docker.sock", "exec", "-i", "supabase_db_enqidu-e2e", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], {
+  input: `${dailySql}\nnotify pgrst, 'reload schema';\n`, encoding: "utf8", env: dockerEnv, maxBuffer: 1024 * 1024,
+});
+if (dailyResult.status !== 0) throw new Error(`Disposable daily audit migration failed: ${dailyResult.stderr}`);
+console.log("Daily Coach audit migration ready in disposable local Supabase; no remote changes.");

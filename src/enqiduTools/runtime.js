@@ -1,3 +1,4 @@
+import { dailyCoachEvent } from "../dailyCoach/history.js";
 import { isValidTimeZone, resolveUserCalendar } from "../time/userCalendar.js";
 import { getEnqiduTool, ENQIDU_TOOLS_VERSION, TOOL_VERSION } from "./registry.js";
 import { matchesSchema } from "./schema.js";
@@ -36,7 +37,7 @@ export async function createToolExecutionContext({ db, source = "app", now, capa
 }
 
 /** One authenticated runtime, closed registry; no generic query/RPC/mutation interface. */
-export async function createEnqiduToolRuntime({ db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {} } = {}) {
+export async function createEnqiduToolRuntime({ db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {}, recordEvent = null } = {}) {
   let context = await createToolExecutionContext({ db, source, now, capabilities });
   const originalUserId = context.authenticated_user_id;
   let domain;
@@ -133,6 +134,15 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
       result.evidence = result.data?.schema_version ? [{ kind: definition.access === "read" ? "canonical_domain" : "action_preview", schema_version: result.data.schema_version }] : [];
       if (definition.access === "preview") result.warnings.push(...result.data.warnings);
       if (new TextEncoder().encode(JSON.stringify(result)).length > MAX_TOOL_OUTPUT_BYTES) throw toolError("output_limit_exceeded");
+      // Audit is a backend-only capability, never a client/model-selected write.
+      // Read/preview domains remain pure; an audit failure cannot undo an applied action.
+      if (recordEvent && source !== "mcp") {
+        try {
+          const event = await dailyCoachEvent(toolId, args, result.data, scope);
+          if (event) await recordEvent(event);
+        } catch { result.warnings.push("daily_coach_history_not_recorded"); }
+      }
+
     } catch (error) {
       if (acknowledgedActionReceipt) {
         result.ok = true;
@@ -157,7 +167,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
       return invoke(tool, args, context, domain);
     },
     async executeMany(requests) {
-      if (!Array.isArray(requests) || !requests.length || requests.length > 11 || requests.some((request) => getEnqiduTool(request?.tool)?.access !== "read")) throw toolError("invalid_request");
+      if (!Array.isArray(requests) || !requests.length || requests.length > 12 || requests.some((request) => getEnqiduTool(request?.tool)?.access !== "read")) throw toolError("invalid_request");
       await refresh();
       // Intentional only-read batching shares health, plan and assessment loads.
       return Promise.all(requests.map(({ tool, arguments: args = {} }) => invoke(tool, args, context, domain)));

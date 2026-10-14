@@ -13,7 +13,7 @@ export function buildMorningCoachBrief({ date, timezone, health, today, upcoming
   const healthStatus = !present.length ? health?.evidence_dates?.length ? "stale" : "absent"
     : relevant.every((name) => current(name)) && !health?.issues?.length ? "fresh" : "partial";
   const { score, readiness } = coachReadiness(context);
-  const plans = (today?.sessions || []).filter((session) => session.status === "planned" && !session.linked_completed_session_id);
+  const plans = (today?.sessions || []).filter((session) => session.status === "planned" && session.session_type !== "rest" && !session.linked_completed_session_id);
   const unavailable = today?.availability?.some((entry) => entry.calendar_date === date && entry.availability_status === "unavailable");
   const sleep = current("sleep");
   const stress = current("stress");
@@ -39,7 +39,7 @@ export function buildMorningCoachBrief({ date, timezone, health, today, upcoming
     else if (candidate) {
       adaptation = candidate.adaptation_proposal;
       recommendation = adaptation.action === "reduce" ? "REDUCE" : "RECOVERY_BIAS";
-      reasons.push("existing_closed_loop_proposal");
+      reasons.push("existing_closed_loop_proposal", ...adaptation.reasons);
       const targets = adaptation.affected_future_sessions || [];
       const knownTarget = [...plans, ...(upcoming?.sessions || [])].find((session) => session.id === targets[0]?.id && session.planned_date === targets[0]?.planned_date && session.status === "planned");
       const targetUnavailable = [...(today?.availability || []), ...(upcoming?.availability || [])].some((entry) => entry.calendar_date === knownTarget?.planned_date && entry.availability_status === "unavailable");

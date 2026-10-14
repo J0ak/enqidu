@@ -482,3 +482,20 @@ test("EVAL: morning greeting consumes canonical brief deterministically and only
   assert.equal(result.data.applied, false);
   assert.deepEqual(fixture.tables, before);
 });
+
+test("DAILY OS contract: canonical Morning policy is reused and a proposed reduction cannot mutate the plan", async () => {
+  const { createToolsDb, TOOL_NOW } = await import("./support/enqiduToolsDb.mjs");
+  const { createEnqiduToolRuntime } = await import("../src/enqiduTools/runtime.js");
+  const f = createToolsDb();
+  f.tables.wearable_sleep_sessions.at(-1).total_duration_seconds = 0;
+  const before = structuredClone(f.tables);
+  const runtime = await createEnqiduToolRuntime({ db: f.db, now: TOOL_NOW, source: "mcp" });
+  const result = await runtime.execute("get_daily_coach_operating_brief");
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(result.data.decision, result.data.morning.recommendation);
+  assert.equal(result.data.decision, "REDUCE");
+  assert.equal(result.data.llm_used, false); assert.equal(result.data.usage, null);
+  const action = result.data.morning.review_action;
+  assert.equal((await runtime.execute(action.tool, action.arguments)).ok, true);
+  assert.deepEqual(f.tables, before);
+});

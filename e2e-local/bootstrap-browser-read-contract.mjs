@@ -11,10 +11,17 @@ for (const name of ["DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_V
 const sql = `
 begin;
 alter table public.training_sessions
+  add column if not exists modality_id uuid, -- existing production canonical FK (inspected Epic #97)
   add column if not exists canonical_session jsonb,
   add column if not exists summary_metrics jsonb,
   add column if not exists completion_score numeric,
   add column if not exists universal_schema_version text;
+-- Existing global canonical modality catalog, omitted by the slim E2E baseline.
+create table if not exists public.sport_modalities (id uuid primary key default gen_random_uuid(), code text not null);
+alter table public.sport_modalities enable row level security;
+drop policy if exists local_modality_read on public.sport_modalities;
+create policy local_modality_read on public.sport_modalities for select to authenticated using (true);
+grant select on public.sport_modalities to authenticated;
 alter table public.fit_message_payloads add column if not exists message_order integer;
 alter table public.session_samples add column if not exists sample_order integer,
   add column if not exists raw_payload jsonb, add column if not exists heart_rate_bpm numeric,

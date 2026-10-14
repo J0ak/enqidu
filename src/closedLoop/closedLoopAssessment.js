@@ -1,3 +1,4 @@
+import { comparePlannedVsExecuted } from "./plannedVsExecuted.js";
 import { calendarDateInTimeZone, isValidCalendarDate, isValidTimeZone } from "../time/userCalendar.js";
 import { READINESS_ALGORITHM_VERSION } from "../health/readinessV1.js";
 import { healthTimestamp, safeHealthProvenance, safeHealthSource } from "../health/healthEvidence.js";
@@ -285,7 +286,7 @@ export function assessClosedLoop({ userId = null, plannedSession = null, execute
   else reasons.push("insufficient_evidence_for_adaptation");
   // Short duration alone gives no reason for prescribing less training.
   const affected = userId && ["reduce", "recovery_bias"].includes(action) && date(calendarDate) ? list(futureSessions).filter((session) => session?.user_id === userId && date(session.planned_date) && session.planned_date > calendarDate && session.id !== plannedSession?.id && !["cancelled", "canceled", "completed", "enriched", "skipped"].includes(session.status) && !session.linked_completed_session_id).sort((a, b) => `${a.planned_date}${a.id}`.localeCompare(`${b.planned_date}${b.id}`)).slice(0, 1).map((session) => ({ id: text(session.id), title: text(session.title), planned_date: session.planned_date })) : [];
-  return {
+  const result = {
     schema_version: CLOSED_LOOP_SCHEMA_VERSION, algorithm_version: CLOSED_LOOP_ALGORITHM_VERSION, generated_at: text(generatedAt, 40), calendar_date: date(calendarDate), timezone: text(timezone),
     planned_session: plannedSession ? { id: text(plannedSession.id), title: text(plannedSession.title), calendar_date: date(plannedSession.planned_date), status: text(plannedSession.status), duration_range: durationRange(plannedSession) } : null,
     executed_session: linked ? { id: text(executedSession.id), title: text(executedSession.title), linked_planned_session_id: text(plannedSession.id), calendar_date: executionDate, source: text(executedSession.source_type), duration_seconds: nonnegative(executedSession.duration_seconds), evidence_kind: executedSession.source_type === "garmin_fit" ? "objective_fit" : "canonical_execution" } : null,
@@ -293,4 +294,6 @@ export function assessClosedLoop({ userId = null, plannedSession = null, execute
     user_feedback: feedback, health_before: before, health_after: after, recovery_comparison: recovery, evidence_used: evidence, missing_evidence: [...new Set(missing)].sort(), assessment: { status: linked || feedback || completion === "not_executed" ? "available" : "insufficient_evidence", facts },
     adaptation_proposal: { schema_version: ADAPTATION_PROPOSAL_SCHEMA_VERSION, algorithm_version: CLOSED_LOOP_ALGORITHM_VERSION, action, confidence: action === "no_change" ? "low" : action === "keep" ? "medium" : feedback?.discomfort === true ? "high" : "medium", reasons, affected_future_sessions: affected, requires_explicit_action: true, applied: false }, applied: false,
   };
+  result.planned_vs_executed = comparePlannedVsExecuted({ planned: plannedSession, executed: linked ? executedSession : null, assessment: result, ambiguous: missing.includes("ambiguous_shared_execution_link") });
+  return result;
 }
