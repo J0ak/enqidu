@@ -1,3 +1,6 @@
+import { buildDailyOperatingBrief } from "../dailyCoach/operatingBrief.js";
+import { projectDailyHistory } from "../dailyCoach/history.js";
+import { compareTrainingDay } from "../closedLoop/plannedVsExecuted.js";
 import { buildMorningCoachBrief } from "../health/morningCoachV1.js";
 import { loadHealthIngestionStatus } from "../health/healthIngestionStatus.js";
 import { loadHealthIntelligence } from "../health/loadHealthIntelligence.js";
@@ -8,7 +11,7 @@ import { buildWeekPlanProgress } from "../coachContext/weekPlanProgress.js";
 
 const PLAN_SELECT = "id,user_id,planned_date,planned_time,title,session_type,status,location_type,planned_intensity,planned_duration_min,planned_duration_max,objective,source,linked_completed_session_id";
 const BLOCK_SELECT = "id,planned_session_id,block_order,block_type,title,objective,planned_duration_seconds,planned_rounds,planned_exercises";
-const EXECUTION_SELECT = "id,user_id,title,local_date,started_at,ended_at,session_status,sport,activity_type,duration_seconds,moving_duration_seconds,distance_meters,elevation_gain_meters,calories_total,average_heart_rate,max_heart_rate,training_load";
+const EXECUTION_SELECT = "id,user_id,title,local_date,started_at,ended_at,session_status,duration_seconds,distance_meters,elevation_gain_meters";
 const METRIC_CODES = ["rpe_global", "rpe", "discomfort", "session_completion", "distance_meters", "duration_seconds", "average_heart_rate", "max_heart_rate", "training_load"];
 const array = (value) => Array.isArray(value) ? value : [];
 const scalar = (value) => typeof value === "string" ? value.slice(0, 1000) : typeof value === "number" && Number.isFinite(value) || typeof value === "boolean" ? value : null;
@@ -142,14 +145,14 @@ export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() 
     async get_recent_training({ limit = 10, date = null } = {}) {
       if (!Number.isInteger(limit) || limit < 1 || limit > 20) fail("invalid_arguments");
       if (date && (!isValidCalendarDate(date) || date > calendar.date)) fail("invalid_date");
-      let query = db.from("training_sessions").select(EXECUTION_SELECT).eq("user_id", userId).in("session_status", ["completed", "enriched"]).lte("local_date", calendar.date).order("local_date", { ascending: false }).order("id", { ascending: true }).limit(limit + 1);
+      let query = db.from("training_sessions").select(EXECUTION_SELECT).eq("user_id", userId).in("session_status", ["completed", "recorded"]).lte("local_date", calendar.date).order("local_date", { ascending: false }).order("id", { ascending: true }).limit(limit + 1);
       if (date) query = query.eq("local_date", date);
       const sessions = (await rows(query)).filter((row) => row.user_id === userId);
       return { schema_version: "enqidu_recent_training_v1", ...scope, date, sessions: sessions.slice(0, limit).map(compactExecution), has_more: sessions.length > limit };
     },
     async get_training_session({ session_id } = {}) {
       if (typeof session_id !== "string" || !session_id) fail("invalid_arguments");
-      const sessions = await ownerRows(db.from("training_sessions").select(EXECUTION_SELECT).eq("user_id", userId).eq("id", session_id).in("session_status", ["completed", "enriched"]).lte("local_date", calendar.date), 1);
+      const sessions = await ownerRows(db.from("training_sessions").select(EXECUTION_SELECT).eq("user_id", userId).eq("id", session_id).in("session_status", ["completed", "recorded"]).lte("local_date", calendar.date), 1);
       if (!sessions.length) fail("session_not_found");
       const [blocks, metrics] = await Promise.all([
         boundedRows(db.from("session_blocks").select("id,session_id,block_order,name,block_type,duration_seconds,rounds_completed").eq("session_id", session_id).order("block_order", { ascending: true }).order("id", { ascending: true }), 100),
@@ -174,6 +177,30 @@ export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() 
       const blocks = await blocksFor(future);
       return buildMorningCoachBrief({ date: calendar.date, timezone: calendar.timezone, health: evidence, today, yesterday,
         upcoming: { from: shiftHealthCalendarDate(calendar.date, 1), to, sessions: future.map((row) => compactPlan(row, blocks)), availability: available }, closedLoop: combined });
+    },
+    async get_daily_coach_operating_brief() {
+      const from = shiftHealthCalendarDate(calendar.date, -6);
+      const yesterdayDate = shiftHealthCalendarDate(calendar.date, -1);
+      const [morning, evidence, yesterdayPlans, yesterdayAssessments, todayAssessments, recent, historyResult] = await Promise.all([
+        handlers.get_morning_coach_brief(), health(), planRows(yesterdayDate, yesterdayDate),
+        assessments({ date: yesterdayDate }), assessments({ date: calendar.date }), handlers.get_recent_training({ limit: 20 }),
+        db.from("daily_coach_events").select("id,user_id,calendar_date,occurred_at,event_type,decision,reasons,proposal,evidence,proposal_key,fingerprint,expires_at")
+          .eq("user_id", userId).gte("calendar_date", from).lte("calendar_date", calendar.date)
+          .order("occurred_at", { ascending: false }).order("id", { ascending: true }).limit(101),
+      ]);
+      // Seven bounded canonical reads; the request cache also serves Closed Loop dates.
+      const days = [];
+      for (let offset = -6; offset <= 0; offset++) days.push(await health(shiftHealthCalendarDate(calendar.date, offset)));
+      const comparisonExecutions = [...new Map([...morning.yesterday_execution.sessions, ...recent.sessions.slice(0, 5)].map((item) => [item.id, item])).values()];
+      const linked = await Promise.all(comparisonExecutions.map((item) => assessments({ session_id: item.id })));
+      const combined = [...new Map([...yesterdayAssessments, ...todayAssessments, ...linked.flat()].map((a) => [a.planned_session?.id, a])).values()];
+      const historyRows = array(historyResult.data).filter((r) => r.user_id === userId);
+      return buildDailyOperatingBrief({ morning, health: evidence, days, recent,
+        yesterday: compareTrainingDay({ plans: yesterdayPlans, executions: morning.yesterday_execution.sessions, assessments: combined, hasMore: morning.yesterday_execution.has_more }),
+        postWorkout: combined.filter((a) => a.executed_session).slice(0, 5),
+        history: historyResult.error ? { status: "unavailable", entries: [], has_more: false }
+          : projectDailyHistory(historyRows.slice(0, 100), generatedAt, historyRows.length > 100),
+      });
     },
     async get_health_status({ date = calendar.date } = {}) { return health(date); },
     async get_readiness({ date = calendar.date } = {}) { return (await health(date)).readiness; },

@@ -1,0 +1,15 @@
+.dailyCoach { margin: 12px 0; padding: 18px; border: 1px solid #dce4e2; border-radius: 18px; background: #f7faf9; color: #203d38; font-size: 14px; }
+.dailyCoach header, .dailyReadiness { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.dailyCoach h2 { margin: 0; font-size: 18px; letter-spacing: .08em; }
+.dailyCoach h3 { font-size: 15px; margin: 16px 0 6px; }
+.dailyCoach p { line-height: 1.5; margin: 8px 0; }
+.dailyCoach header span, .dailyTrend span { font-size: 12px; }
+.dailyReadiness { padding: 16px 0 4px; }
+.dailyMetrics { display: flex; flex-wrap: wrap; gap: 14px; }
+.dailyMetrics dt { font-size: 12px; }.dailyMetrics dd { margin: 4px 0; font-weight: 650; }
+.dailyCoach details { padding: 12px 0; border-top: 1px solid #dce4e2; }.dailyCoach summary { cursor: pointer; font-weight: 600; }
+.dailyCoach button { background: #204e43; color: white; border: 0; border-radius: 10px; padding: 12px 16px; cursor: pointer; min-height: 44px; margin: 8px 0; }
+.dailyCoach button:disabled { opacity: .5; cursor: default; }.dailyCoach button:focus-visible, .dailyCoach summary:focus-visible { outline: 3px solid #b48529; outline-offset: 3px; }
+.dailyTrend { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: 12px; }.dailyTrend [role=row] { display: flex; flex-direction: column; gap: 6px; text-align: center; overflow-wrap: anywhere; }
+.dailyCoach article + article { border-top: 1px solid #dce4e2; padding-top: 10px; }.dailyCoach .dailyRefresh { background: transparent; color: #204e43; border: 1px solid #204e43; }
+@media (max-width: 420px) { .dailyCoach { padding: 14px; }.dailyTrend { grid-template-columns: 1fr; }.dailyTrend [role=row] { flex-direction: row; justify-content: space-between; } }

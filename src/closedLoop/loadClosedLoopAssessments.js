@@ -4,7 +4,7 @@ import { calendarDateInTimeZone, isValidCalendarDate, isValidTimeZone } from "..
 
 const PLAN_SELECT = "id,user_id,planned_date,planned_time,title,session_type,status,planned_intensity,planned_duration_min,planned_duration_max,linked_completed_session_id";
 const BLOCK_SELECT = "id,planned_session_id,block_order,title,block_type,planned_duration_seconds,planned_rounds,planned_exercises";
-const EXECUTION_SELECT = "id,user_id,title,local_date,started_at,ended_at,session_status,duration_seconds,source_id";
+const EXECUTION_SELECT = "id,user_id,title,local_date,started_at,ended_at,session_status,duration_seconds,source_id,modality_id";
 const EXECUTED_BLOCK_SELECT = "id,session_id,name,block_order,duration_seconds,rounds_completed,data_confidence,prescription";
 const EXERCISE_SELECT = "id,session_id,block_id,exercise_order,reported_name,sets_completed,reps_per_set,load_value,load_unit,side,data_confidence";
 const METRIC_SELECT = "id,session_id,metric_code,value_numeric,value_text,unit,metric_scope,source_path,confidence";
@@ -95,6 +95,8 @@ export async function loadClosedLoopAssessments(db, { userId, calendarDate, time
     return usable;
   }));
   const ownedExecutionIds = executions.map((row) => row.id);
+  const modalityIds = [...new Set(executions.map((row) => row.modality_id).filter(Boolean))];
+  const modalities = modalityIds.length ? await read(db.from("sport_modalities").select("id,code").in("id", modalityIds).limit(20)) : [];
   const sourceIds = [...new Set(executions.map((row) => row.source_id).filter(Boolean))];
   const [blocks, exercises, metrics, sources] = await Promise.all([
     readChildren(db, "session_blocks", EXECUTED_BLOCK_SELECT, "session_id", ownedExecutionIds, missing),
@@ -107,6 +109,7 @@ export async function loadClosedLoopAssessments(db, { userId, calendarDate, time
   const sourcesById = new Map(sources.filter((source) => source.user_id === userId && sourceIds.includes(source.id)).map((source) => [source.id, source]));
   const executionsById = new Map(executions.map((execution) => [execution.id, {
     ...execution,
+    modality_code: modalities.find((m) => m.id === execution.modality_id)?.code ?? null,
     source_type: sourcesById.get(execution.source_id)?.source_type ?? null,
     local_date: isValidCalendarDate(execution.local_date) ? execution.local_date : execution.started_at ? calendarDateInTimeZone(execution.started_at, timezone) : null,
     session_blocks: blocks.filter((block) => block.session_id === execution.id).map((block) => {

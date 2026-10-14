@@ -111,7 +111,8 @@ No Garmin/FIT values or history are synthesized by this bootstrap.
 ## Transactional action acceptance
 
 After both bootstraps above, run `node e2e-local/bootstrap-transactional-actions.mjs`.
-It applies the exact single product migration `20261007045422_apply_enqidu_action_v1.sql`
+It applies the exact product migrations `20261007045422_apply_enqidu_action_v1.sql`
+and `20261014044007_daily_coach_events.sql`
 to `supabase_db_enqidu-e2e` through the local Docker socket, without a remote URL
 option or a second SQL implementation. Refresh served functions after source changes.
 

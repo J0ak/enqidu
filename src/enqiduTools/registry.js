@@ -45,6 +45,7 @@ function resultSchema(data) {
   }, ["tool", "tool_version", "ok", "data", "warnings", "evidence", "traceability", "generated_at", "calendar_date", "timezone"]);
 }
 const reads = [
+  ["get_daily_coach_operating_brief", "Read Daily Coach OS V1: canonical morning policy, seven-day trend, planned/executed comparison and recorded history. Never applies or syncs.", noArgs],
   ["get_morning_coach_brief", "Read the deterministic morning brief, current persisted plan and optional review-only proposal. Never syncs or applies changes.", noArgs],
   ["get_health_ingestion_status", "Read bounded Garmin import ledger status without raw payloads or fabricated attempt history.", noArgs],
   ["get_athlete_context", "Read the authenticated athlete's profile, goals, constraints and location-scoped equipment.", noArgs],
@@ -71,6 +72,7 @@ function definition(id, description, access, input, data) {
     classification: access === "write" ? "write" : "read",
     input_schema: input, output_schema: resultSchema(data), data_schema: data,
     authentication: "required", side_effects: access === "write" ? "persist_plan_via_existing_action" : "none",
+    audit_behavior: id === "get_daily_coach_operating_brief" || access !== "read" ? "optional_first_party_server_event; none_in_mcp" : "none",
     domain_handler: access === "read" ? `read.${id}` : `action.${id.replace(/^(preview|apply)_/, "")}`,
     traceability: { registry_version: ENQIDU_TOOLS_VERSION, deterministic: true, requires_confirmation: access === "write", uses_llm: false },
   };

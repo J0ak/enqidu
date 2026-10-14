@@ -62,7 +62,7 @@ const execution = object({ ...properties("id,title,local_date,started_at,ended_a
 const availability = list(object({ calendar_date: date, availability_status: text, source: text }, ["calendar_date", "availability_status"]), 31);
 const progress = object({ kind: literal("weekly_plan_progress"), from: dateOrNull, to: dateOrNull, reference_date: dateOrNull, weekly_focus: text, planned_count: num, completed_linked_count: num, upcoming_count: num, past_unlinked_count: num, executed_week_count: number, completed: list(plan, 50), upcoming: list(plan, 50), past_unlinked: list(plan, 50), has_plan: bool });
 
-export const READ_OUTPUT_SCHEMAS = Object.freeze({
+const BASE_READ_OUTPUT_SCHEMAS = Object.freeze({
   get_athlete_context: object({ schema_version: literal("enqidu_athlete_context_v1"), ...scope, profile: object(properties("display_name,experience_level,primary_goal")), goals: list(object({ ...properties("name,description,goal_type,target_unit,target_date,status"), priority: { anyOf: [str, num, { type: "null" }] }, target_value: number }), 30), constraints: list(object({ ...properties("constraint_type,severity,description"), active: nullable(bool) }), 50), locations: list(object({ ...properties("display_name,location_type,access_mode,prescription_scope"), coached_sessions_available: nullable(bool), is_active: nullable(bool) }), 30), equipment: list(object({ ...properties("name,category,location,unit"), quantity: number, available: { anyOf: [bool, str] } }), 100) }, ["schema_version", "calendar_date", "timezone", "profile", "goals", "constraints", "locations", "equipment"]),
   get_today_plan: object({ schema_version: literal("enqidu_today_plan_v1"), ...scope, status: { enum: ["persisted", "no_persisted_plan"] }, sessions: list(plan, 50), availability }, ["schema_version", "calendar_date", "timezone", "status", "sessions", "availability"]),
   get_week_plan: object({ schema_version: literal("enqidu_week_plan_v1"), ...scope, from: date, to: date, weekly_focus: text, sessions: list(plan, 50), availability, progress }, ["schema_version", "calendar_date", "timezone", "from", "to", "sessions", "availability", "progress"]),
@@ -93,4 +93,35 @@ export const READ_OUTPUT_SCHEMAS = Object.freeze({
   get_readiness: READINESS_OUTPUT_SCHEMA,
   get_closed_loop_assessment: object({ schema_version: literal("enqidu_closed_loop_result_v1"), ...scope, assessments: list(assessment, 5) }, ["schema_version", "calendar_date", "timezone", "assessments"]),
   get_adaptation_proposal: object({ schema_version: literal("enqidu_adaptation_proposals_v1"), ...scope, proposals: list(object({ planned_session_id: text, executed_session_id: text, proposal }, ["planned_session_id", "executed_session_id", "proposal"]), 5) }, ["schema_version", "calendar_date", "timezone", "proposals"]),
+});
+
+const healthState = { enum: ["complete", "partial", "stale", "missing"] };
+const dailyDecision = { enum: ["KEEP", "REDUCE", "RECOVERY_BIAS", "REVIEW_REQUIRED"] };
+const comparisonStatus = { enum: ["completed_as_planned", "completed_modified", "partial", "missed", "no_session_planned", "unknown"] };
+export const PLANNED_EXECUTED_SCHEMA = object({ schema_version: literal("planned_vs_executed_v1"), planned_id: text, executed_id: text,
+  planned_date: dateOrNull, executed_date: dateOrNull, identity_match: { enum: ["exact_persisted_link", "unlinked"] }, status: comparisonStatus,
+  planned_title: text, executed_title: text, type_comparison: { enum: ["compatible", "different", "unknown"] }, planned_rest: bool, duration_delta: assessment.properties.duration_delta, comparison_scope: literal("observed_dimensions_only"), missing_evidence: list(str, 100),
+}, ["schema_version", "planned_id", "executed_id", "status", "identity_match", "planned_rest", "duration_delta", "missing_evidence"]);
+assessment.properties.planned_vs_executed = PLANNED_EXECUTED_SCHEMA;
+const previewRequest = BASE_READ_OUTPUT_SCHEMAS.get_morning_coach_brief.properties.review_action;
+export const READ_OUTPUT_SCHEMAS = Object.freeze({ ...BASE_READ_OUTPUT_SCHEMAS,
+  get_daily_coach_operating_brief: object({ schema_version: literal("daily_coach_operating_brief_v1"), date, timezone: str,
+    response_mode: literal("deterministic"), llm_used: literal(false), usage: literal(null), applied: literal(false),
+    morning: BASE_READ_OUTPUT_SCHEMAS.get_morning_coach_brief,
+    health_today: object({ state: healthState, current_families: list(str, 7), missing_families: list(str, 7), evidence: HEALTH_OUTPUT_SCHEMA }, ["state", "current_families", "missing_families", "evidence"]),
+    readiness_score: number, decision: dailyDecision,
+    yesterday: object({ schema_version: literal("training_day_comparison_v1"), status: comparisonStatus, comparisons: list(PLANNED_EXECUTED_SCHEMA, 75), has_more: bool }, ["schema_version", "status", "comparisons", "has_more"]),
+    trend: object({ schema_version: literal("health_readiness_trend_v1"), rule_version: literal("enqidu.trend.v1.0.0"),
+      direction: { enum: ["improving", "stable", "declining", "insufficient_data"] }, delta_points: number, comparison_dates: list(date, 6), explanation: str,
+      points: list(object({ date, health_state: healthState, readiness_score: number, readiness_status: { enum: ["available", "partial", "unavailable"] }, factor_signature: text,
+        sleep_seconds: number, hrv_ms: number, missing_families: list(str, 7) }, ["date", "health_state", "readiness_score", "sleep_seconds", "hrv_ms", "missing_families"]), 7),
+    }, ["schema_version", "rule_version", "direction", "delta_points", "comparison_dates", "explanation", "points"]),
+    recent_training: BASE_READ_OUTPUT_SCHEMAS.get_recent_training, post_workout: list(assessment, 5),
+    history: object({ status: { enum: ["available", "unavailable"] }, has_more: bool,
+      entries: list(object({ date, occurred_at: str, decision: dailyDecision, reasons: list(str, 20), proposal: previewRequest,
+        proposal_status: { enum: ["none", "proposed", "previewed", "applied"] }, preview_expired: bool,
+        evidence: object({ health_state: healthState, readiness_score: number, yesterday_status: comparisonStatus, plan_ids: list(str, 51), plan_fingerprint: str, sleep_seconds: number, sleep_score: number, stress_average: number }),
+      }, ["date", "occurred_at", "decision", "reasons", "proposal", "proposal_status", "preview_expired", "evidence"]), 14),
+    }, ["status", "has_more", "entries"]),
+  }, ["schema_version", "date", "timezone", "response_mode", "llm_used", "usage", "applied", "morning", "health_today", "readiness_score", "decision", "yesterday", "trend", "post_workout", "history"]),
 });

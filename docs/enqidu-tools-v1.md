@@ -211,3 +211,11 @@ including six previews and six existing writes):
 Both are shared by App/Coach/MCP and reject identity/date/table/RPC arguments.
 MCP writes remain disabled. No sync tool or generic provider operation is exposed.
 See [Morning Coach](morning-coach-v1.md) and [Garmin ingestion](garmin-daily-ingestion-v1.md).
+
+## Daily Coach OS V1
+
+`get_daily_coach_operating_brief({})` is the closed composition described in
+[Daily Coach OS V1](daily-coach-os-v1.md). The registry now has 24 tools / 12 reads.
+It adds seven-day trend, canonical plan/execution comparison and owner-only audit
+history. First-party backend responses can append a validated audit event through
+an injected recorder; pure read/preview domains and MCP remain read-only.

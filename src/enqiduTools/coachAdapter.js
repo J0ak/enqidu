@@ -6,6 +6,7 @@ export function applyToolResultsToCoachContext(context, results = []) {
     if (!result.ok) continue;
     const data = result.data;
     switch (result.tool) {
+      case "get_daily_coach_operating_brief": context.daily_coach_operating_brief = data; context.morning_coach_brief = data.morning; break;
       case "get_morning_coach_brief": context.morning_coach_brief = data; break;
       case "get_today_plan": {
         const sessions = data.sessions.filter((session) => session.status !== "cancelled");

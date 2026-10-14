@@ -155,3 +155,7 @@ Unsupported existing normalized training tables or grants are reported as unavai
 ## Verification
 
 `tests/closed-loop-v1.test.mjs` covers canonical completion/partial/unknown/nonexecution, duration boundaries and zeros, confirmed feedback and conflicts, canonical exercise volume/set lineage, ambiguous structures, wrong-user/foreign identity, date-window duplicate links, no mutation, canonical baseline version/date checks, stale/future health, midnight/DST in Madrid, bounded loader coverage and reproducibility. `tests/coach-closed-loop-v1.test.mjs` checks deterministic Coach integration and unapplied proposals. Local Supabase E2E verifies canonical health, an exact linked FIT execution, confirmed semantic feedback, Coach replies, and unchanged persisted plan/FIT state.
+
+Daily Coach OS V1 adds the shared `planned_vs_executed_v1` projection to each
+assessment, including canonical modality comparison. See the exact precedence,
+observed-dimension scope and limitations in [Daily Coach OS](daily-coach-os-v1.md).

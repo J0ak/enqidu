@@ -192,7 +192,7 @@ test("COACH UNAVAILABILITY: Coach reuses owner-scoped Tools availability and pro
   const edge = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
   const read = await readFile(new URL("../src/enqiduTools/readTools.js", import.meta.url), "utf8");
   const adapter = await readFile(new URL("../src/enqiduTools/coachAdapter.js", import.meta.url), "utf8");
-  assert.match(edge, /createEnqiduToolRuntime\(\{ db, source: "coach" \}\)/);
+  assert.match(edge, /createEnqiduToolRuntime\(\{ db, source: "coach", recordEvent \}\)/);
   assert.match(edge, /tools\.executeMany\(requests\)/);
   assert.match(edge, /tool: "get_today_plan", arguments: \{\}/);
   assert.match(read, /from\("training_availability_overrides"\)/);

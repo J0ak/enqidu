@@ -1,3 +1,4 @@
+import { createDailyCoachRecorder } from "../../../src/dailyCoach/history.js";
 import { isMorningCoachRequest } from "../../../src/health/morningCoachV1.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -118,11 +119,13 @@ Deno.serve(async (req: Request) => {
       calendar_timezone: calendar.timezone,
       date_source: calendar.source,
     };
-    const tools = await createEnqiduToolRuntime({ db, source: "coach" });
+    const historyKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const recordEvent = morningRequest && historyKey ? createDailyCoachRecorder(createClient(Deno.env.get("SUPABASE_URL")!, historyKey, { auth: { persistSession: false, autoRefreshToken: false } })) : null;
+    const tools = await createEnqiduToolRuntime({ db, source: "coach", recordEvent });
     const requests: Array<{ tool: string; arguments: Record<string, unknown> }> = [
       { tool: "get_health_status", arguments: contextDate === tools.context.request_calendar_date ? {} : { date: contextDate } },
     ];
-    if (morningRequest) requests.push({ tool: "get_morning_coach_brief", arguments: {} });
+    if (morningRequest) requests.push({ tool: "get_daily_coach_operating_brief", arguments: {} });
     if (intents.closedLoop) requests.push({ tool: "get_closed_loop_assessment", arguments: {
       ...(body.session_id ? { session_id: body.session_id } : {}), date: contextDate,
     } });

@@ -1,3 +1,4 @@
+import type { PlannedVsExecuted } from "./plannedVsExecuted.js";
 export const CLOSED_LOOP_SCHEMA_VERSION: "closed_loop_assessment_v1";
 export const CLOSED_LOOP_ALGORITHM_VERSION: "enqidu.closed-loop.v1.0.0";
 export const ADAPTATION_PROPOSAL_SCHEMA_VERSION: "adaptation_proposal_v1";
@@ -10,14 +11,14 @@ export interface PlannedBlock {
   id?: string; title: string; planned_exercises?: PlannedExercise[]; planned_duration_seconds?: number | null;
 }
 export interface CanonicalPlannedSession {
-  id: string; user_id?: string; title?: string; planned_date?: string; status?: string;
+  id: string; user_id?: string; title?: string; session_type?: string; planned_date?: string; status?: string;
   planned_duration_min?: number | null; planned_duration_max?: number | null; planned_intensity?: string | null;
   linked_completed_session_id?: string | null; planned_session_blocks?: PlannedBlock[];
 }
 export interface CanonicalExecution {
   id: string; user_id?: string; title?: string; local_date?: string; duration_seconds?: number | null;
   started_at?: string | null; ended_at?: string | null; session_status?: string;
-  source_type?: string | null; session_blocks?: Array<Record<string, unknown>>;
+  modality_code?: string | null; source_type?: string | null; session_blocks?: Array<Record<string, unknown>>;
 }
 export interface ConfirmedFeedback {
   confirmed: true; user_id?: string | null; session_id: string;
@@ -43,6 +44,7 @@ export interface ClosedLoopAssessmentV1 {
   user_feedback: Record<string, unknown> | null; health_before: Record<string, unknown> | null; health_after: Record<string, unknown> | null;
   recovery_comparison: Array<Record<string, unknown>>; evidence_used: Array<Record<string, unknown>>; missing_evidence: string[];
   assessment: { status: "available" | "insufficient_evidence"; facts: ClosedLoopFact[] };
+  planned_vs_executed: PlannedVsExecuted;
   adaptation_proposal: AdaptationProposalV1; applied: false;
   scope_coverage?: { from_date: string; to_date: string; limit: number; truncated: boolean };
 }

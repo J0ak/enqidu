@@ -17,7 +17,7 @@ const localDependencies = {
   setup(builder) {
     builder.onResolve({ filter: /^jsr:@supabase\/functions-js\/edge-runtime\.d\.ts$/ }, (args) => ({ path: args.path, namespace: "edge-declarations" }));
     builder.onLoad({ filter: /.*/, namespace: "edge-declarations" }, () => ({ contents: "", loader: "js" }));
-    builder.onResolve({ filter: /^npm:@supabase\/supabase-js@2$/ }, () => ({ path: require.resolve("@supabase/supabase-js") }));
+    builder.onResolve({ filter: /^npm:@supabase\/supabase-js@2(?:\.107\.0)?$/ }, () => ({ path: require.resolve("@supabase/supabase-js") }));
   },
 };
 
