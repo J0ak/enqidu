@@ -12,6 +12,7 @@ import GarminSyncConsent from "@/components/GarminSyncConsent";
 import CoachActionPreview from "@/components/CoachActionPreview";
 import ManualHealthImport from "@/components/ManualHealthImport";
 import DailyCoach from "@/components/DailyCoach";
+import HomeToday from "@/components/HomeToday";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
@@ -315,8 +316,8 @@ function useStoredState(key, initialValue, normalize = (stored) => stored) {
 
 function getInitialRoute() {
   const hash = window.location.hash.replace("#/", "");
-  const visibleRoutes = ["coach", "health", "activities", "profile", "activityDetail", "plannedSessionDetail"];
-  return visibleRoutes.includes(hash) ? hash : "coach";
+  const visibleRoutes = ["home", "coach", "health", "activities", "profile", "activityDetail", "plannedSessionDetail"];
+  return visibleRoutes.includes(hash) ? hash : "home";
 }
 
 function decorateLinkedPlannedActivityDetail(detail, item) {
@@ -340,10 +341,12 @@ function decorateLinkedPlannedActivityDetail(detail, item) {
   };
 }
 
-function fetchTrainingSessionsForActivities(supabaseClient) {
+function fetchTrainingSessionsForActivities(supabaseClient, ownedSession = null) {
+  if (ownedSession && (!ownedSession.id || !ownedSession.userId)) return Promise.resolve({ data: [], error: true });
   const fullSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics";
   const safeSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure";
-  const buildQuery = (selectColumns) => supabaseClient
+  const buildQuery = (selectColumns) => {
+    const query = supabaseClient
     .from("training_sessions")
     .select(selectColumns)
     .or("session_status.is.null,session_status.neq.archived")
@@ -351,6 +354,8 @@ function fetchTrainingSessionsForActivities(supabaseClient) {
     .order("started_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false, nullsFirst: false })
     .limit(100);
+    return ownedSession ? query.eq("user_id", ownedSession.userId).eq("id", ownedSession.id) : query;
+  };
 
   return buildQuery(fullSelect).then((result) => (
     result.error ? buildQuery(safeSelect) : result
@@ -689,6 +694,8 @@ function App() {
     errors: [],
   });
   const [session, setSession] = useState(null);
+  const authenticatedUser = useRef(null);
+  const backofficeUser = useRef(null);
   const [authNotice, setAuthNotice] = useState("");
   const [health, setHealth] = useState({});
   const [healthSeries, setHealthSeries] = useState({ sleep: null, hrv: [], bodyBattery: [], stress: [], respiration: [], spo2: [] });
@@ -1063,7 +1070,7 @@ function App() {
 
   useEffect(() => {
     const onHash = () => {
-      const next = window.location.hash.replace("#/", "") || "coach";
+      const next = window.location.hash.replace("#/", "") || "home";
       setRouteState(next);
     };
     window.addEventListener("hashchange", onHash);
@@ -1089,10 +1096,9 @@ function App() {
         else if (sessionError || refreshError) console.warn("Auth session restore failed", refreshError?.message || sessionError?.message);
       }
 
+      authenticatedUser.current = nextSession?.user?.id || null;
       setSession(nextSession);
-      if (nextSession?.user?.id) {
-        await loadBackofficeData(nextSession);
-      } else {
+      if (!nextSession?.user?.id) {
         setSessions([]);
         setPlannedSessions([]);
         setDataState({ loading: false, source: "Sesión requerida", detail: "Vuelve a autenticarte para sincronizar tus datos." });
@@ -1103,11 +1109,14 @@ function App() {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (cancelled || event === "INITIAL_SESSION") return;
+      const newlySignedIn = event === "SIGNED_IN" && !authenticatedUser.current;
+      authenticatedUser.current = nextSession?.user?.id || null;
       setSession(nextSession);
+      if (newlySignedIn && getInitialRoute() === "profile") { setAuthNotice("Sesión iniciada."); setRoute("home"); }
       window.setTimeout(() => {
         if (cancelled) return;
-        if (nextSession?.user?.id) loadBackofficeData(nextSession);
-        else {
+        if (!nextSession?.user?.id) {
+          backofficeUser.current = null;
           setSessions([]);
           setPlannedSessions([]);
         }
@@ -1120,6 +1129,13 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || ["home", "activityDetail", "plannedSessionDetail"].includes(route) || backofficeUser.current === userId) return;
+    backofficeUser.current = userId;
+    loadBackofficeData(session);
+  }, [route, session?.user?.id]);
+
   const activeDiscipline = disciplines[discipline];
   const filteredSessions = useMemo(() => {
     const activeSessions = sessions.filter((session) => !isArchivedSession(session));
@@ -1127,6 +1143,7 @@ function App() {
   }, [sessions]);
 
   const openSessionDetail = async (selectedSession) => {
+    const ownerAtOpen = session?.user?.id;
     if (selectedSession?.activityType === "hybrid") setDiscipline("hyrox");
     if (selectedSession?.activityType === "strength") setDiscipline("crossfit");
     if (selectedSession?.activityType === "run") setDiscipline("trail");
@@ -1137,6 +1154,7 @@ function App() {
     if (executedSession?.id) {
       setActivityDetail(null);
       const detail = await loadActivityDetail(executedSession);
+      if (authenticatedUser.current !== ownerAtOpen) return;
       setActivityDetail(selectedSession?.kind === "planned_completed"
         ? decorateLinkedPlannedActivityDetail(detail, selectedSession)
         : detail);
@@ -1184,10 +1202,11 @@ function App() {
   return (
     <div className="appShell" style={{ "--discipline": activeDiscipline.color }}>
       <aside className="rail">
-        <button className="brandButton" onClick={() => setRoute("coach")} aria-label="Coach">
+        <button className="brandButton" onClick={() => setRoute("home")} aria-label="Inicio">
           <Sparkles size={20} />
           <span>EQ</span>
         </button>
+        <NavButton icon={Home} label="Hoy" route="home" active={route} setRoute={setRoute} />
         <NavButton icon={Bot} label="Coach" route="coach" active={route} setRoute={setRoute} />
         <NavButton icon={HeartPulse} label="Salud" route="health" active={route} setRoute={setRoute} />
         <NavButton icon={Activity} label="Actividades" route="activities" active={route} setRoute={setRoute} />
@@ -1204,6 +1223,15 @@ function App() {
           </header>
         )}
 
+        {route === "home" && <>
+          {authNotice === "Sesión iniciada." && <p role="status">{authNotice}</p>}
+          <HomeToday key={session?.user?.id || "signed-out"} userId={session?.user?.id} onNavigate={setRoute} onPlan={(item) => openPlannedSessionDetail(normalizePlannedCalendarItem(item, item.blocks || []))} onActivity={async (item) => {
+            const ownerId = session?.user?.id;
+            const result = await fetchTrainingSessionsForActivities(supabase, { id: item.id, userId: ownerId });
+            if (result.error || !result.data?.[0] || result.data[0].user_id !== ownerId || authenticatedUser.current !== ownerId) throw new Error("activity_unavailable");
+            await openSessionDetail(result.data[0]);
+          }} />
+        </>}
         {route === "health" && (
           <HealthView
             onImported={() => loadBackofficeData()}
@@ -1267,6 +1295,7 @@ function App() {
 
 function routeLabel(route) {
   return {
+    home: "Tu día, de un vistazo",
     health: "Salud y recuperación",
     activities: "Historial de actividades",
     activityDetail: "Detalle Garmin/FIT",
@@ -1305,44 +1334,6 @@ function DisciplineSwitch({ value, onChange }) {
           </button>
         );
       })}
-    </section>
-  );
-}
-
-function HomeView({ discipline, health, sessions, setRoute, dataState }) {
-  const observedCards = [
-    health.body_battery_current != null && ["Body Battery", health.body_battery_current, "/100", "Garmin", health.body_battery_current],
-    health.average_stress_level != null && ["Stress", health.average_stress_level, "avg", "Garmin", null],
-    health.steps != null && ["Steps", compact(health.steps), "", "Garmin", null],
-    health.intensity_minutes != null && ["Intensity", health.intensity_minutes, "min", "Garmin", null],
-  ].filter(Boolean);
-
-  return (
-    <section className="viewStack">
-      <HeroCard discipline={discipline} />
-      {observedCards.length > 0 && (
-        <div className="smartGrid">
-          {observedCards.map(([title, value, unit, badge, progress]) => (
-            <SmartCard key={title} title={title} value={value} unit={unit} badge={badge} progress={progress} />
-          ))}
-        </div>
-      )}
-      <ActionPanel title="Hoy toca decidir bien" cta="Abrir Coach" onClick={() => setRoute("coach")}>
-        {discipline.prescription.map((item) => (
-          <span key={item}>{item}</span>
-        ))}
-      </ActionPanel>
-      <section className="panel">
-        <PanelTitle label="Activity" title="Últimas sesiones" />
-        <SessionList sessions={sessions} />
-      </section>
-      <section className="dataBanner">
-        <CheckCircle2 size={18} />
-        <div>
-          <strong>{dataState.source}</strong>
-          <span>{dataState.detail}</span>
-        </div>
-      </section>
     </section>
   );
 }
@@ -5179,7 +5170,6 @@ function AuthPanel({ session, notice, setNotice, onSync }) {
     }
 
     setNotice(mode === "signup" ? "Cuenta creada. Revisa tu email si hace falta confirmar el acceso." : "Sesión iniciada.");
-    if (onSync) onSync();
   };
 
   const logout = async () => {
