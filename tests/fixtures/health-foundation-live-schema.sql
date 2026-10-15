@@ -448,10 +448,10 @@ CREATE UNIQUE INDEX wearable_sleep_sessions_source_unique ON public.wearable_sle
 CREATE UNIQUE INDEX wearable_vendor_insights_capture_unique ON public.wearable_vendor_insights USING btree (user_id, provider, ingestion_channel, observation_date, insight_code) WHERE (ingestion_channel = 'chatgpt_assisted_capture'::text);
 
 -- Real shared-raw assisted mutation policies retained in production.
-create policy raw_assisted_insert on public.wearable_provider_raw_payloads for insert to authenticated
+create policy wearable_provider_raw_payloads_assisted_insert on public.wearable_provider_raw_payloads for insert to authenticated
   with check ((select auth.uid())=user_id and ingestion_channel='chatgpt_assisted_capture');
-create policy raw_assisted_update on public.wearable_provider_raw_payloads for update to authenticated
+create policy wearable_provider_raw_payloads_assisted_update on public.wearable_provider_raw_payloads for update to authenticated
   using ((select auth.uid())=user_id and ingestion_channel='chatgpt_assisted_capture')
   with check ((select auth.uid())=user_id and ingestion_channel='chatgpt_assisted_capture');
-create policy raw_assisted_delete on public.wearable_provider_raw_payloads for delete to authenticated
+create policy wearable_provider_raw_payloads_assisted_delete on public.wearable_provider_raw_payloads for delete to authenticated
   using ((select auth.uid())=user_id and ingestion_channel='chatgpt_assisted_capture');

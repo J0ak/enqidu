@@ -19,3 +19,6 @@ verify_jwt = true
 [functions.garmin-daily-sync]
 # Handler validates either getUser() JWT or the dedicated scheduler secret; never both.
 verify_jwt = false
+
+[functions.manual-health-import]
+verify_jwt = true

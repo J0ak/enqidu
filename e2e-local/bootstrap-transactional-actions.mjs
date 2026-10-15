@@ -21,3 +21,10 @@ const dailyResult = spawnSync("docker", ["--host=unix:///var/run/docker.sock", "
 });
 if (dailyResult.status !== 0) throw new Error(`Disposable daily audit migration failed: ${dailyResult.stderr}`);
 console.log("Daily Coach audit migration ready in disposable local Supabase; no remote changes.");
+
+const manualSql = await readFile(new URL("../supabase/migrations/20261014184601_manual_health_import_v1.sql", import.meta.url), "utf8");
+const manualResult = spawnSync("docker", ["--host=unix:///var/run/docker.sock", "exec", "-i", "supabase_db_enqidu-e2e", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], {
+  input: `${manualSql}\nnotify pgrst, 'reload schema';\n`, encoding: "utf8", env: dockerEnv, maxBuffer: 1024 * 1024,
+});
+if (manualResult.status !== 0) throw new Error(`Disposable manual health migration failed: ${manualResult.stderr}`);
+console.log("Manual Health migration ready in disposable local Supabase; no remote changes.");
