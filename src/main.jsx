@@ -10,6 +10,7 @@ import { requestEnqiduTool } from "@/services/enqiduToolsService";
 import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
 import GarminSyncConsent from "@/components/GarminSyncConsent";
 import CoachActionPreview from "@/components/CoachActionPreview";
+import ManualHealthImport from "@/components/ManualHealthImport";
 import DailyCoach from "@/components/DailyCoach";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
@@ -1205,6 +1206,7 @@ function App() {
 
         {route === "health" && (
           <HealthView
+            onImported={() => loadBackofficeData()}
             health={health}
             healthSeries={healthSeries}
             discipline={activeDiscipline}
@@ -1372,7 +1374,7 @@ function HeroCard({ discipline }) {
   );
 }
 
-function HealthView({ health, healthSeries }) {
+function HealthView({ health, healthSeries, onImported }) {
   const sleep = buildSleepModel(health, healthSeries.sleep, healthSeries.hrv);
   const energyCurve = buildEnergyCurve(healthSeries.bodyBattery);
   const hrvTrend = buildHrvTrend(healthSeries.hrv, sleep.hrv);
@@ -1383,6 +1385,7 @@ function HealthView({ health, healthSeries }) {
 
   return (
     <section className="viewStack">
+      <ManualHealthImport db={supabase} onImported={onImported} />
       <GarminSyncConsent db={supabase} />
       {hasHealthData ? (
         <>
@@ -1421,6 +1424,7 @@ function HealthView({ health, healthSeries }) {
 }
 
 function healthSourceLabel(health = {}) {
+  if (health.ingestion_channel === "chatgpt_assisted_capture") return "Garmin · captura manual";
   if (health.ingestion_channel === "fitness_ai_connector") return "Garmin · Fitness AI Connector";
   if (health.ingestion_channel === "garmin_health_api") return "Garmin API";
   if (health.ingestion_channel === "admin_backfill") return "Garmin · histórico";

@@ -296,6 +296,7 @@ test("runtime Edge functions remain an audited closed list", async () => {
     "coach-reply",
     "enqidu-tools",
     "garmin-daily-sync",
+    "manual-health-import",
     "session-context",
     "session-correction-apply",
     "session-correction-preview",

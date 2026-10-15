@@ -5,7 +5,8 @@ export type GarminDataType = "daily_health" | "sleep" | "hrv" | "stress" | "body
 export type DataConfidence = "reported" | "user_verified" | "calculated" | "estimated" | "ocr_unverified" | "unknown";
 export type GarminTransport =
   | { provider_mode: "aggregator"; ingestion_channel: "fitness_ai_connector" }
-  | { provider_mode: "official_api"; ingestion_channel: "garmin_health_api" };
+  | { provider_mode: "official_api"; ingestion_channel: "garmin_health_api" }
+  | { provider_mode: "assisted_capture"; ingestion_channel: "chatgpt_assisted_capture" };
 export interface GarminSourceRequest {
   from_date: string;
   to_date: string;
@@ -111,7 +112,7 @@ export type GarminHeartRate = GarminRecordBase & {
 export type GarminHealthRecord = GarminDailyHealth | GarminSleep | GarminHRV | GarminStress |
   GarminBodyBattery | GarminRespiration | GarminSpO2 | GarminBodyComposition | GarminVendorInsight | GarminHeartRate;
 export const GARMIN_HEALTH_DATA_TYPES: readonly GarminDataType[];
-export const GARMIN_SOURCE_CHANNELS: Readonly<{ aggregator: "fitness_ai_connector"; official_api: "garmin_health_api" }>;
+export const GARMIN_SOURCE_CHANNELS: Readonly<{ aggregator: "fitness_ai_connector"; official_api: "garmin_health_api"; assisted_capture: "chatgpt_assisted_capture" }>;
 export const HEALTH_DATA_CONFIDENCE: readonly DataConfidence[];
 export function validateCalendarDate(value: unknown, field?: string): string;
 export function validateHealthTimezone(value: unknown, field?: string): string | null;

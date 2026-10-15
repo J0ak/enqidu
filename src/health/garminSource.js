@@ -7,6 +7,7 @@ export const GARMIN_HEALTH_DATA_TYPES = Object.freeze([
 export const GARMIN_SOURCE_CHANNELS = Object.freeze({
   aggregator: "fitness_ai_connector",
   official_api: "garmin_health_api",
+  assisted_capture: "chatgpt_assisted_capture",
 });
 
 export const HEALTH_DATA_CONFIDENCE = Object.freeze([

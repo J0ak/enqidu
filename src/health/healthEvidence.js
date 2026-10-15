@@ -86,6 +86,8 @@ export function safeHealthProvenance(row) {
   if (result.provider_mode === "aggregator" && result.ingestion_channel !== "fitness_ai_connector") return null;
   if (result.ingestion_channel === "fitness_ai_connector" && result.provider_mode !== "aggregator") return null;
   if (result.ingestion_channel === "garmin_health_api" && result.provider_mode !== "official_api") return null;
+  if (result.provider_mode === "assisted_capture" && result.ingestion_channel !== "chatgpt_assisted_capture") return null;
+  if (result.ingestion_channel === "chatgpt_assisted_capture" && result.provider_mode !== "assisted_capture") return null;
   return result;
 }
 
