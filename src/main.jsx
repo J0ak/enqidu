@@ -1,3 +1,6 @@
+import { LAP_COLUMNS, readLap, writeLap } from "./training/lapSchema.js";
+import { fetchSessionSemanticContext } from "./training/sessionSources.js";
+import { fetchActivityPeriod, fetchActivityById, athleteToday } from "./training/activityHistory.js";
 ﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import JSZip from "jszip";
@@ -16,7 +19,6 @@ import HomeToday from "@/components/HomeToday";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
-import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
 import { dedupeGarminSeriesRows, extractRawGarminStrengthSets, pairGarminStrengthSets } from "@/training/garminStrengthSeries";
@@ -342,24 +344,8 @@ function decorateLinkedPlannedActivityDetail(detail, item) {
 }
 
 function fetchTrainingSessionsForActivities(supabaseClient, ownedSession = null) {
-  if (ownedSession && (!ownedSession.id || !ownedSession.userId)) return Promise.resolve({ data: [], error: true });
-  const fullSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure, summary_metrics";
-  const safeSelect = "id, user_id, title, session_kind, session_status, duration_seconds, distance_meters, started_at, local_date, created_at, source_id, external_reference, tags, session_structure";
-  const buildQuery = (selectColumns) => {
-    const query = supabaseClient
-    .from("training_sessions")
-    .select(selectColumns)
-    .or("session_status.is.null,session_status.neq.archived")
-    .order("local_date", { ascending: false, nullsFirst: false })
-    .order("started_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false, nullsFirst: false })
-    .limit(100);
-    return ownedSession ? query.eq("user_id", ownedSession.userId).eq("id", ownedSession.id) : query;
-  };
-
-  return buildQuery(fullSelect).then((result) => (
-    result.error ? buildQuery(safeSelect) : result
-  ));
+  if (ownedSession) return fetchActivityById(supabaseClient, ownedSession);
+  return Promise.resolve({ data: [], error: null });
 }
 
 async function fetchAllSessionSamples(sessionId) {
@@ -487,199 +473,10 @@ async function fetchHeartRateZoneProfile(userId) {
   return { data: result.data, error: null };
 }
 
-async function fetchCanonicalTrainingSession(latestSession) {
-  if (!supabase || !latestSession?.id) return { ready: false, session: null, reason: "missing_session" };
-
-  const sessionResult = await supabase
-    .from("training_sessions")
-    .select("id,title,session_kind,duration_seconds,canonical_session,summary_metrics,completion_score,universal_schema_version")
-    .eq("id", latestSession.id)
-    .maybeSingle();
-
-  if (sessionResult.error) {
-    return { ready: false, session: null, reason: "canonical_columns_unavailable", error: sessionResult.error.message };
-  }
-
-  const canonicalJson = sessionResult.data?.canonical_session;
-  if (canonicalJson?.schema_version === "enqidu_training_session_v1" && Array.isArray(canonicalJson.blocks) && canonicalJson.blocks.length) {
-    return {
-      ready: true,
-      source: "training_sessions.canonical_session",
-      session: {
-        ...canonicalJson,
-        session: {
-          ...(canonicalJson.session || {}),
-          id: latestSession.id,
-          title: canonicalJson.session?.title || latestSession.title,
-          total_duration_s: canonicalJson.session?.total_duration_s ?? latestSession.duration_seconds,
-        },
-      },
-    };
-  }
-
-  const blocksResult = await supabase
-    .from("session_blocks")
-    .select("id,order_index,block_order,block_type,block_format,primary_measurement_type,name,duration_seconds,rounds,rounds_completed,time_cap_s,summary_metrics")
-    .eq("session_id", latestSession.id)
-    .order("order_index", { ascending: true, nullsFirst: false })
-    .order("block_order", { ascending: true, nullsFirst: false });
-
-  if (blocksResult.error) {
-    return { ready: false, session: null, reason: "canonical_block_columns_unavailable", error: blocksResult.error.message };
-  }
-
-  const blockRows = blocksResult.data || [];
-  if (!blockRows.length) return { ready: false, session: null, reason: "no_blocks" };
-
-  const blockIds = blockRows.map((block) => block.id).filter(Boolean);
-  if (!blockIds.length) return { ready: false, session: null, reason: "no_block_ids" };
-
-  const itemsResult = await supabase
-    .from("block_items")
-    .select("id,block_id,order_index,item_type,item_name,station_label,round_index,minute_slot,duration_s,rest_s,summary_metrics")
-    .in("block_id", blockIds)
-    .order("order_index", { ascending: true });
-
-  if (itemsResult.error) {
-    return { ready: false, session: null, reason: "canonical_items_unavailable", error: itemsResult.error.message };
-  }
-
-  const itemRows = itemsResult.data || [];
-  if (!itemRows.length) return { ready: false, session: null, reason: "no_canonical_items" };
-
-  const itemIds = itemRows.map((item) => item.id).filter(Boolean);
-  const exercisesResult = itemIds.length
-    ? await supabase
-        .from("item_exercises")
-        .select("id,block_item_id,exercise_id,order_index,display_name,measurement_type,target_reps,target_reps_per_side,target_load_kg,target_duration_s,target_distance_m,missing_fields,summary_metrics")
-        .in("block_item_id", itemIds)
-        .order("order_index", { ascending: true })
-    : { data: [], error: null };
-
-  if (exercisesResult.error) {
-    return { ready: false, session: null, reason: "canonical_exercises_unavailable", error: exercisesResult.error.message };
-  }
-
-  const exerciseRows = exercisesResult.data || [];
-  const exerciseIds = exerciseRows.map((exercise) => exercise.id).filter(Boolean);
-  const [setsResult, metricsResult] = exerciseIds.length
-    ? await Promise.all([
-        supabase
-          .from("performed_sets")
-          .select("id,item_exercise_id,set_index,reps,reps_left,reps_right,load_kg,duration_s,distance_m,rpe,rir,rest_s,completed")
-          .in("item_exercise_id", exerciseIds)
-          .order("set_index", { ascending: true }),
-        supabase
-          .from("performed_metrics")
-          .select("id,item_exercise_id,metric_name,metric_value,metric_unit,confidence")
-          .in("item_exercise_id", exerciseIds),
-      ])
-    : [{ data: [], error: null }, { data: [], error: null }];
-
-  if (setsResult.error || metricsResult.error) {
-    return {
-      ready: false,
-      session: null,
-      reason: "canonical_performed_data_unavailable",
-      error: setsResult.error?.message || metricsResult.error?.message,
-    };
-  }
-
-  const itemsByBlock = groupBy(itemRows, "block_id");
-  const exercisesByItem = groupBy(exerciseRows, "block_item_id");
-  const setsByExercise = groupBy(setsResult.data || [], "item_exercise_id");
-  const metricsByExercise = groupBy(metricsResult.data || [], "item_exercise_id");
-  const canonical = {
-    schema_version: "enqidu_training_session_v1",
-    session: {
-      id: latestSession.id,
-      title: sessionResult.data?.title || latestSession.title || "Sesión",
-      session_type: canonicalSessionType(latestSession.session_kind),
-      total_duration_s: sessionResult.data?.duration_seconds ?? latestSession.duration_seconds,
-      summary_metrics: sessionResult.data?.summary_metrics || {},
-    },
-    planned: {},
-    performed: {},
-    interpreted: {},
-    blocks: blockRows.map((block, index) => ({
-      id: block.id,
-      block_id: block.id,
-      order_index: block.order_index || block.block_order || index + 1,
-      name: block.name,
-      block_type: block.block_type || "mixed",
-      block_format: block.block_format || "mixed",
-      primary_measurement_type: block.primary_measurement_type || "mixed",
-      duration_s: block.duration_seconds,
-      rounds: block.rounds ?? block.rounds_completed,
-      time_cap_s: block.time_cap_s,
-      summary_metrics: block.summary_metrics || {},
-      items: (itemsByBlock.get(block.id) || []).map((item) => ({
-        id: item.id,
-        block_item_id: item.id,
-        order_index: item.order_index,
-        item_type: item.item_type,
-        item_name: item.item_name,
-        station_label: item.station_label,
-        round_index: item.round_index,
-        minute_slot: item.minute_slot,
-        duration_s: item.duration_s,
-        rest_s: item.rest_s,
-        summary_metrics: item.summary_metrics || {},
-        exercises: (exercisesByItem.get(item.id) || []).map((exercise) => ({
-          id: exercise.id,
-          item_exercise_id: exercise.id,
-          exercise_id: exercise.exercise_id,
-          canonical_slug: exercise.exercise_id,
-          order_index: exercise.order_index,
-          display_name: exercise.display_name,
-          measurement_type: exercise.measurement_type,
-          target_reps: exercise.target_reps,
-          target_reps_per_side: exercise.target_reps_per_side,
-          target_load_kg: exercise.target_load_kg,
-          target_duration_s: exercise.target_duration_s,
-          target_distance_m: exercise.target_distance_m,
-          missing_fields: exercise.missing_fields || [],
-          summary_metrics: exercise.summary_metrics || {},
-          performed_sets: setsByExercise.get(exercise.id) || [],
-          performed_metrics: metricsByExercise.get(exercise.id) || [],
-        })),
-      })),
-    })),
-    missing_fields: [],
-    summary_metrics: sessionResult.data?.summary_metrics || {},
-    source_links: [],
-  };
-
-  return {
-    ready: true,
-    source: "canonical_relational_tables",
-    session: canonical,
-  };
-}
-
-function groupBy(rows = [], key) {
-  return rows.reduce((map, row) => {
-    const value = row[key];
-    if (!map.has(value)) map.set(value, []);
-    map.get(value).push(row);
-    return map;
-  }, new Map());
-}
-
-function canonicalSessionType(value) {
-  const text = `${value || ""}`.toLowerCase();
-  if (text.includes("run") || text.includes("correr")) return text.includes("trail") ? "trail_running" : "running";
-  if (text.includes("swim") || text.includes("nataci")) return "swimming";
-  if (text.includes("bike") || text.includes("cycling") || text.includes("cicl")) return "cycling";
-  if (text.includes("strength") || text.includes("fuerza")) return "strength";
-  if (text.includes("hypertrophy") || text.includes("hipertrof")) return "hypertrophy";
-  if (text.includes("mobility") || text.includes("movilidad")) return "mobility";
-  if (text.includes("rehab")) return "rehab";
-  if (text.includes("prehab")) return "prehab";
-  if (text.includes("hiit")) return "hiit";
-  if (text.includes("crossfit")) return "crossfit_style";
-  if (text.includes("trail")) return "trail_running";
-  return "mixed";
+// Production uses session_blocks/session_exercises. The experimental universal
+// columns/tables do not exist; use the established relational detail renderer.
+async function fetchCanonicalTrainingSession() {
+  return { ready: false, session: null, reason: "production_relational_training_model" };
 }
 
 function App() {
@@ -727,6 +524,7 @@ function App() {
       exercisesResult,
       zoneProfileResult,
       canonicalResult,
+      semanticContext,
     ] = await Promise.all([
       supabase
         .from("session_metrics")
@@ -742,9 +540,9 @@ function App() {
         .order("block_order", { ascending: true }),
       supabase
         .from("session_laps")
-        .select("id, lap_index, source, start_elapsed_seconds, end_elapsed_seconds, duration_seconds, active_seconds, rest_seconds, distance_meters, heart_rate_avg_bpm, heart_rate_max_bpm, raw_payload")
+        .select(LAP_COLUMNS)
         .eq("session_id", latestSession.id)
-        .order("lap_index", { ascending: true }),
+        .order("lap_order", { ascending: true }),
       supabase
         .from("session_garmin_sets")
         .select("id, source, series_order, garmin_exercise_name, start_elapsed_seconds, end_elapsed_seconds, duration_seconds, active_seconds, rest_seconds, repetitions, load_value, load_unit, heart_rate_avg_bpm, heart_rate_max_bpm, raw_payload, confidence")
@@ -752,21 +550,23 @@ function App() {
         .order("series_order", { ascending: true }),
       supabase
         .from("enkidu_conversation_enrichments")
-        .select("payload, enrichment_status, created_at")
+        .select("payload, status, created_at")
         .eq("session_id", latestSession.id)
-        .in("enrichment_status", ["active", "applied", "completed"] )
+        .in("status", ["active", "applied", "completed"] )
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase
         .from("session_exercises")
-        .select("block_id, reported_name, exercise_order, sets_completed, reps_per_set, duration_seconds, load_value, load_unit, side, notes, equipment_snapshot, data_confidence")
+        .select("block_id, reported_name, exercise_order, sets_completed, rounds_completed, reps_per_set, duration_seconds, load_value, load_unit, tempo_or_pause, side, notes, equipment_snapshot, data_confidence")
         .eq("session_id", latestSession.id)
         .order("exercise_order", { ascending: true }),
       fetchHeartRateZoneProfile(detailUserId),
       fetchCanonicalTrainingSession(latestSession),
+      fetchSessionSemanticContext(supabase, latestSession.id, detailUserId),
     ]);
 
+    if (lapsResult.data) lapsResult.data = lapsResult.data.map(row => readLap(row, latestSession.started_at));
     const metrics = indexMetrics(metricsResult.data || []);
     const samples = mergeTemporalSamples(samplesResult.data || [], fitRecordsResult.data || []);
     const fitSessionPayload = fitSessionResult.data || {};
@@ -856,6 +656,7 @@ function App() {
       garminSeries,
       sessionStructure: latestSession.session_structure || {},
       enrichmentPayload,
+      semanticContext,
       executiveSummaryTable,
       canonicalTrainingSession: canonicalResult.session,
       universalTrainingIntegration: canonicalResult,
@@ -891,7 +692,13 @@ function App() {
           .limit(1)
       : Promise.resolve({ data: [], error: null });
 
-    const sessionQuery = fetchTrainingSessionsForActivities(supabase);
+    const sessionQuery = (async () => {
+      if (!userId) return { data: [], error: null };
+      const { data: calendarProfile } = await supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle();
+      const today = athleteToday(calendarProfile?.timezone);
+      const start = new Date(today); start.setDate(start.getDate() - 31);
+      return fetchActivityPeriod(supabase, { userId, start: dateKey(start), end: dateKey(today) });
+    })();
 
     const profileQuery = userId
       ? supabase
@@ -1243,6 +1050,7 @@ function App() {
         {route === "activities" && (
           <ActivitiesOverview
             sessions={filteredSessions}
+            userId={session?.user?.id}
             plannedSessions={plannedSessions}
             setRoute={setRoute}
             setDiscipline={setDiscipline}
@@ -1852,6 +1660,13 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
       <GarminSeriesCard series={activityDetail.garminSeries} />
       <PhysiologyCard detail={activityDetail} />
       <ActivityTrainingEffectCard detail={activityDetail} />
+      {activityDetail.semanticContext?.length > 0 && <section className="activityMainCard">
+        <h2>Contexto del entrenamiento</h2>
+        {activityDetail.semanticContext.map(source => <article key={source.id}>
+          <h3>{source.title}</h3>
+          {source.notes.map((note,index) => <p key={index}>{note}</p>)}
+        </article>)}
+      </section>}
     </section>
   );
 }
@@ -3247,19 +3062,41 @@ function ActivityTrainingEffectCard({ detail }) {
   );
 }
 
-function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDiscipline, onOpenSession, onOpenPlannedSession }) {
-  const typedSessions = sessions.filter((session) => !isArchivedSession(session)).map(classifySession);
-  const calendarItems = mergeExecutedAndPlannedForCalendar(typedSessions, plannedSessions);
-  const today = useMemo(() => startOfDay(new Date()), []);
+function ActivitiesOverview({ sessions, userId, plannedSessions = [], setRoute, setDiscipline, onOpenSession, onOpenPlannedSession }) {
+  const [timezone, setTimezone] = useState(null);
+  const [history, setHistory] = useState({ rows: [], plans: [], loading: true, error: null });
+  const today = useMemo(() => athleteToday(timezone), [timezone]);
   const todayKey = dateKey(today);
   const [viewMode, setViewMode] = useState("week");
   const [periodDate, setPeriodDate] = useState(today);
   const [selectedDates, setSelectedDates] = useState([]);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const period = buildActivityPeriod(viewMode, periodDate);
+  const startKey = dateKey(period.start), endKey = dateKey(period.end);
+  useEffect(() => {
+    let active = true;
+    if (supabase && userId) supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle().then(({ data }) => {
+      if (active) { setTimezone(data?.timezone || "Europe/Madrid"); setPeriodDate(athleteToday(data?.timezone)); }
+    });
+    return () => { active = false; };
+  }, [userId]);
+  useEffect(() => {
+    let active = true;
+    setHistory({ rows: [], plans: [], loading: true, error: null });
+    if (!supabase || !userId) { setHistory({ rows: sessions, plans: plannedSessions, loading: false, error: null }); return; }
+    Promise.all([
+      fetchActivityPeriod(supabase, { userId, start: startKey, end: endKey }),
+      fetchReadonlyPlannedSessions(supabase, userId, { start: startKey, end: endKey }),
+    ]).then(([{ data, error }, plans]) => {
+      if (active) setHistory({ rows: (data || []).map(mapTrainingSession), plans, loading: false, error });
+    }).catch(error => { if (active) setHistory({ rows: [], plans: [], loading: false, error }); });
+    return () => { active = false; };
+  }, [userId, startKey, endKey, sessions]);
+  const typedSessions = history.rows.filter((session) => !isArchivedSession(session)).map(classifySession);
+  const calendarItems = mergeExecutedAndPlannedForCalendar(typedSessions, history.plans);
   const typeOptions = buildActivityTypeFilterOptions(calendarItems);
   const filteredSessions = calendarItems.filter((item) => matchesActivityFilters(item, sourceFilter, typeFilter));
-  const period = buildActivityPeriod(viewMode, periodDate);
   const periodSessions = filteredSessions.filter((item) => isDateWithinPeriod(sessionDateKey(item), period));
   const visibleSessions = periodSessions
     .filter((item) => !selectedDates.length || selectedDates.includes(sessionDateKey(item)))
@@ -3287,7 +3124,7 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
   };
 
   const goToday = () => {
-    const next = startOfDay(new Date());
+    const next = athleteToday(timezone);
     setPeriodDate(next);
     setSelectedDates([]);
   };
@@ -3360,6 +3197,8 @@ function ActivitiesOverview({ sessions, plannedSessions = [], setRoute, setDisci
       </section>
 
       <section className="activityListPanel">
+        {history.loading && <p role="status">Cargando actividades del periodo…</p>}
+        {history.error && <p role="alert">No se pudieron cargar las actividades. Cambia de periodo para reintentar.</p>}
         <div className="selectedDayHeader">
           <div>
             <span>{dayFilterLabel.eyebrow}</span>
@@ -5539,7 +5378,6 @@ async function persistParsedFitSession({ buffer, checksum, sourceId, userId }) {
       await insertExerciseRows(sessionId, normalized.exercises);
     }
 
-    await reconcileSessionTemporalBlocks(sessionId);
 
     return {
       sessionId,
@@ -6554,20 +6392,7 @@ async function insertSessionLapRowsIfEmpty(sessionId, rows) {
   if (countError) throw countError;
   if ((count || 0) > 0) return;
 
-  const prepared = rows.map((row) => ({
-    session_id: sessionId,
-    lap_index: row.lap_index,
-    source: row.source || "garmin_fit",
-    start_elapsed_seconds: nullableInteger(row.start_elapsed_seconds),
-    end_elapsed_seconds: nullableInteger(row.end_elapsed_seconds),
-    duration_seconds: nullableInteger(row.duration_seconds),
-    active_seconds: nullableInteger(row.active_seconds),
-    rest_seconds: nullableInteger(row.rest_seconds),
-    distance_meters: nullableNumber(row.distance_meters),
-    heart_rate_avg_bpm: nullableInteger(row.heart_rate_avg_bpm),
-    heart_rate_max_bpm: nullableInteger(row.heart_rate_max_bpm),
-    raw_payload: row.raw_payload || {},
-  }));
+  const prepared = rows.map(row => writeLap(sessionId, row));
 
   const { error } = await supabase.from("session_laps").insert(prepared);
   if (error) throw error;

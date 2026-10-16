@@ -49,7 +49,7 @@ create table if not exists public.session_garmin_sets (
 );
 create table if not exists public.enkidu_conversation_enrichments (
   id uuid primary key default gen_random_uuid(), session_id uuid not null references public.training_sessions(id) on delete cascade,
-  payload jsonb, enrichment_status text, created_at timestamptz default now()
+  payload jsonb, status text, created_at timestamptz default now()
 );
 create table if not exists public.user_heart_rate_zone_profiles (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
