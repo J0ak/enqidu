@@ -57,6 +57,7 @@ export function HomeTodayContent({ state, onNavigate, onPlan, onActivity }) {
       aria-label="Tu cockpit diario"
       aria-busy={status === "loading"}
     >
+      <button className="homeProgressLink" onClick={() => onNavigate("progress")}>PROGRESO · Ver evolución ↗</button>
       <header className="homeHeading">
         <div>
           <span className="homeEyebrow">TU COCKPIT DIARIO</span>

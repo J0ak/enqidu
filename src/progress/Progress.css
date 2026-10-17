@@ -1,0 +1,187 @@
+.progressPage {
+  padding: 20px 16px 100px;
+  max-width: 850px;
+  margin: auto;
+  overflow-wrap: anywhere;
+}
+.progressHeading > span {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: #92bba9;
+}
+.progressHeading h2 {
+  font-size: 38px;
+  margin: 12px 0;
+}
+.progressHeading h2 span {
+  color: #b6e957;
+}
+.progressPage p,
+.progressPage small {
+  color: #aeb9bb;
+  line-height: 1.6;
+}
+.progressFilters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+.progressFilters label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.progressFilters select {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 8px;
+  background: #172427;
+  color: #fff;
+  border: 1px solid #344649;
+  border-radius: 10px;
+}
+.progressPage button {
+  padding: 10px 12px;
+  border: 1px solid #344649;
+  border-radius: 10px;
+  background: #172427;
+  color: #eff5ef;
+  cursor: pointer;
+}
+.progressScope {
+  font-size: 12px;
+}
+.progressNotice {
+  padding: 14px;
+  background: #2b2a1c;
+  border-radius: 12px;
+}
+.progressTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.progressTabs button[aria-pressed="true"] {
+  background: #b6e957;
+  color: #132019;
+}
+.progressMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.progressMetric {
+  min-width: 0;
+  padding: 16px;
+  background: #172427;
+  border: 1px solid #2d3b3e;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.progressMetric > span {
+  font-size: 12px;
+  color: #aeb9bb;
+}
+.progressMetric strong {
+  font-size: 25px;
+}
+.progressMetric small {
+  font-size: 11px;
+}
+.progressExercise {
+  padding: 18px 14px;
+  margin: 14px 0;
+  border: 1px solid #344649;
+  border-radius: 18px;
+  background: #101c1f;
+}
+.progressExercise header {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.progressExercise h3 {
+  margin: 0 0 8px;
+}
+.progressDirection {
+  font-size: 12px;
+  color: #b8c3c5;
+}
+.progressDirection.improving {
+  color: #b6e957;
+}
+.progressDirection.declining {
+  color: #ffc59e;
+}
+.progressSequence {
+  font-size: 24px;
+  letter-spacing: 0.04em;
+}
+.progressExercise details {
+  margin-top: 18px;
+  font-size: 13px;
+}
+.progressExercise summary {
+  cursor: pointer;
+}
+.progressDistribution {
+  display: grid;
+  grid-template-columns: 1fr 1fr 24px;
+  gap: 10px;
+  align-items: center;
+  margin: 18px 0;
+  font-size: 13px;
+}
+.progressPage meter {
+  width: 100%;
+  accent-color: #b6e957;
+}
+.progressWeeks {
+  display: grid;
+  gap: 12px;
+}
+.progressWeeks article {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #172427;
+}
+.progressWeeks span,
+.progressWeeks b {
+  font-size: 13px;
+}
+@media (min-width: 700px) {
+  .progressMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .progressWeeks {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.progressSequence > span {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  margin-bottom: 8px;
+}
+.progressSequence > span > small {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.progressTabs button {
+  padding: 9px 5px;
+  font-size: 11px;
+}
+.progressNotice {
+  padding: 10px;
+  font-size: 12px;
+}

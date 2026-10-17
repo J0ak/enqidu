@@ -9,5 +9,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "feat/101-progress-performance-v1": false
+    }
+  }
 }
