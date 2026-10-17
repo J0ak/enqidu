@@ -17,6 +17,14 @@ create table public.training_reconciliation_events (
 alter table public.training_reconciliation_events enable row level security;
 revoke all on public.training_reconciliation_events from public, anon, authenticated;
 grant select, insert, update on public.training_reconciliation_events to service_role;
+
+-- SECURITY INVOKER workers need explicit table privileges; BYPASSRLS is not a grant.
+grant select on public.training_sessions, public.training_sources,
+  public.session_source_links, public.session_blocks, public.session_exercises,
+  public.planned_training_sessions to service_role;
+grant insert, delete on public.session_source_links, public.session_blocks,
+  public.session_exercises to service_role;
+grant update on public.planned_training_sessions to service_role;
 create index training_reconciliation_events_owner on public.training_reconciliation_events(user_id,created_at);
 create index if not exists training_sessions_reconciliation_day on public.training_sessions(user_id,local_date,id);
 create index if not exists training_sessions_reconciliation_observed on public.training_sessions(user_id,started_at,id);
@@ -239,7 +247,7 @@ create trigger reconcile_fit_completion after insert or update of processing_sta
 
 create function public.rollback_training_reconciliation_v1(p_event_id uuid)
 returns jsonb language plpgsql security invoker set search_path='' as $$
-declare ev public.training_reconciliation_events%rowtype; actual jsonb;
+declare ev public.training_reconciliation_events%rowtype; actual uuid[]; expected uuid[]; links jsonb;
 begin
  select * into ev from public.training_reconciliation_events where id=p_event_id;
  if not found then raise exception 'Unknown event'; end if;
@@ -247,22 +255,44 @@ begin
  select * into ev from public.training_reconciliation_events where id=p_event_id for update;
  if ev.rolled_back_at is not null then return jsonb_build_object('already_rolled_back',true); end if;
  if ev.plan_id is not null then
-   perform 1 from public.planned_training_sessions where id=ev.plan_id and user_id=ev.user_id and linked_completed_session_id=ev.session_id for update;
-   if not found then raise exception 'Plan changed since reconciliation'; end if;
-   update public.planned_training_sessions set linked_completed_session_id=(ev.before_state->>'linked_completed_session_id')::uuid where id=ev.plan_id;
+   with restored as (
+     update public.planned_training_sessions
+       set linked_completed_session_id=(ev.before_state->>'linked_completed_session_id')::uuid
+       where id=ev.plan_id and user_id=ev.user_id and linked_completed_session_id=ev.session_id
+       returning id
+   ) select coalesce(array_agg(id),'{}'::uuid[]) into actual from restored;
+   if actual <> array[ev.plan_id] then raise exception 'Plan changed since reconciliation'; end if;
  else
-   -- Lock before comparing after-images. Never delete edits made after apply.
-   perform 1 from public.session_blocks where id in(select (value->>'id')::uuid from jsonb_array_elements(ev.after_state->'blocks')) for update;
-   perform 1 from public.session_exercises where block_id in(select (value->>'id')::uuid from jsonb_array_elements(ev.after_state->'blocks')) for update;
-   if exists(select 1 from jsonb_array_elements(ev.after_state->'blocks') x where not exists(select 1 from public.session_blocks b where b.id=(x->>'id')::uuid and to_jsonb(b)=x))
-     or exists(select 1 from jsonb_array_elements(coalesce(nullif(ev.after_state->'exercises','null'::jsonb),'[]')) x where not exists(select 1 from public.session_exercises e where e.id=(x->>'id')::uuid and to_jsonb(e)=x))
-     or exists(select 1 from public.session_exercises e where e.block_id in(select (value->>'id')::uuid from jsonb_array_elements(ev.after_state->'blocks')) and not exists(select 1 from jsonb_array_elements(coalesce(nullif(ev.after_state->'exercises','null'::jsonb),'[]')) x where (x->>'id')::uuid=e.id))
-   then raise exception 'Semantics changed since reconciliation'; end if;
-   perform 1 from public.session_source_links l where l.session_id=ev.session_id and l.source_id=ev.source_id and to_jsonb(l)-'created_at'=ev.after_state->'link' for update;
-   if not found then raise exception 'Source link changed since reconciliation'; end if;
-   delete from public.session_exercises where id in(select (value->>'id')::uuid from jsonb_array_elements(coalesce(nullif(ev.after_state->'exercises','null'::jsonb),'[]')));
-   delete from public.session_blocks where id in(select (value->>'id')::uuid from jsonb_array_elements(ev.after_state->'blocks'));
-   delete from public.session_source_links where session_id=ev.session_id and source_id=ev.source_id;
+   -- Compare and delete atomically. Any later mismatch raises and rolls back ALL deletes.
+   select coalesce(array_agg((x->>'id')::uuid order by (x->>'id')::uuid),'{}'::uuid[]) into expected
+     from jsonb_array_elements(coalesce(nullif(ev.after_state->'exercises','null'::jsonb),'[]')) x;
+   with removed as (
+     delete from public.session_exercises e where exists (
+       select 1 from jsonb_array_elements(coalesce(nullif(ev.after_state->'exercises','null'::jsonb),'[]')) x
+       where e.id=(x->>'id')::uuid and to_jsonb(e)=x
+     ) returning e.id
+   ) select coalesce(array_agg(id order by id),'{}'::uuid[]) into actual from removed;
+   if actual <> expected then raise exception 'Semantics changed since reconciliation'; end if;
+
+   select coalesce(array_agg((x->>'id')::uuid order by (x->>'id')::uuid),'{}'::uuid[]) into expected
+     from jsonb_array_elements(ev.after_state->'blocks') x;
+   with removed as (
+     delete from public.session_blocks b where exists (
+       select 1 from jsonb_array_elements(ev.after_state->'blocks') x
+       where b.id=(x->>'id')::uuid and to_jsonb(b)=x
+     ) and not exists(select 1 from public.session_exercises e where e.block_id=b.id)
+     returning b.id
+   ) select coalesce(array_agg(id order by id),'{}'::uuid[]) into actual from removed;
+   if actual <> expected then raise exception 'Semantics changed since reconciliation'; end if;
+
+   with removed as (
+     delete from public.session_source_links l
+       where l.session_id=ev.session_id and l.source_id=ev.source_id
+         and to_jsonb(l)-'created_at'=ev.after_state->'link'
+       returning l.session_id,l.source_id
+   ) select coalesce(jsonb_agg(to_jsonb(r)),'[]'::jsonb) into links from removed r;
+   if links <> jsonb_build_array(jsonb_build_object('session_id',ev.session_id,'source_id',ev.source_id))
+     then raise exception 'Source link changed since reconciliation'; end if;
  end if;
  update public.training_reconciliation_events set rolled_back_at=now() where id=ev.id;
  return jsonb_build_object('rolled_back',true,'event_id',ev.id);

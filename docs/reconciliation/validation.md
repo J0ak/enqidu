@@ -6,10 +6,10 @@ Base comprobada de nuevo antes de entrega: origin/main e380741bac50c2b396ff862ac
 
 | Comprobación | Resultado |
 | --- | --- |
-| npm test, Node 22 | 716/716, sin skips |
+| npm test, Node 22 | 738/738, sin skips |
 | npm run test:coach-evals | 27/27 |
 | npm run test:transactional-actions, PostgreSQL real local | 33/33 |
-| node scripts/test-reconciliation-postgres.mjs, PostgreSQL real local | 21/21, incluye dos conexiones y bloqueo real |
+| node scripts/test-reconciliation-postgres.mjs, PostgreSQL real local | 43/43, incluye dos conexiones y bloqueo real |
 | npm run test:e2e -- --workers=1, Node 22 / Chromium | 35/35 |
 | npm run build | OK; aviso habitual de bundle >500 kB |
 | git diff --check | OK |
@@ -23,6 +23,16 @@ Se repitió una lectura read-only de producción antes de cerrar el informe: 113
 En el primer E2E completo hubo un HTTP 400 en una actualización background de get_daily_coach_operating_brief en el test Closed Loop. Las aserciones funcionales pasaron. Se inspeccionó la traza, se repitieron ese caso y el nuevo test de histórico (2/2) y después toda la suite (35/35); no se relajó ninguna aserción ni se modificó ese test. La última ejecución completa pasó sin retries de Playwright.
 
 El entorno local usa una imagen oficial PostgreSQL compactada conservando su configuración porque Docker vfs agotaba disco al expandir capas. No cambió el motor, el almacenamiento del daemon ni la política de red. Las Edge Functions locales usan el bundler existente del repo y OpenAI deshabilitado. No hay despliegue remoto.
+
+## Corrección de permisos y rollback — 2026-10-17
+
+Los fixtures reproducen los ACL de service_role verificados en producción mediante lectura, sin GRANT ALL. La migración concede únicamente SELECT sobre las seis tablas de reconciliación, INSERT/DELETE sobre enlaces/bloques/ejercicios y UPDATE sobre planes. Ambos RPC conservan SECURITY INVOKER; no se conceden UPDATE de columnas sobre enlaces/bloques/ejercicios ni nuevos permisos a authenticated/anon.
+
+Rollback mantiene el advisory transaction lock por atleta y sustituye los locks de lectura de datos por DELETE condicionales contra los after-images, con RETURNING y comparación exacta de IDs. El enlace conserva la exclusión contractual de created_at. Los planes se restauran mediante UPDATE condicionado por ID, atleta y enlace actual, con RETURNING. Cualquier discrepancia lanza excepción y revierte todas las operaciones anteriores de esa llamada.
+
+En la revalidación de esta corrección, el primer E2E tuvo 34/35 por un HTTP 400 background de enqidu-tools en el caso Closed Loop; se conservó e inspeccionó la traza, sin cambiar tests ni frontend. La repetición completa pasó 35/35, sin retries.
+
+Las regresiones bajo SET ROLE service_role cubren dry-run, apply, restauración exacta, retry, ausencia de UPDATE incluso a nivel de columna, modificaciones posteriores de ejercicios/bloques/enlaces/planes, filas ausentes o añadidas y retirada individual de cada grant necesario. No cambia matching, dry-run, golden samples ni backfill.
 
 ## Archivos
 

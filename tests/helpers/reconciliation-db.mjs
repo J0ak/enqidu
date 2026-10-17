@@ -22,7 +22,12 @@ export async function database({ install = true } = {}) {
  alter table session_source_links add primary key(session_id,source_id);
  alter table session_blocks add foreign key(session_id) references training_sessions(id);
  alter table session_exercises add foreign key(block_id) references session_blocks(id);
- grant usage on schema public,auth to service_role,authenticated,anon; grant all on all tables in schema public to service_role;`);
+ grant usage on schema public,auth to service_role,authenticated,anon;
+ -- Production role_table_grants verified read-only on 2026-10-17. No blanket CRUD.
+ grant references, trigger, truncate on training_sessions,training_sources,
+   session_source_links,session_blocks,session_exercises to service_role;
+ grant insert, references, select, trigger, truncate on planned_training_sessions to service_role;
+ grant select,insert,update,delete,references,trigger,truncate on profiles,wearable_activity_imports to service_role;`);
  await db.exec(`create function public.chatgpt_pilot_apply_capture(jsonb) returns jsonb language sql as $$ select '{}'::jsonb $$;
  create function public.persist_conversation_enrichment(uuid,jsonb,jsonb) returns jsonb language sql as $$ select '{}'::jsonb $$;
  grant execute on function public.chatgpt_pilot_apply_capture(jsonb),public.persist_conversation_enrichment(uuid,jsonb,jsonb) to authenticated,service_role;`);

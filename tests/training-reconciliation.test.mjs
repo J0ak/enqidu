@@ -1,9 +1,17 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { database, insert } from './helpers/reconciliation-db.mjs';
+import { database, insert, migration } from './helpers/reconciliation-db.mjs';
 let db;
-before(async()=>{db=await database();});
+before(async()=>{
+ db=await database({install:false});
+ for(const table of ['training_sessions','training_sources','session_source_links','session_blocks','session_exercises']){
+   const baseline=(await db.query("select has_table_privilege('service_role',$1,'SELECT') r",[table])).rows[0].r;
+   assert.equal(baseline,false,`${table}: production baseline must not mask missing grants`);
+ }
+ assert.equal((await db.query("select has_table_privilege('service_role','planned_training_sessions','UPDATE') r")).rows[0].r,false);
+ await db.exec(migration);
+});
 after(async()=>{await db?.close();});
 const DAY='2026-10-14';
 const payload={session_date:DAY,garmin_matching_hint:{activity_id:'1234',start_time_local:'2026-10-14T07:03:55+02:00',activity_type:'HIIT',duration_s:3632},blocks:[{type:'strength',rounds:3,rest_seconds:30,exercises:[{name:'Press',load_value:12,load_unit:'kg',reps_per_set:[6,7,8],sets_completed:3,tempo:'3-1-1',notes:'Modificado'}]}]};
@@ -157,4 +165,99 @@ test('legacy capture bypasses cannot create another activity through any API rol
  const result=await db.query("select has_function_privilege($1,'public.chatgpt_pilot_apply_capture(jsonb)','EXECUTE') legacy,has_function_privilege($1,'public.persist_conversation_enrichment(uuid,jsonb,jsonb)','EXECUTE') enrichment",[role]);
  assert.deepEqual(result.rows[0],{legacy:false,enrichment:false});
  }
+});
+
+
+test('service_role invoker dry-run, apply, rollback restores state and retries are idempotent',async()=>{
+ // Seed before FIT exists so adapters cannot pre-reconcile using their owner privileges.
+ const u=await user(),p=await plan(u);await coach(u);const id=await fit(u);
+ const original=await state(id);
+ const planState=async()=>(await db.query('select to_jsonb(p) r from planned_training_sessions p where id=$1',[p])).rows[0].r;
+ const originalPlan=await planState();
+ const events=async()=>(await db.query('select id from training_reconciliation_events where user_id=$1 order by created_at desc,id',[u])).rows;
+ await db.exec('set role service_role');
+ try {
+   assert.equal((await db.query('select current_user r')).rows[0].r,'service_role');
+   for(const table of ['session_blocks','session_exercises','session_source_links']){
+     assert.equal((await db.query("select has_any_column_privilege(current_user,$1,'UPDATE') r",[table])).rows[0].r,false);
+   }
+   const functions=await db.query("select prosecdef from pg_proc where oid in ('public.reconcile_training_day_v1(uuid,date,boolean)'::regprocedure,'public.rollback_training_reconciliation_v1(uuid)'::regprocedure)");
+   assert.deepEqual(functions.rows,[{prosecdef:false},{prosecdef:false}]);
+   const dry=await run(u,true);
+   assert.equal(dry.decisions.filter(d=>d.outcome==='matched').length,2);
+   assert.deepEqual(await state(id),original);assert.deepEqual(await planState(),originalPlan);assert.equal((await events()).length,0);
+   await run(u);
+   const applied=await state(id);assert.equal(applied.blocks.length,1);assert.equal(applied.exercises.length,1);assert.equal(applied.links.length,2);
+   assert.deepEqual(applied.session,original.session);assert.equal((await planState()).linked_completed_session_id,id);
+   const appliedEvents=await events();assert.equal(appliedEvents.length,2);
+   await run(u);assert.deepEqual(await state(id),applied);assert.deepEqual(await events(),appliedEvents);
+   for(const event of appliedEvents)await db.query('select rollback_training_reconciliation_v1($1)',[event.id]);
+   assert.deepEqual(await state(id),original);assert.deepEqual(await planState(),originalPlan);
+   for(const event of appliedEvents){
+     const retry=(await db.query('select rollback_training_reconciliation_v1($1) r',[event.id])).rows[0].r;
+     assert.equal(retry.already_rolled_back,true);
+   }
+   assert.deepEqual(await state(id),original);assert.deepEqual(await planState(),originalPlan);
+   await run(u);const reapplied=await state(id);assert.equal(reapplied.exercises.length,1);assert.equal(reapplied.links.length,2);
+   await run(u);assert.deepEqual(await state(id),reapplied);assert.equal((await events()).length,4);
+ } finally {await db.exec('reset role');}
+});
+
+async function asService(action){
+ await db.exec('set role service_role');
+ try{return await action();}finally{await db.exec('reset role');}
+}
+async function rollbackFixture(){
+ const u=await user(),p=await plan(u);
+ await coach(u,{...payload,blocks:[...payload.blocks,{type:'strength',exercises:[{name:'Row',reps:8}]}]});
+ const id=await fit(u);await asService(()=>run(u));
+ const events=(await db.query('select * from training_reconciliation_events where user_id=$1',[u])).rows;
+ return {u,p,id,source:events.find(e=>e.source_id),plan:events.find(e=>e.plan_id)};
+}
+for(const kind of ['exercise','missing exercise','block','missing block','extra exercise','source link','plan'])test(`service_role rollback rejects changed ${kind} and restores every earlier delete`,async()=>{
+ const f=await rollbackFixture();
+ if(kind==='exercise')await db.query("update session_exercises set notes='Later edit' where id=(select id from session_exercises where session_id=$1 order by exercise_order limit 1)",[f.id]);
+ if(kind==='missing exercise')await db.query('delete from session_exercises where id=(select id from session_exercises where session_id=$1 order by exercise_order limit 1)',[f.id]);
+ if(kind==='block')await db.query("update session_blocks set name='Later edit' where session_id=$1",[f.id]);
+ if(kind==='missing block'){
+   const b=(await db.query('select id from session_blocks where session_id=$1 limit 1',[f.id])).rows[0].id;
+   await db.query('delete from session_exercises where block_id=$1',[b]);await db.query('delete from session_blocks where id=$1',[b]);
+ }
+ if(kind==='extra exercise')await insert(db,'session_exercises',{session_id:f.id,block_id:f.source.after_state.blocks[0].id,exercise_order:99,reported_name:'Later addition'});
+ if(kind==='source link')await db.query("update session_source_links set source_role='supporting' where session_id=$1 and source_id=$2",[f.id,f.source.source_id]);
+ if(kind==='plan')await db.query('update planned_training_sessions set linked_completed_session_id=null where id=$1',[f.p]);
+ const before=await state(f.id);
+ const plans=(await db.query('select to_jsonb(p) r from planned_training_sessions p where id=$1',[f.p])).rows;
+ const audit=(await db.query('select * from training_reconciliation_events where user_id=$1 order by id',[f.u])).rows;
+ const event=kind==='plan'?f.plan:f.source;
+ const message=kind==='plan'?/Plan changed since reconciliation/:kind==='source link'?/Source link changed since reconciliation/:/Semantics changed since reconciliation/;
+ await asService(()=>assert.rejects(db.query('select rollback_training_reconciliation_v1($1)',[event.id]),message));
+ assert.deepEqual(await state(f.id),before);
+ assert.deepEqual((await db.query('select to_jsonb(p) r from planned_training_sessions p where id=$1',[f.p])).rows,plans);
+ assert.deepEqual((await db.query('select * from training_reconciliation_events where user_id=$1 order by id',[f.u])).rows,audit);
+});
+
+const requiredGrants=[
+ ...['training_sessions','training_sources','session_source_links','session_blocks','session_exercises','planned_training_sessions'].map(t=>[t,'SELECT',t==='session_exercises'?'apply':'dry-run']),
+ ...['session_source_links','session_blocks','session_exercises'].map(t=>[t,'INSERT','apply']),
+ ...['session_source_links','session_blocks','session_exercises'].map(t=>[t,'DELETE','rollback']),
+ ['planned_training_sessions','UPDATE','apply'],
+ ['planned_training_sessions','UPDATE','rollback'],
+];
+for(const [table,privilege,path] of requiredGrants)test(`service_role requires ${privilege} on ${table} for ${path}`,async()=>{
+ let u,id,event;
+ if(path==='rollback'){
+   const f=await rollbackFixture();u=f.u;id=f.id;event=table==='planned_training_sessions'?f.plan:f.source;
+ } else {u=await user();await plan(u);await coach(u);id=await fit(u);}
+ const before=await state(id);
+ const audit=(await db.query('select * from training_reconciliation_events where user_id=$1 order by id',[u])).rows;
+ await db.exec(`revoke ${privilege} on public.${table} from service_role`);
+ try {
+   await asService(()=>assert.rejects(
+     path==='rollback'?db.query('select rollback_training_reconciliation_v1($1)',[event.id]):run(u,path==='dry-run'),
+     error=>error.code==='42501' && error.message.includes(table)
+   ));
+   assert.deepEqual(await state(id),before);
+   assert.deepEqual((await db.query('select * from training_reconciliation_events where user_id=$1 order by id',[u])).rows,audit);
+ } finally {await db.exec(`grant ${privilege} on public.${table} to service_role`);}
 });
