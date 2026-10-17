@@ -169,20 +169,24 @@ export async function loadCalendarItemsWithTolerantPlanned({
   return mergeExecutedAndPlannedForCalendar(executed, planned);
 }
 
-export async function fetchReadonlyPlannedSessions(supabaseClient, userId) {
-  if (!supabaseClient) return [];
+export async function fetchReadonlyPlannedSessions(supabaseClient, userId, period = null) {
+  if (!supabaseClient || !userId) return [];
 
-  let sessionQuery = supabaseClient
-    .from("planned_training_sessions")
-    .select("*")
-    .limit(100);
-
-  if (userId) sessionQuery = sessionQuery.eq("user_id", userId);
-
-  const sessionResult = await sessionQuery;
-  if (sessionResult.error) throw sessionResult.error;
-
-  const rows = sessionResult.data || [];
+  const rows = [];
+  let cursor = null;
+  for (;;) {
+    let query = supabaseClient.from("planned_training_sessions").select("*")
+      .eq("user_id", userId).order("id", { ascending: true }).limit(100);
+    if (period) query = query.gte("planned_date", period.start).lte("planned_date", period.end);
+    if (cursor) query = query.gt("id", cursor);
+    const result = await query;
+    if (result.error) throw result.error;
+    rows.push(...(result.data || []));
+    if (!result.data?.length || result.data.length < 100) break;
+    const next = result.data.at(-1).id;
+    if (!next || next === cursor) throw new Error("Invalid plan cursor");
+    cursor = next;
+  }
   if (!rows.length) return [];
 
   const linkedIds = [...new Set(rows.map((row) => normalizedId(row.linked_completed_session_id)).filter(Boolean))];

@@ -1,21 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
-import { reconcileSessionTemporalBlocks } from "@/services/temporalReconciliationService";
 
 export async function persistConversationEnrichment(params: {
   sessionId: string;
   payload: unknown;
   aiUsage: unknown;
 }) {
-  const { sessionId, payload, aiUsage } = params;
+  const { sessionId, payload } = params;
 
   if (!supabase) {
     throw new Error("Supabase client is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.");
   }
 
-  const { data, error } = await supabase.rpc("persist_conversation_enrichment", {
+  const { data, error } = await supabase.rpc("capture_training_semantics_v1", {
     p_session_id: sessionId,
     p_payload: payload,
-    p_ai_usage: aiUsage,
   });
 
   if (error) {
@@ -23,11 +21,7 @@ export async function persistConversationEnrichment(params: {
     throw error;
   }
 
-  try {
-    await reconcileSessionTemporalBlocks(sessionId);
-  } catch (reconciliationError) {
-    console.warn("[persistConversationEnrichment] temporal reconciliation skipped", reconciliationError);
-  }
+  if (!data?.reconciled) throw new Error("Descripción conservada; necesita revisión antes de incorporarla al entrenamiento.");
 
   return data;
 }

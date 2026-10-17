@@ -91,5 +91,5 @@ test("frontend still uses the reviewed conversation enrichment RPC", async () =>
     new URL("../src/services/conversationEnrichmentService.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /supabase\.rpc\("persist_conversation_enrichment"/);
+  assert.match(source, /supabase\.rpc\("capture_training_semantics_v1"/);
 });
