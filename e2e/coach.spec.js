@@ -185,7 +185,7 @@ test("concurrent persisted plan resolves as plan_already_exists", async ({ page,
 test("a stale stored recommendation is rejected and becomes non-actionable", async ({ page, request }) => {
   const user = await provision(request, "stale");
   const oldDate = madridDate(-1);
-  await page.addInitScript(({ oldDate }) => localStorage.setItem("enqidu.messages", JSON.stringify([{ role:"assistant", content:"Recomendación anterior", cards:[{ id:"recommended_training_today", title:"Sesión anterior", subtitle:"Recomendación calculada · no guardada", actions:[{ type:"save_recommendation_to_plan", label:"Guardar en plan", date:oldDate, location:"home" }] }] }])) , { oldDate });
+  await page.addInitScript(({ oldDate, userId }) => localStorage.setItem(`enqidu.messages.v2:${userId}`, JSON.stringify([{ role:"assistant", content:"Recomendación anterior", cards:[{ id:"recommended_training_today", title:"Sesión anterior", subtitle:"Recomendación calculada · no guardada", actions:[{ type:"save_recommendation_to_plan", label:"Guardar en plan", date:oldDate, location:"home" }] }] }])) , { oldDate, userId: user.id });
   await login(page, user); await page.getByRole("button", { name: "Guardar en plan" }).click();
   await expect(page.getByText("Recomendación caducada")).toBeVisible(); await expect(page.getByRole("button", { name: "Guardar en plan" })).toHaveCount(0); expect(await planRows(request,user.id)).toHaveLength(0);
 });

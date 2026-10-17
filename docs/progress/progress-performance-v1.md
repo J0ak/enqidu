@@ -39,7 +39,7 @@ The 14/10 plan is modified and unlinked. The 15/10 strength plan is confirmed an
 
 Existing contracts audited: `fetchActivityPeriod` (paged Activity browser projection, includes unnecessary payload), `get_recent_training` (bounded 20-session summary), `get_training_session` (one-session detail), `get_week_plan` (one week), Closed Loop (rich assessments + Health, not suitable for aggregating years). None supplies complete exercise progress efficiently.
 
-New **read-only tool** `get_progress_performance_v1` in the existing authenticated `enqidu-tools` backend. No new RPC, endpoint, schema, table, index, permission, cache or infrastructure. Uses the same auth/profile-timezone constructor and closed schemas. Arguments: period `4|12|all`, modality, exercise_page, skills_only. No user ID, date, table name, SQL or write argument accepted. MCP writes remain disabled.
+New **read-only tool** `get_progress_performance_v1` in the existing authenticated `enqidu-tools` backend. No new RPC, endpoint, schema, table, index, permission, cache or infrastructure. Uses the same auth/profile-timezone constructor and closed schemas. Arguments: period `4|12|all|week`, modality, exercise_page, skills_only. No user ID, date, table name, SQL or write argument accepted. MCP writes remain disabled.
 
 `src/progress/loadProgress.js` selects only needed columns, keyset-pages by primary key (250 rows), scopes parent reads by authenticated user and children by owned parent IDs. Period reads include the preceding comparison period and fixed consistency window. Cross-day linked executions are read by persisted ID. All history is explicit via `all`; no 100-session functional limit. Resource guard: 50,000 rows per paged read fails explicitly rather than returning truncated metrics; existing runtime output guard is 128 KiB.
 
@@ -47,7 +47,7 @@ New **read-only tool** `get_progress_performance_v1` in the existing authenticat
 
 Existing `(user_id,local_date)`, `(user_id,planned_date)`, `(session_id,block_id,exercise_order)` and primary key indexes support real queries. No speculative index added.
 
-Home has a compact “PROGRESO · Ver evolución” entry to the same view. No duplicate calculation or extra Home request.
+Home has a compact “PROGRESO · Ver evolución” entry to the same view. Its weekly card now consumes the same Progress contract instead of the old plan-only read; still two Home requests and no duplicate calculation.
 
 ## Metric rules
 
@@ -111,3 +111,58 @@ Mobile captures (synthetic local evidence):
 - `vercel.json`: disable automatic Git deployments for this branch only.
 
 No production migration, new RPC, paid dependency, scheduler, Garmin transport, FIT parser change, reconciliation change or production write. The existing GitHub CI uses standard hosted runners in this public repository; no additional paid CI infrastructure is introduced.
+
+## Product completion in the same PR: Weekly Dashboard, Home and Recovery
+
+This update preserves the original Progress implementation and adds `period: "week"` to `get_progress_performance_v1`. It returns a closed, bounded `weekly_dashboard_v1` object in `weekly_dashboard` (null for other periods). No new tool, RPC, migration or endpoint. The same authenticated read composition supplies Home, Coach and Progress; `summarizeSessions`, existing modality resolution, exercise records, planning evidence and data quality remain authoritative.
+
+### Weekly contract and chat
+
+The dashboard contains `from/to/as_of/timezone`, actual activity KPIs, seven days with individually identified activities, known time by modality, observed exercise highlights, deterministic assessment, planning and data quality. Metadata is always `response_mode: deterministic`, `llm_used: false`. It is capped at 250 weekly activities and fails explicitly above that bound; it never silently truncates the report. Existing 250-row query pagination and parent ownership restrictions remain in place.
+
+The five requested weekly phrases route to this contract before any optional LLM transport. A `weekly_dashboard_v1` card embeds the full structured report in the Coach message. The existing user-scoped message persistence retains it across reloads. `WeeklyDashboardV1` renders normal React, never generated HTML. The conversation expands vertically for the long report; the next message and composer remain below it. The initial scroll positions the report at its start. No navigation button is needed to read the report.
+
+### Home, periods and recovery language
+
+Home's two reads now fetch the daily operating brief and Progress with `period: week`. Main KPIs are canonical activities, known time, active days and completed confirmed rest days. Plan counts and persisted links are secondary, with past-unconfirmed, upcoming and today-unconfirmed categories. The paired responses must still match profile date/timezone. Current week means Monday–Sunday in the profile timezone, with executed activity only through today. Future plans are included only in planning, never activity. Partial-week trends remain `insufficient_data`; the existing completed 4/12-week windows are unchanged.
+
+A confirmed **plan** for rest is not evidence of an actual rest day. V1 counts distinct past/current dates only when a rest plan explicitly has `status: completed`, and no canonical activity exists on that date. No session does not imply rest. Cancelled/recommended/rest plans are excluded from the training-plan denominator, as in Progress V1. Thus the real week has six training plans plus one future rest plan, rather than seven planned training activities.
+
+The shared `dailyCoach/recoveryCopy.js` changes only presentation in Home and the daily Coach panel. With insufficient evidence it says “Aún no tenemos suficientes datos para ver una tendencia”, followed by the latest observed score when present (including zero) and a plain explanation. Mathematics remains under “Cómo calculamos la tendencia”. No readiness or Daily Coach decision rules changed.
+
+### Updated read-only golden week audit
+
+A later SELECT on 2026-10-17, after the initial audit above, observed these canonical activities for 12–18 October 2026. These are regression references, not frontend constants:
+
+| Date | Canonical activity | Known seconds |
+| --- | --- | ---: |
+| 12/10 | Fuerza | 4753 |
+| 13/10 | Bici | 5909 |
+| 13/10 | Fuerza | 516 |
+| 14/10 | HIIT / reconciled Aconcagua | 3632 |
+| 15/10 | Fuerza | 2222 |
+| 15/10 | Pilates | 3744 |
+| 17/10 | Fuerza | 4058 |
+| 17/10 | Fuerza | 2853 |
+
+Total: **8 activities, 27,687 known seconds (7 h 41 min rounded), 5 active days**. Two training plans have persisted execution links (12/10 and 15/10). Three past training plans are unconfirmed; the 17/10 plan is also unlinked. The 18/10 rest plan is confirmed but future, so **0 completed confirmed rest days** at this snapshot. The 14/10 activity still has 6 blocks/14 exercises and its plan remains unlinked. The two 15/10 activities remain separate. Numeric FIT sport `62` is not decoded by guesswork: its activity title remains HIIT and its unresolved modality is labelled honestly.
+
+New regression coverage checks the golden quantities, multiple activities per day, strict rest evidence, missing/zero duration, future and archived exclusion, more than 100 weekly sessions, tenant isolation, all five intents, stored cards, Home/Coach/Progress parity and human recovery language. Authenticated 390 px E2E checks the full report inline, reload persistence, sending the next message, no mandatory navigation, primary/secondary Home semantics and no horizontal overflow.
+
+Additional files: `src/progress/{weeklyDashboard.js,WeeklyDashboardV1.jsx,WeeklyDashboardV1.css,presentation.js}`, `src/dailyCoach/recoveryCopy.js`, `tests/weekly-dashboard.test.mjs`, `e2e/weekly-dashboard.spec.js`; integrations updated in `HomeToday`, `DailyCoach`, `home/loadHome`, `coachCards`, `coachDeterministicReply`, `coachAdapter`, `coach-reply` and the existing Progress domain/schema/loader. Existing relevant tests were updated to the new product contract, preserving their isolation, timeout and paid-transport checks.
+
+Production remains read-only. No merge, deploy or additional paid dependency. Incremental cost: **0,00 €**.
+
+Security review also found that the previous browser chat key was not user-scoped. `useCoachMessages` now isolates messages with `enqidu.messages.v2:<authenticated user>`, ignores late responses from a previous account and keeps anonymous/unowned legacy history out of authenticated conversations. Existing legacy local storage is left untouched because its owner cannot be established safely. Drafts are also scoped per user, and Coach remounts on account changes. E2E verifies A's dashboard survives reload, is absent for B (including after reload), and returns when A signs back in. The previous stale-card test now seeds the authenticated user's scoped key and still verifies that stale actions are rejected.
+
+### Final validation of the completed product scope
+
+- `npm test`: **759/759**.
+- Coach evals: **28/28**, including an explicit inline-weekly/LLM-bypass invariant.
+- Local PostgreSQL transactional suite: **33/33**.
+- Local PostgreSQL reconciliation suite: **43/43**.
+- Full E2E, frozen code with one worker: **38/38**. Earlier intermediate runs exposed the seven-day midpoint bug (fixed and covered), and a run during live source edits was discarded in favour of this clean complete run.
+- Final build passes; existing Vite bundle-size warning remains (>500 kB).
+- `git diff --check`: clean.
+
+[Weekly Coach report at 390 px](screenshots/weekly-coach-390.png) · [Home activity and human Recovery at 390 px](screenshots/weekly-home-390.png). These screenshots use synthetic local users, not production data.

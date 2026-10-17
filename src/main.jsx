@@ -1,3 +1,5 @@
+import { useCoachMessages } from "./coachContext/useCoachMessages.js";
+import WeeklyDashboardV1 from "./progress/WeeklyDashboardV1.jsx";
 import { LAP_COLUMNS, readLap, writeLap } from "./training/lapSchema.js";
 import { fetchSessionSemanticContext } from "./training/sessionSources.js";
 import { fetchActivityPeriod, fetchActivityById, athleteToday } from "./training/activityHistory.js";
@@ -18,7 +20,7 @@ import DailyCoach from "@/components/DailyCoach";
 import Progress from "./progress/Progress";
 import HomeToday from "@/components/HomeToday";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
-import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
+import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
 import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
@@ -293,14 +295,6 @@ const activityCardMetadata = [
   },
 ];
 
-const initialMessages = [
-  {
-    role: "assistant",
-    content:
-      "Cuéntame cómo estás o qué has hecho hoy.",
-  },
-];
-
 function useStoredState(key, initialValue, normalize = (stored) => stored) {
   const [value, setValue] = useState(() => {
     try {
@@ -486,13 +480,13 @@ function App() {
   const [discipline, setDiscipline] = useState("boyle");
   const [profile, setProfile] = useStoredState(storageKeys.profile, profileSeed);
   const [fitImports, setFitImports] = useStoredState(storageKeys.fitImports, []);
-  const [messages, setMessages] = useStoredState(storageKeys.messages, initialMessages, normalizeStoredCoachMessages);
   const [backoffice, setBackoffice] = useStoredState(storageKeys.backoffice, {
     lastSync: null,
     tableStatus: [],
     errors: [],
   });
   const [session, setSession] = useState(null);
+  const [messages, setMessages] = useCoachMessages(session?.user?.id);
   const authenticatedUser = useRef(null);
   const backofficeUser = useRef(null);
   const [authNotice, setAuthNotice] = useState("");
@@ -1077,6 +1071,7 @@ function App() {
         )}
         {route === "coach" && (
           <CoachView
+            key={session?.user?.id || "signed-out"}
             userId={session?.user?.id}
             messages={messages}
             setMessages={setMessages}
@@ -3976,7 +3971,7 @@ function TrainingEffectGarminScale({ label, value, max = 5, type }) {
 }
 
 function CoachView({ userId, messages, setMessages, discipline, sessions, onOpenActivities, onOpenSession, onPlanSaved }) {
-  const [draft, setDraft] = useStoredState(storageKeys.coachDraft, "");
+  const [draft, setDraft] = useStoredState(`${storageKeys.coachDraft}:${userId || "signed-out"}`, "");
   const [micNotice, setMicNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [cardActionBusy, setCardActionBusy] = useState(false);
@@ -3998,7 +3993,10 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const weekly = messages.at(-1)?.cards?.some((card) => card.type === "weekly_dashboard_v1");
+    const reports = endRef.current?.parentElement?.querySelectorAll(".weeklyDashboard");
+    const target = weekly && reports?.length ? reports[reports.length - 1] : endRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: weekly ? "start" : "end" });
   }, [messages]);
 
   const send = async (overrideDraft) => {
@@ -4012,7 +4010,7 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
     const nextMessages = [...messages, userMessage, pendingAnswer];
     setMessages(nextMessages);
     setDraft("");
-    localStorage.removeItem(storageKeys.coachDraft);
+    localStorage.removeItem(`${storageKeys.coachDraft}:${userId || "signed-out"}`);
 
     try {
       setSending(true);
@@ -4505,6 +4503,7 @@ function CopyableChatMessage({ message, onCopied, onCardAction, cardActionDisabl
 }
 
 function CoachInlineCard({ card, onAction, disabled = false }) {
+  if (card.type === "weekly_dashboard_v1" && card.dashboard?.schema_version === "weekly_dashboard_v1") return <WeeklyDashboardV1 dashboard={card.dashboard} />;
   const metrics = (Array.isArray(card.metrics) ? card.metrics : [])
     .map((item) => ({ ...item, displayValue: formatCoachCardMetric(item) }))
     .filter((item) => item.displayValue);

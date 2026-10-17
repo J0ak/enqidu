@@ -13,6 +13,7 @@ import { matchesSchema } from "../src/enqiduTools/schema.js";
 const session = (id, date = "2026-10-06", extra = {}) => ({
   id,
   user_id: "a",
+  session_status: "completed",
   local_date: date,
   duration_seconds: 600,
   modality_code: "functional_strength",

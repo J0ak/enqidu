@@ -20,4 +20,16 @@ select local_date,title,
  (select count(*) from public.session_source_links l where l.session_id=s.id) sources
 from public.training_sessions s where local_date in ('2026-07-21','2026-10-07','2026-10-14','2026-10-15')
 order by local_date,title;
+-- Fixed golden week. A future rest plan is not observed rest completion.
+select local_date,title,session_status,duration_seconds,
+ session_structure->'garmin_fit_summary'->>'sport' fit_sport,
+ session_structure->'garmin_fit_summary'->>'sub_sport' fit_sub_sport
+from public.training_sessions
+where local_date between '2026-10-12' and '2026-10-18'
+order by local_date,title;
+select planned_date,title,session_type,status,
+ linked_completed_session_id is not null as has_canonical_link
+from public.planned_training_sessions
+where planned_date between '2026-10-12' and '2026-10-18'
+order by planned_date,title;
 rollback;

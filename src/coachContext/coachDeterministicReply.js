@@ -294,6 +294,12 @@ function buildGreetingAnswer() {
 
 export function buildDeterministicCoachReply({ message = "", context = {} } = {}) {
   const intents = detectCoachIntents(message);
+  if (intents.weeklyDashboard) {
+    const dashboard = context.weekly_dashboard;
+    return { answer: dashboard ? "Aquí tienes tu semana, con las actividades registradas y la planificación por separado." : "No he podido consultar tu semana. Vuelve a intentarlo para ver tus datos completos.",
+      cards: dashboard ? [{ id: "weekly_dashboard_v1", type: "weekly_dashboard_v1", dashboard }] : [],
+      intents, responseMode: "deterministic", llmUsed: false, response_mode: "deterministic", llm_used: false, usage: null };
+  }
   if (isMorningCoachRequest(message) && context.morning_coach_brief) {
     const brief = context.morning_coach_brief;
     const card = morningCoachCard(brief);

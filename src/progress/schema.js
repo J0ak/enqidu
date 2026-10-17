@@ -19,6 +19,17 @@ const summary = {
   modalities: l(o({ code: str, sessions: num }), 250),
   session_ids: l(str, 50000),
 };
+export const weeklyDashboardSchema = o({
+  schema_version: { const: "weekly_dashboard_v1" }, response_mode: { const: "deterministic" }, llm_used: { const: false },
+  title: str, from: str, to: str, as_of: str, timezone: str, partial_week: bool,
+  activity: o({ ...summary, active_days: num, confirmed_rest_days: num }),
+  planning: o({ planned: num, linked: num, modified: num, skipped: num, past_unconfirmed: num, upcoming: num, today_unconfirmed: num }),
+  days: l(o({ date: str, future: bool, confirmed_rest: bool, ...summary,
+    activities: l(o({ id: str, title: str, modality: str, seconds: nums }), 250) }), 7),
+  time_distribution: l(o({ code: str, ...summary }), 250),
+  highlights: l(o({ name: str, records: num }), 3), observed_records: num, assessment: str,
+  quality: o({ status: str, duration_known: num, sessions: num, unknown_modality: num, explanation: str }),
+});
 export const progressDomainSchema = o({
   schema_version: { const: "progress_performance_v1" },
   status: { enum: ["available", "partial", "insufficient_data", "empty"] },
@@ -118,6 +129,7 @@ const compactCard = o({
   records: l(card.properties.records.items, 12),
 });
 export const progressSchema = o({
+  weekly_dashboard: n(weeklyDashboardSchema),
   ...progressDomainSchema.properties,
   summary: o(compactSummary),
   previous: o(compactSummary),

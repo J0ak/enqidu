@@ -75,7 +75,7 @@ test("EVAL: today recommendation path stays deterministic and LLM-free", async (
   assert.equal(reply.llmUsed, false);
 
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const deterministicGate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const deterministicGate = source.indexOf("if (!llmEnabled || intents.weeklyDashboard || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAiCall = source.indexOf("requestOpenAiResponses({");
   assert.ok(deterministicGate >= 0);
   assert.ok(openAiCall > deterministicGate);
@@ -108,7 +108,7 @@ test("EVAL: every supported health question returns deterministic metadata and b
     assert.equal(reply.usage, null, message);
   }
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const gate = source.indexOf("if (!llmEnabled || intents.weeklyDashboard || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   assert.ok(gate > 0);
   assert.ok(source.indexOf("requestOpenAiResponses({") > gate);
 });
@@ -275,7 +275,7 @@ test("EVAL: trend comparison never turns higher volume into a performance verdic
 
 test("EVAL: trend comparison stays deterministic and LLM-free", async () => {
   const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
-  const gate = source.indexOf("if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
+  const gate = source.indexOf("if (!llmEnabled || intents.weeklyDashboard || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop)");
   const openAi = source.indexOf("requestOpenAiResponses({");
   assert.ok(gate >= 0);
   assert.ok(openAi > gate);
@@ -498,4 +498,21 @@ test("DAILY OS contract: canonical Morning policy is reused and a proposed reduc
   const action = result.data.morning.review_action;
   assert.equal((await runtime.execute(action.tool, action.arguments)).ok, true);
   assert.deepEqual(f.tables, before);
+});
+
+test("EVAL: weekly report stays inline, uses canonical Progress and bypasses the optional paid LLM", async () => {
+  const { buildProgress } = await import("../src/progress/domain.js");
+  const { buildWeeklyDashboard } = await import("../src/progress/weeklyDashboard.js");
+  const sessions = ["Fuerza", "Pilates"].map((title, i) => ({ id: String(i), title, local_date: "2026-10-15", session_status: "completed", duration_seconds: 1800 }));
+  const progress = buildProgress({ sessions, exercises: [], plans: [], today: "2026-10-17", timezone: "Europe/Madrid", period: "week" });
+  const dashboard = buildWeeklyDashboard({ progress, sessions, plans: [] });
+  const reply = buildDeterministicCoachReply({ message: "Enséñame mi semana", context: { weekly_dashboard: dashboard } });
+  assert.equal(reply.llm_used, false); assert.equal(reply.usage, null); assert.equal(reply.response_mode, "deterministic");
+  assert.equal(reply.cards[0].dashboard.activity.sessions, 2);
+  assert.equal(reply.cards[0].dashboard.activity.seconds, progress.summary.seconds);
+  assert.equal(reply.cards[0].dashboard.days[3].activities.length, 2);
+  assert.equal(reply.cards[0].actions, undefined);
+  const source = await readFile(new URL("../supabase/functions/coach-reply/index.ts", import.meta.url), "utf8");
+  const gate = source.indexOf("if (!llmEnabled || intents.weeklyDashboard ||");
+  assert.ok(gate > 0 && gate < source.indexOf("requestOpenAiResponses({"));
 });

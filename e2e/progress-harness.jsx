@@ -12,6 +12,7 @@ window.renderProgress = (status = "available") => {
   const sessions = [
     {
       id: "s",
+      session_status: "completed",
       local_date: "2026-10-06",
       duration_seconds: 3600,
       modality_code: "functional_strength",

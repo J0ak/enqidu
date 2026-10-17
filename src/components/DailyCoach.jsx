@@ -1,10 +1,10 @@
+import { recoveryTrendCopy } from "../dailyCoach/recoveryCopy.js";
 import React, { useEffect, useState } from "react";
 import { requestEnqiduTool } from "../services/enqiduToolsService";
 import { decisionLabel, healthLabel, familyLabel, completionLabel, reasonLabel } from "../dailyCoach/presentation.js";
 import { healthCalendarUtcBounds } from "../health/healthEvidence.js";
 import "./DailyCoach.css";
 
-const directionLabel = { improving: "En mejora", stable: "Estable", declining: "En descenso", insufficient_data: "Evidencia insuficiente" };
 const planStatus = { planned: "Previsto", confirmed: "Confirmado", adaptable: "Adaptable", probable: "Probable", modified: "Modificado", completed: "Completado", skipped: "No realizado", cancelled: "Cancelado", rescheduled: "Reprogramado", recommended: "Recomendado" };
 const proposalSummary = (p) => p?.tool === "preview_adapt_duration" ? `Propuesta: ${p.arguments.duration_minutes} min el ${p.arguments.source_date}.` : p ? "Propuesta: revisar la adaptación de la sesión enlazada." : null;
 const lifecycle = { none: "Sin propuesta", proposed: "Propuesta pendiente de revisión", previewed: "Preview generado", applied: "Aplicación confirmada" };
@@ -62,7 +62,7 @@ export default function DailyCoach({ userId, revision = 0, busy, onReview }) {
         {b.yesterday.comparisons.map((item, index) => <p key={index}>{item.planned_title ? `${item.planned_title}: ` : ""}{item.planned_rest ? "Descanso planificado. " : ""}{completionLabel[item.status]}{item.duration_delta ? ` · ${item.duration_delta.executed_seconds / 60} min registrados` : ""}</p>)}
         {b.morning.yesterday_execution.sessions.map((session) => <p key={session.id}>Registrado: {session.title}{session.duration_seconds != null ? ` · ${session.duration_seconds / 60} min` : ""}</p>)}
       </details>
-      <details><summary>Tendencia · {directionLabel[b.trend.direction]}</summary><p>{b.trend.explanation}</p>
+      <details><summary>Tendencia · {recoveryTrendCopy(b.trend).title}</summary><p>{recoveryTrendCopy(b.trend).explanation}</p><details><summary>Cómo calculamos la tendencia</summary><p>{b.trend.explanation}</p></details>
         <div className="dailyTrend" role="table" aria-label="Últimos siete días">{b.trend.points.map((point) => <div role="row" key={point.date}><span role="cell">{point.date.slice(5)}</span><strong role="cell">{point.readiness_score ?? "—"}</strong><span role="cell">{healthLabel[point.health_state]}</span></div>)}</div>
       </details>
       <details><summary>Después de entrenar</summary>

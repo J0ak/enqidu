@@ -1,3 +1,4 @@
+import { buildWeeklyDashboard } from "./weeklyDashboard.js";
 import {
   buildProgress,
   periodBounds,
@@ -6,7 +7,7 @@ import {
 } from "./domain.js";
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
 const SESSION =
-  "id,user_id,local_date,session_status,duration_seconds,distance_meters,elevation_gain_meters,modality_id,fit_sport:session_structure->garmin_fit_summary->>sport,fit_sub_sport:session_structure->garmin_fit_summary->>sub_sport";
+  "id,user_id,title,local_date,session_status,duration_seconds,distance_meters,elevation_gain_meters,modality_id,fit_sport:session_structure->garmin_fit_summary->>sport,fit_sub_sport:session_structure->garmin_fit_summary->>sub_sport";
 const EXERCISE =
   "id,session_id,block_id,exercise_id,reported_name,execution_type,side,tempo_or_pause,load_value,load_unit,reps_per_set,sets_completed,rounds_completed,notes";
 export async function readPages(
@@ -43,7 +44,7 @@ export async function loadProgress(
     skills_only = false,
   },
 ) {
-  if (!userId || !["4", "12", "all"].includes(period))
+  if (!userId || !["4", "12", "all", "week"].includes(period))
     throw new Error("invalid_arguments");
   const bounds = periodBounds(calendar.date, period);
   const from =
@@ -68,7 +69,7 @@ export async function loadProgress(
         )
         .eq("user_id", userId)
         .gte("planned_date", bounds.from)
-        .lte("planned_date", calendar.date),
+        .lte("planned_date", period === "week" ? bounds.to : calendar.date),
     ),
     db
       .from("training_sessions")
@@ -143,6 +144,7 @@ export async function loadProgress(
   });
   return {
     ...result,
+    weekly_dashboard: period === "week" ? buildWeeklyDashboard({ progress: result, sessions: owned, plans: ownedPlans }) : null,
     summary: compact(result.summary),
     previous: compact(result.previous),
     weeks: result.weeks.map(compact),

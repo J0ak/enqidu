@@ -20,6 +20,7 @@ const units = new Set([
 export const monday = (date) =>
   shift(date, -((new Date(date + "T12:00:00Z").getUTCDay() + 6) % 7));
 export function periodBounds(today, period) {
+  if (period === "week") return { from: monday(today), to: shift(monday(today), 6), previousFrom: shift(monday(today), -7), days: 7 };
   const to = shift(monday(today), -1); // completed weeks only; today never compared against a full day
   const days = period === "4" ? 28 : 84;
   return {
@@ -64,7 +65,7 @@ const total = (values) => {
   const known = values.filter(numeric);
   return known.length ? known.reduce((a, b) => a + b, 0) : null;
 };
-function summary(rows) {
+export function summarizeSessions(rows) {
   return {
     sessions: rows.length,
     seconds: total(rows.map((s) => s.duration_seconds)),
@@ -91,7 +92,7 @@ export function buildProgress({
   const bounds = periodBounds(today, period);
   const owned = [
     ...new Map(
-      sessions.map((s) => [s.id, { ...s, modality: modality(s) }]),
+      sessions.filter((s) => ["completed", "recorded"].includes(s.session_status) && s.local_date <= today).map((s) => [s.id, { ...s, modality: modality(s) }]),
     ).values(),
   ];
   owned.sort(
@@ -225,7 +226,7 @@ export function buildProgress({
           numeric(p.max_reps),
       );
       // One observation per session. Four comparable sessions, two per half of selected complete weeks.
-      const midpoint = shift(bounds.from, bounds.days / 2);
+      const midpoint = shift(bounds.from, Math.floor(bounds.days / 2));
       const comparable = [
         ...new Map(
           [...atLoad]
@@ -236,7 +237,7 @@ export function buildProgress({
       const earlier = comparable.filter((p) => p.date < midpoint),
         later = comparable.filter((p) => p.date >= midpoint);
       const direction =
-        period !== "all" && earlier.length >= 2 && later.length >= 2
+        !["all", "week"].includes(period) && earlier.length >= 2 && later.length >= 2
           ? trend(
               max(earlier.map((p) => p.max_reps)),
               max(later.map((p) => p.max_reps)),
@@ -287,10 +288,10 @@ export function buildProgress({
         (s) =>
           s.local_date >= from && s.local_date <= to && s.local_date <= today,
       );
-    weeks.push({ from, to, partial: to >= today, ...summary(rows) });
+    weeks.push({ from, to, partial: to >= today, ...summarizeSessions(rows) });
   }
   const cardioWeeks = Array.from(
-    { length: period === "4" ? 4 : 12 },
+    { length: period === "week" ? 1 : period === "4" ? 4 : 12 },
     (_, i) => {
       const from = shift(
         period === "all" ? shift(end, -77) : bounds.from,
@@ -312,7 +313,7 @@ export function buildProgress({
       );
       return {
         code,
-        ...summary(rows),
+        ...summarizeSessions(rows),
         distance: total(rows.map((s) => s.distance_meters)),
         distance_known: rows.filter((s) => numeric(s.distance_meters)).length,
         elevation: total(rows.map((s) => s.elevation_gain_meters)),
@@ -345,7 +346,7 @@ export function buildProgress({
   );
   const plan = relevant.map((p) => {
     const executed =
-      owned.find((s) => s.id === p.linked_completed_session_id) || null;
+      (p.planned_date <= today ? owned.find((s) => s.id === p.linked_completed_session_id) : null) || null;
     const ambiguous =
       Boolean(p.linked_completed_session_id) &&
       relevant.filter(
@@ -378,10 +379,10 @@ export function buildProgress({
       plan.filter((p) => p.status === status).length,
     ]),
   );
-  const s = summary(current),
-    previous = summary(prior);
+  const s = summarizeSessions(current),
+    previous = summarizeSessions(prior);
   const adequate =
-    period !== "all" && firstDate && firstDate <= bounds.previousFrom;
+    !["all", "week"].includes(period) && firstDate && firstDate <= bounds.previousFrom;
   return {
     schema_version: "progress_performance_v1",
     status:

@@ -70,14 +70,12 @@ const context = {
   },
 };
 
-test("answers weekly progress from ENQIDU context without an LLM", () => {
+test("weekly question requires the shared canonical dashboard, never the legacy limited summary", () => {
   const reply = buildDeterministicCoachReply({ message: "¿Cómo voy esta semana?", context });
   assert.equal(reply.responseMode, "deterministic");
   assert.equal(reply.llmUsed, false);
-  assert.match(reply.answer, /4 sesiones/);
-  assert.match(reply.answer, /4 días activos/);
-  assert.match(reply.answer, /3 h 30 min/);
-  assert.equal(reply.cards[0].id, "training_period_summary");
+  assert.match(reply.answer, /No he podido consultar tu semana/);
+  assert.deepEqual(reply.cards, []);
 });
 
 test("answers latest session from structured data", () => {
