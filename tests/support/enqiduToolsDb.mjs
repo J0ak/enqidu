@@ -14,6 +14,7 @@ export function createToolsDb({ userId = TOOL_USER_A, empty = false } = {}) {
   const dates = ["2026-09-26", "2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"];
   const execution = { id: toolId(20), user_id: TOOL_USER_A, title: "Lower Strength", local_date: "2026-10-03", started_at: "2026-10-03T08:00:00Z", ended_at: "2026-10-03T08:50:00Z", session_status: "completed", source_id: toolId(30), sport: "strength", activity_type: "strength", duration_seconds: 3000, moving_duration_seconds: 2400, distance_meters: null, elevation_gain_meters: null, calories_total: 300, average_heart_rate: 115, max_heart_rate: 160, training_load: 50, raw_provider_payload: { secret: "RAW_SECRET" } };
   const tables = {
+    sport_modalities: [],
     daily_coach_events: [],
     profiles: [{ id: TOOL_USER_A, timezone: "Europe/Madrid" }, { id: TOOL_USER_B, timezone: "America/Los_Angeles" }],
     planned_training_sessions: [plan(1, "2026-10-03", { status: "completed", linked_completed_session_id: execution.id }), plan(2, "2026-10-05"), plan(3, "2026-10-06"), plan(4, "2026-10-06", { user_id: TOOL_USER_B, title: "FOREIGN_SECRET" })],

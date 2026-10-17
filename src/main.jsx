@@ -15,6 +15,7 @@ import GarminSyncConsent from "@/components/GarminSyncConsent";
 import CoachActionPreview from "@/components/CoachActionPreview";
 import ManualHealthImport from "@/components/ManualHealthImport";
 import DailyCoach from "@/components/DailyCoach";
+import Progress from "./progress/Progress";
 import HomeToday from "@/components/HomeToday";
 import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, normalizeStoredCoachMessages, resolveCoachCardAction } from "@/coachContext/coachCardsView";
@@ -68,6 +69,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  TrendingUp,
   Trophy,
   UserRound,
   Watch,
@@ -318,7 +320,7 @@ function useStoredState(key, initialValue, normalize = (stored) => stored) {
 
 function getInitialRoute() {
   const hash = window.location.hash.replace("#/", "");
-  const visibleRoutes = ["home", "coach", "health", "activities", "profile", "activityDetail", "plannedSessionDetail"];
+  const visibleRoutes = ["progress", "home", "coach", "health", "activities", "profile", "activityDetail", "plannedSessionDetail"];
   return visibleRoutes.includes(hash) ? hash : "home";
 }
 
@@ -1017,6 +1019,7 @@ function App() {
         <NavButton icon={Bot} label="Coach" route="coach" active={route} setRoute={setRoute} />
         <NavButton icon={HeartPulse} label="Salud" route="health" active={route} setRoute={setRoute} />
         <NavButton icon={Activity} label="Actividades" route="activities" active={route} setRoute={setRoute} />
+        <NavButton icon={TrendingUp} label="Progreso" route="progress" active={route} setRoute={setRoute} />
         <NavButton icon={UserRound} label="Perfil" route="profile" active={route} setRoute={setRoute} />
       </aside>
 
@@ -1039,6 +1042,7 @@ function App() {
             await openSessionDetail(result.data[0]);
           }} />
         </>}
+        {route === "progress" && <Progress key={session?.user?.id || "signed-out"} userId={session?.user?.id} />}
         {route === "health" && (
           <HealthView
             onImported={() => loadBackofficeData()}
@@ -1103,6 +1107,7 @@ function App() {
 
 function routeLabel(route) {
   return {
+    progress: "Progreso y rendimiento",
     home: "Tu día, de un vistazo",
     health: "Salud y recuperación",
     activities: "Historial de actividades",
