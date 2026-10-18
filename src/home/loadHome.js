@@ -1,10 +1,10 @@
 // Product composition only: both responses retain their canonical domain rules.
 export async function loadHome(request, { timeoutMs = 15000 } = {}) {
-  const read = async (tool) => {
+  const read = async (tool, args = {}) => {
     let timer;
     try {
       return await Promise.race([
-        Promise.resolve().then(() => request({ tool, arguments: {} })),
+        Promise.resolve().then(() => request({ tool, arguments: args })),
         new Promise((resolve) => {
           timer = setTimeout(() => resolve({ ok: false }), timeoutMs);
         }),
@@ -17,7 +17,7 @@ export async function loadHome(request, { timeoutMs = 15000 } = {}) {
   };
   const [brief, week] = await Promise.all([
     read("get_daily_coach_operating_brief"),
-    read("get_week_plan"),
+    read("get_progress_performance_v1", { period: "week" }),
   ]);
   const b = brief.ok ? brief.data : null;
   // A midnight/profile change between requests must not combine different calendars.
@@ -25,7 +25,7 @@ export async function loadHome(request, { timeoutMs = 15000 } = {}) {
     week.ok &&
     (!b ||
       (week.data.calendar_date === b.date && week.data.timezone === b.timezone))
-      ? week.data
+      ? week.data.weekly_dashboard
       : null;
   return {
     status: b ? (w ? "available" : "partial") : "error",

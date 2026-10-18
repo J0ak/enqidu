@@ -1,3 +1,5 @@
+import { recoveryTrendCopy } from "../dailyCoach/recoveryCopy.js";
+import { modalityLabel, WeeklyActivityLead, WeeklyPlanning } from "../progress/WeeklyDashboardV1.jsx";
 import React, { useState } from "react";
 import {
   ArrowUpRight,
@@ -14,12 +16,6 @@ import {
 } from "../dailyCoach/presentation.js";
 import "./HomeToday.css";
 
-const directions = {
-  improving: "En mejora",
-  stable: "Estable",
-  declining: "En descenso",
-  insufficient_data: "Evidencia insuficiente",
-};
 const minutes = (seconds) =>
   seconds == null
     ? "Duración no disponible"
@@ -50,13 +46,15 @@ export function HomeTodayContent({ state, onNavigate, onPlan, onActivity }) {
   const { brief: b, week, status, refresh } = state;
   const today = b?.morning.today_plan.sessions || [];
   const latest = b?.recent_training.sessions[0];
-  const progress = week?.progress;
+  const progress = week?.activity;
+  const recovery = b ? recoveryTrendCopy(b.trend) : null;
   return (
     <section
       className="homeToday"
       aria-label="Tu cockpit diario"
       aria-busy={status === "loading"}
     >
+      <button className="homeProgressLink" onClick={() => onNavigate("progress")}>PROGRESO · Ver evolución ↗</button>
       <header className="homeHeading">
         <div>
           <span className="homeEyebrow">TU COCKPIT DIARIO</span>
@@ -218,37 +216,10 @@ export function HomeTodayContent({ state, onNavigate, onPlan, onActivity }) {
               <p>
                 {week.from} — {week.to}
               </p>
-              {week.weekly_focus && <strong>{week.weekly_focus}</strong>}
-              <div className="homeProgressLead">
-                <strong>
-                  {progress.completed_linked_count}
-                  <small> / {progress.planned_count}</small>
-                </strong>
-                <span>completadas enlazadas</span>
-              </div>
-              <progress
-                aria-label="Progreso semanal"
-                value={progress.completed_linked_count}
-                max={progress.planned_count || 1}
-              />
-              <dl className="homeWeekNumbers">
-                <div>
-                  <dt>Previstas</dt>
-                  <dd>{progress.planned_count}</dd>
-                </div>
-                <div>
-                  <dt>Próximas</dt>
-                  <dd>{progress.upcoming_count}</dd>
-                </div>
-                <div>
-                  <dt>Pasadas sin confirmar</dt>
-                  <dd>{progress.past_unlinked_count}</dd>
-                </div>
-              </dl>
-              {!progress.has_plan && <p>No hay un plan semanal guardado.</p>}
-              <p className="homeMuted">
-                Sin ejecución confirmada no significa incumplida.
-              </p>
+              <WeeklyActivityLead dashboard={week} />
+              <p>{week.activity.modalities.map((m) => modalityLabel(m.code)).join(" · ") || "Sin actividades registradas"}</p>
+              <WeeklyPlanning planning={week.planning} />
+              <p className="homeMuted">Sin enlace no significa que no hayas entrenado.</p>
             </>
           ) : (
             <p role="status">
@@ -267,8 +238,9 @@ export function HomeTodayContent({ state, onNavigate, onPlan, onActivity }) {
               <HeartPulse size={18} />
             </div>
             <span className="homeEyebrow">ÚLTIMOS 7 DÍAS</span>
-            <h4>{directions[b.trend.direction]}</h4>
-            <p>{b.trend.explanation}</p>
+            <h4>{recovery.title}</h4>
+            <p>{recovery.explanation}</p>
+            <details><summary>Cómo calculamos la tendencia</summary><p>{b.trend.explanation}</p></details>
             <div
               className="homeTrend"
               aria-label="Readiness de los últimos siete días"

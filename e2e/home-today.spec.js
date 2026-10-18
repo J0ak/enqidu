@@ -11,7 +11,7 @@ test("Home: authenticated canonical cockpit, mobile navigation, preview only and
   const call = async (owner, tool) => {
     const response = await request.post(
       `${owner.url}/functions/v1/enqidu-tools`,
-      { headers: owner.headers, data: { tool, arguments: {} } },
+      { headers: owner.headers, data: { tool, arguments: tool === "get_progress_performance_v1" ? { period: "week" } : {} } },
     );
     const result = await response.json();
     expect(result.ok).toBe(true);
@@ -20,7 +20,7 @@ test("Home: authenticated canonical cockpit, mobile navigation, preview only and
   try {
     const before = await a.snapshot();
     const brief = await call(a, "get_daily_coach_operating_brief");
-    const week = await call(a, "get_week_plan");
+    const week = await call(a, "get_progress_performance_v1");
     const foreign = await call(b, "get_daily_coach_operating_brief");
     expect(foreign.data.morning.today_plan.sessions).toEqual([]);
     expect(foreign.data.recent_training.sessions).toEqual([]);
@@ -47,17 +47,11 @@ test("Home: authenticated canonical cockpit, mobile navigation, preview only and
     expect(
       tools.filter((t) => t === "get_daily_coach_operating_brief"),
     ).toHaveLength(1);
-    expect(tools.filter((t) => t === "get_week_plan")).toHaveLength(1);
+    expect(tools.filter((t) => t === "get_progress_performance_v1")).toHaveLength(1);
     expect(tools.some((t) => /^(preview|apply)_/.test(t))).toBe(false);
-    const progress = home.getByRole("progressbar");
-    await expect(progress).toHaveAttribute(
-      "value",
-      String(week.data.progress.completed_linked_count),
-    );
-    await expect(progress).toHaveAttribute(
-      "max",
-      String(week.data.progress.planned_count || 1),
-    );
+    const activity = home.getByLabel("Actividad real");
+    await expect(activity).toContainText(`${week.data.weekly_dashboard.activity.sessions} actividades`);
+    await expect(home.getByLabel("Planificación secundaria")).toContainText(`${week.data.weekly_dashboard.planning.linked} con ejecución enlazada`);
     expect(await a.snapshot()).toEqual(before);
     expect(
       await page.evaluate(
@@ -117,7 +111,7 @@ test("Home: authenticated canonical cockpit, mobile navigation, preview only and
         if (release) await release;
         return route.fulfill({ json: next });
       }
-      if (tool === "get_week_plan") return route.fulfill({ json: weekly });
+      if (tool === "get_progress_performance_v1") return route.fulfill({ json: weekly });
       return route.continue();
     });
     let ready;

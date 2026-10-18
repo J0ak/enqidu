@@ -72,6 +72,7 @@ export function detectCoachIntents(message = "") {
     "sesiones planificadas esta semana",
     "entrenamientos planificados esta semana",
   ]));
+  const weeklyDashboard = !refersToFutureWeek && hasAny(text, ["que he entrenado esta semana", "ensename mi semana", "hazme el resumen semanal", "resumen semanal", "como he entrenado", "como voy esta semana"]);
   const trend = hasAny(text, [
     "estoy mejorando",
     "voy mejorando",
@@ -117,6 +118,7 @@ export function detectCoachIntents(message = "") {
 
   return {
     greeting,
+    weeklyDashboard,
     weekPlan,
     trend,
     planToday,

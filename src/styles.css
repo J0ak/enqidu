@@ -4759,3 +4759,9 @@ button:disabled {
 .manualHealthImport pre { overflow-x: auto; font-size: .8rem; }
 .manualHealthImport dl > div { display: flex; justify-content: space-between; gap: 1rem; }
 .manualHealthImport button { margin: .75rem .5rem .25rem 0; }
+
+/* Six primary destinations remain reachable on a 390px viewport. */
+@media (max-width: 700px) {
+  .rail .railButton { min-width: 0; flex: 1; padding: 0 4px; }
+  .rail .railButton span { font-size: 9px; }
+}

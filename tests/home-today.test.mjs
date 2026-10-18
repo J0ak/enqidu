@@ -10,16 +10,16 @@ const brief = {
 const week = {
   calendar_date: brief.date,
   timezone: brief.timezone,
-  progress: {
+  weekly_dashboard: { activity: { sessions: 8, seconds: 27687 }, planning: {
     planned_count: 3,
     completed_linked_count: 1,
     upcoming_count: 1,
     past_unlinked_count: 1,
-  },
+  } },
 };
 const request = ({ tool }) => ({
   ok: true,
-  data: tool === "get_week_plan" ? week : brief,
+  data: tool === "get_progress_performance_v1" ? week : brief,
 });
 test("Home coordinates exactly two existing reads, no identity/client clock or writers", async () => {
   const calls = [];
@@ -29,17 +29,17 @@ test("Home coordinates exactly two existing reads, no identity/client clock or w
   });
   assert.deepEqual(calls, [
     { tool: "get_daily_coach_operating_brief", arguments: {} },
-    { tool: "get_week_plan", arguments: {} },
+    { tool: "get_progress_performance_v1", arguments: { period: "week" } },
   ]);
   assert.equal(result.status, "available");
   assert.equal(result.brief, brief);
-  assert.equal(result.week, week);
+  assert.equal(result.week, week.weekly_dashboard);
   assert.equal(result.brief.readiness_score, 0);
-  assert.deepEqual(result.week.progress, week.progress);
+  assert.deepEqual(result.week.activity, week.weekly_dashboard.activity);
 });
 test("week failure preserves daily brief as partial without manufacturing progress", async () => {
   const result = await loadHome((a) =>
-    a.tool === "get_week_plan"
+    a.tool === "get_progress_performance_v1"
       ? Promise.reject(Error("private error"))
       : request(a),
   );
@@ -49,11 +49,11 @@ test("week failure preserves daily brief as partial without manufacturing progre
 });
 test("brief failure is explicit and preserves independently available weekly progress", async () => {
   const result = await loadHome((a) =>
-    a.tool === "get_week_plan" ? request(a) : { ok: false },
+    a.tool === "get_progress_performance_v1" ? request(a) : { ok: false },
   );
   assert.equal(result.status, "error");
   assert.equal(result.brief, null);
-  assert.equal(result.week, week);
+  assert.equal(result.week, week.weekly_dashboard);
 });
 test("hanging requests terminate in an error, never an infinite skeleton", async () => {
   const result = await loadHome(() => new Promise(() => {}), { timeoutMs: 10 });
@@ -65,7 +65,7 @@ test("do not mix dates or profile timezones across coordinated reads", async () 
     { timezone: "America/Los_Angeles" },
   ]) {
     const result = await loadHome((a) =>
-      a.tool === "get_week_plan"
+      a.tool === "get_progress_performance_v1"
         ? { ok: true, data: { ...week, ...override } }
         : request(a),
     );
@@ -77,7 +77,7 @@ test("a timed-out week cannot mutate a completed snapshot when it eventually arr
   let resolve;
   const result = await loadHome(
     (a) =>
-      a.tool === "get_week_plan"
+      a.tool === "get_progress_performance_v1"
         ? new Promise((r) => (resolve = r))
         : request(a),
     { timeoutMs: 10 },

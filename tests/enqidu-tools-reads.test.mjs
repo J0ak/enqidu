@@ -133,6 +133,6 @@ test("TOOLS READ: runtime validates every full evidence output and batch memoize
   const state = createToolsDb();
   const runtime = await createEnqiduToolRuntime({ db: state.db, source: "coach", now: TOOL_NOW });
   const requests = Object.keys(READ_OUTPUT_SCHEMAS).map((tool) => ({ tool, arguments: tool === "get_training_session" ? { session_id: toolId(20) } : tool.includes("closed_loop") || tool === "get_adaptation_proposal" ? { session_id: toolId(20) } : {} }));
-  const results = await runtime.executeMany(requests);
+  const results = [...await runtime.executeMany(requests.slice(0,12)), ...await runtime.executeMany(requests.slice(12))];
   for (const result of results) assert.equal(result.ok, true, JSON.stringify(result));
 });

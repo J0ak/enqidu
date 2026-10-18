@@ -132,6 +132,7 @@ Deno.serve(async (req: Request) => {
     if (intents.planToday || intents.healthTraining) {
       requests.push({ tool: "get_today_plan", arguments: {} }, { tool: "get_athlete_context", arguments: {} });
     }
+    if (intents.weeklyDashboard) requests.push({ tool: "get_progress_performance_v1", arguments: { period: "week" } });
     if (intents.weekPlan) requests.push({ tool: "get_week_plan", arguments: {} });
     if (intents.session && !intents.period) requests.push({ tool: "get_recent_training", arguments: { date: contextDate, limit: 10 } });
     const toolResults = await tools.executeMany(requests);
@@ -181,7 +182,7 @@ Deno.serve(async (req: Request) => {
 
     // Health, closed loop, today's plan, weekly progress and trend are deterministic,
     // even when the optional LLM feature flag is enabled for other Coach conversations.
-    if (!llmEnabled || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop) {
+    if (!llmEnabled || intents.weeklyDashboard || morningRequest || intents.planToday || intents.trend || intents.weekPlan || intents.recovery || intents.closedLoop) {
       return reply({
         ok: true,
         answer: deterministic.answer,
