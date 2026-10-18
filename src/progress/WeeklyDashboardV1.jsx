@@ -1,7 +1,7 @@
 import React from "react";
 import "./WeeklyDashboardV1.css";
-import { modalityLabel, durationLabel } from "./presentation.js";
-export { modalityLabel, durationLabel } from "./presentation.js";
+import { modalityLabel, durationLabel, unitLabel } from "./presentation.js";
+export { modalityLabel, durationLabel, unitLabel } from "./presentation.js";
 export function WeeklyActivityLead({ dashboard: d }) {
   return (
     <div className="weeklyActivityLead" aria-label="Actividad real">
@@ -32,6 +32,173 @@ export function WeeklyPlanning({ planning: p }) {
       </p>
       {p.skipped > 0 && <p>{p.skipped} omitidos explícitamente</p>}
     </div>
+  );
+}
+const planLabel = {
+  confirmed_rest: "Descanso confirmado",
+  planned_rest: "Descanso previsto · sin confirmación de realización",
+  linked: "Ejecución enlazada",
+  modified: "Plan modificado · ejecución enlazada",
+  skipped: "Omitido explícitamente",
+  unknown: "Sin ejecución confirmada",
+};
+function ActivityEvidence({ activity: s }) {
+  return (
+    <>
+      {s.linked_plan && (
+        <p className="weeklyLinkedPlan">
+          Plan enlazado: {s.linked_plan.title}
+          <small>
+            {planLabel[s.linked_plan.status]} · {s.linked_plan.date}
+          </small>
+          {s.linked_plan.objective && (
+            <small>Intención: {s.linked_plan.objective}</small>
+          )}
+        </p>
+      )}
+      {s.linked_plan === null && (
+        <small>Actividad realizada sin plan enlazado.</small>
+      )}
+      {s.blocks?.length > 0 && (
+        <p>
+          Bloques registrados: {s.blocks.map((b) => b.name).join(" · ")}.
+          {s.block_count > s.blocks.length &&
+            ` Se muestran ${s.blocks.length} de ${s.block_count}.`}
+        </p>
+      )}
+      {s.unidentified_exercises > 0 && (
+        <p className="weeklyMissing">
+          {s.unidentified_exercises} registros de ejercicios sin identificación
+          fiable. No inferimos sus nombres ni su volumen muscular.
+        </p>
+      )}
+      {s.exercises?.slice(0, 3).map((e) => (
+        <p className="weeklyExerciseHighlight" key={e.id}>
+          <strong>{e.name}</strong>
+          <span>
+            {e.load !== null
+              ? `${e.load} ${unitLabel(e.unit) || "unidad sin registrar"}`
+              : e.unit === "bodyweight"
+                ? "Peso corporal"
+                : "Carga sin dato"}
+            {e.reps
+              ? ` × ${e.reps.join(" · ")} reps`
+              : " · Reps numéricas sin dato"}
+          </span>
+        </p>
+      ))}
+      {s.exercises?.length > 0 && (
+        <details className="weeklyExerciseDetail">
+          <summary>
+            Detalle registrado · {s.exercises.length} de {s.exercise_count}{" "}
+            ejercicios
+          </summary>
+          <ul>
+            {s.exercises.map((e) => (
+              <li key={e.id}>
+                <strong>{e.name}</strong>
+                <span>
+                  {e.load !== null
+                    ? `${e.load} ${unitLabel(e.unit) || "unidad sin registrar"}`
+                    : "Carga sin dato"}
+                  {e.reps
+                    ? ` × ${e.reps.join(" · ")} reps`
+                    : " · Reps numéricas sin dato"}
+                </span>
+                {e.unit === "bodyweight" && (
+                  <small>Peso corporal explícito</small>
+                )}
+                {e.variant && <small>Variante registrada: {e.variant}</small>}
+                {(e.sets !== null || e.rounds !== null) && (
+                  <small>
+                    {e.sets !== null ? `${e.sets} series registradas` : ""}
+                    {e.rounds !== null
+                      ? ` · ${e.rounds} rondas registradas`
+                      : ""}
+                  </small>
+                )}
+                {e.notes && <p>Nota de ejecución: {e.notes}</p>}
+              </li>
+            ))}
+          </ul>
+          <small>
+            Cargas y reps sólo de campos estructurados. Las notas aportan
+            contexto; no se convierten en métricas. Se muestran hasta 30 reps
+            por registro.
+          </small>
+        </details>
+      )}
+      {s.blocks
+        ?.filter((b) => b.notes)
+        .map((b) => (
+          <p key={b.id}>
+            Nota de {b.name}: {b.notes}
+          </p>
+        ))}
+    </>
+  );
+}
+function DailyTime({ days }) {
+  const value = (day) =>
+    "chart_seconds" in day
+      ? day.chart_seconds
+      : day.future
+        ? null
+        : day.confirmed_rest
+          ? 0
+          : day.seconds;
+  const max = Math.max(1, ...days.map((day) => value(day) ?? 0));
+  return (
+    <section aria-label="Distribución diaria del tiempo">
+      <h4>¿Cómo has repartido el tiempo esta semana?</h4>
+      <div className="weeklyDailyTime">
+        {days.map((day) => {
+          const seconds = value(day),
+            state =
+              day.time_state ||
+              (day.future
+                ? "future"
+                : day.confirmed_rest
+                  ? "confirmed_rest"
+                  : seconds === null
+                    ? "unconfirmed"
+                    : "observed");
+          const label =
+            state === "future"
+              ? "Próximo · planificación"
+              : state === "confirmed_rest"
+                ? "0 min · descanso confirmado"
+                : state === "unconfirmed"
+                  ? "Sin actividad registrada · descanso sin confirmar"
+                  : state === "missing_duration"
+                    ? "Actividad registrada · duración sin dato"
+                    : `${durationLabel(seconds)}${state === "partial" ? " conocidos · duración parcial" : " observados"}`;
+          return (
+            <div className="weeklyDailyBar" key={day.date} data-state={state}>
+              <strong>
+                {new Intl.DateTimeFormat("es-ES", {
+                  weekday: "short",
+                  timeZone: "UTC",
+                }).format(new Date(`${day.date}T12:00:00Z`))}
+              </strong>
+              <div>
+                {seconds !== null ? (
+                  <meter
+                    aria-label={`Tiempo observado ${day.date}`}
+                    min="0"
+                    max={max}
+                    value={seconds}
+                  />
+                ) : (
+                  <div className="weeklyTimeMissing" aria-hidden="true" />
+                )}
+                <small>{label}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 export default function WeeklyDashboardV1({ dashboard: d }) {
@@ -66,6 +233,12 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
                   timeZone: "UTC",
                 }).format(new Date(`${day.date}T12:00:00Z`))}
               </h5>
+              {day.intended_plans?.map((plan) => (
+                <p className="weeklyIntention" key={plan.id}>
+                  Plan previsto: {plan.title}
+                  <small>{planLabel[plan.status]}</small>
+                </p>
+              ))}
               {day.activities.length ? (
                 <ul>
                   {day.activities.map((s) => (
@@ -74,6 +247,7 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
                       <span>
                         {modalityLabel(s.modality)} · {durationLabel(s.seconds)}
                       </span>
+                      <ActivityEvidence activity={s} />
                     </li>
                   ))}
                 </ul>
@@ -90,8 +264,9 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
           ))}
         </div>
       </section>
-      <section aria-label="Distribución del tiempo">
-        <h4>¿Dónde has dedicado tu tiempo?</h4>
+      <DailyTime days={d.days} />
+      <details className="weeklyModalities">
+        <summary>Distribución por modalidad</summary>
         {d.time_distribution.length ? (
           d.time_distribution.map((m) => (
             <div className="weeklyTime" key={m.code}>
@@ -114,10 +289,24 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
         ) : (
           <p>Aún no hay tiempo registrado.</p>
         )}
-      </section>
+      </details>
       <section aria-label="Highlights y progresión">
         <h4>¿Qué está avanzando?</h4>
-        {d.highlights.length ? (
+        {d.insights?.some((i) =>
+          ["observed_load_record", "observed_reps_record"].includes(i.kind),
+        ) ? (
+          <ul>
+            {d.insights
+              .filter((i) =>
+                ["observed_load_record", "observed_reps_record"].includes(
+                  i.kind,
+                ),
+              )
+              .map((i, index) => (
+                <li key={index}>{i.text}</li>
+              ))}
+          </ul>
+        ) : d.highlights.length ? (
           <ul>
             {d.highlights.map((h, i) => (
               <li key={`${h.name}-${i}`}>
@@ -127,8 +316,8 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
           </ul>
         ) : (
           <p>
-            Aún no hay mejoras de marcas verificables dentro de esta semana.
-            Esto no significa que estés estancado.
+            Aún no hay mejoras de marcas verificables esta semana frente a la
+            evidencia comparable. Esto no significa que estés estancado.
           </p>
         )}
         <p>
@@ -138,7 +327,22 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
       </section>
       <section aria-label="Valoración determinista">
         <h4>Tu semana, con perspectiva</h4>
-        <p>{d.assessment}</p>
+        {d.insights?.length ? (
+          <ul>
+            {d.insights
+              .filter(
+                (i) =>
+                  !["observed_load_record", "observed_reps_record"].includes(
+                    i.kind,
+                  ),
+              )
+              .map((i, index) => (
+                <li key={`${i.kind}-${index}`}>{i.text}</li>
+              ))}
+          </ul>
+        ) : (
+          <p>{d.assessment}</p>
+        )}
       </section>
       <WeeklyPlanning planning={d.planning} />
       <section className="weeklyQuality" aria-label="Calidad del dato">
@@ -147,6 +351,19 @@ export default function WeeklyDashboardV1({ dashboard: d }) {
           {d.quality.duration_known}/{d.quality.sessions} actividades con
           duración · {d.quality.unknown_modality} sin modalidad registrada.
         </p>
+        {d.quality.unidentified_exercises > 0 && (
+          <p>
+            Parte del detalle de ejercicios no está identificado de forma
+            fiable.
+          </p>
+        )}
+        {d.quality.volume && d.quality.volume !== "complete" && (
+          <p>
+            El volumen muscular es parcial: sólo {d.quality.volume_observations}
+            /{d.quality.exercise_count} registros permiten calcular carga ×
+            reps. No reconstruimos series ni números desde notas.
+          </p>
+        )}
         <p>{d.quality.explanation}</p>
         <small>
           Descanso confirmado requiere un descanso marcado como completado, sin

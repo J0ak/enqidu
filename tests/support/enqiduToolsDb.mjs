@@ -60,6 +60,7 @@ export function createToolsDb({ userId = TOOL_USER_A, empty = false } = {}) {
         select(columns, options) { call.select = columns; head = options?.head === true; return query; },
         eq(key, value) { return add(key, "eq", value, (row) => row[key] === value); },
         neq(key, value) { return add(key, "neq", value, (row) => row[key] !== value); },
+        gt(key, value) { return add(key, "gt", value, (row) => row[key] > value); },
         gte(key, value) { return add(key, "gte", value, (row) => row[key] >= value); },
         lte(key, value) { return add(key, "lte", value, (row) => row[key] <= value); },
         lt(key, value) { return add(key, "lt", value, (row) => row[key] < value); },

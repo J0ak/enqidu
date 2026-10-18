@@ -123,3 +123,67 @@
   max-height: none;
   overflow: visible;
 }
+.weeklyDailyTime {
+  display: grid;
+  gap: 16px;
+}
+.weeklyDailyBar {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.weeklyDailyBar > strong {
+  text-transform: capitalize;
+  font-size: 14px;
+}
+.weeklyDailyBar meter {
+  width: 100%;
+  height: 14px;
+  accent-color: #b5ed52;
+}
+.weeklyTimeMissing {
+  height: 10px;
+  margin: 3px 0;
+  border: 1px dashed #708083;
+  border-radius: 8px;
+}
+.weeklyDailyBar[data-state="future"] .weeklyTimeMissing {
+  opacity: 0.4;
+}
+.weeklyDailyBar[data-state="confirmed_rest"] {
+  border-left: 2px solid #8fc8b0;
+  padding-left: 8px;
+}
+.weeklyModalities {
+  margin-top: 22px;
+  color: #afc2c5;
+  font-size: 13px;
+}
+.weeklyIntention,
+.weeklyLinkedPlan {
+  border-left: 2px solid #8faca8;
+  padding-left: 10px;
+  font-size: 13px;
+}
+.weeklyExerciseDetail {
+  margin-top: 14px;
+}
+.weeklyExerciseDetail summary {
+  cursor: pointer;
+  color: #c2e6ad;
+  font-size: 13px;
+}
+.weeklyExerciseDetail p,
+.weeklyMissing {
+  font-size: 13px;
+  color: #afc2c5;
+}
+.weeklyExerciseHighlight {
+  padding: 8px 0;
+  border-bottom: 1px solid #344547;
+}
+.weeklyExerciseHighlight strong {
+  color: #dfeddb;
+  font-size: 14px;
+}

@@ -1,6 +1,7 @@
 import { buildWeeklyDashboard } from "./weeklyDashboard.js";
 import {
   buildProgress,
+  exerciseIdentity,
   periodBounds,
   monday,
   modality as observedModality,
@@ -8,8 +9,10 @@ import {
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
 const SESSION =
   "id,user_id,title,local_date,session_status,duration_seconds,distance_meters,elevation_gain_meters,modality_id,fit_sport:session_structure->garmin_fit_summary->>sport,fit_sub_sport:session_structure->garmin_fit_summary->>sub_sport";
+const PLAN =
+  "id,user_id,title,objective,planned_date,session_type,status,linked_completed_session_id";
 const EXERCISE =
-  "id,session_id,block_id,exercise_id,reported_name,execution_type,side,tempo_or_pause,load_value,load_unit,reps_per_set,sets_completed,rounds_completed,notes";
+  "id,session_id,block_id,exercise_id,exercise_order,reported_name,execution_type,side,tempo_or_pause,load_value,load_unit,reps_per_set,sets_completed,rounds_completed,notes";
 export async function readPages(
   makeQuery,
   { pageSize = 250, maxRows = 50000 } = {},
@@ -65,7 +68,7 @@ export async function loadProgress(
       db
         .from("planned_training_sessions")
         .select(
-          "id,user_id,planned_date,session_type,status,linked_completed_session_id",
+          "id,user_id,title,objective,planned_date,session_type,status,linked_completed_session_id",
         )
         .eq("user_id", userId)
         .gte("planned_date", bounds.from)
@@ -122,6 +125,65 @@ export async function loadProgress(
     );
     if (exercises.length > 50000) throw new Error("progress_scope_too_large");
   }
+  // Only current exercise identities require historical evidence. Read a declared 52-week
+  // lookback on the server; never ship raw history or silently truncate it.
+  const comparisonFrom = period === "week" ? shift(bounds.from, -364) : null;
+  const baselineExercises = [],
+    blocks = [];
+  if (period === "week") {
+    const keys = new Set(exercises.map(exerciseIdentity).filter(Boolean));
+    if (keys.size) {
+      const history = (
+        await readPages(() =>
+          ownSessions()
+            .gte("local_date", comparisonFrom)
+            .lt("local_date", bounds.from),
+        )
+      ).filter((s) => s.user_id === userId);
+      for (const s of history) {
+        s.modality_code =
+          codes.data?.find((m) => m.id === s.modality_id)?.code || null;
+        if (!owned.some((row) => row.id === s.id)) owned.push(s);
+      }
+      let historyRead = 0;
+      for (let i = 0; i < history.length; i += 100) {
+        const ids = history.slice(i, i + 100).map((s) => s.id);
+        const rows = await readPages(() =>
+          db.from("session_exercises").select(EXERCISE).in("session_id", ids),
+        );
+        historyRead += rows.length;
+        if (historyRead > 50000) throw new Error("progress_scope_too_large");
+        baselineExercises.push(
+          ...rows.filter(
+            (e) => ids.includes(e.session_id) && keys.has(exerciseIdentity(e)),
+          ),
+        );
+      }
+    }
+    for (let i = 0; i < selected.length; i += 100) {
+      const ids = selected.slice(i, i + 100).map((s) => s.id);
+      const [b, linked] = await Promise.all([
+        readPages(() =>
+          db
+            .from("session_blocks")
+            .select("id,session_id,name,execution_notes,block_order")
+            .in("session_id", ids),
+        ),
+        readPages(() =>
+          db
+            .from("planned_training_sessions")
+            .select(PLAN)
+            .eq("user_id", userId)
+            .in("linked_completed_session_id", ids),
+        ),
+      ]);
+      blocks.push(...b.filter((row) => ids.includes(row.session_id)));
+      for (const plan of linked.filter((row) => row.user_id === userId))
+        if (!ownedPlans.some((p) => p.id === plan.id)) ownedPlans.push(plan);
+      if (blocks.length > 50000 || ownedPlans.length > 50000)
+        throw new Error("progress_scope_too_large");
+    }
+  }
   const result = buildProgress({
     sessions: owned.map((s) => ({
       ...s,
@@ -129,6 +191,8 @@ export async function loadProgress(
         codes.data?.find((m) => m.id === s.modality_id)?.code || null,
     })),
     exercises,
+    baselineExercises,
+    comparisonFrom,
     plans: ownedPlans,
     today: calendar.date,
     timezone: calendar.timezone,
@@ -144,7 +208,17 @@ export async function loadProgress(
   });
   return {
     ...result,
-    weekly_dashboard: period === "week" ? buildWeeklyDashboard({ progress: result, sessions: owned, plans: ownedPlans }) : null,
+    weekly_dashboard:
+      period === "week"
+        ? buildWeeklyDashboard({
+            progress: result,
+            sessions: owned,
+            plans: ownedPlans,
+            exercises,
+            blocks,
+          })
+        : null,
+    execution_links: result.execution_links.slice(-12),
     summary: compact(result.summary),
     previous: compact(result.previous),
     weeks: result.weeks.map(compact),
@@ -155,11 +229,12 @@ export async function loadProgress(
       .length,
     stable_count: result.strength.filter((e) => e.trend === "stable").length,
     observed_records: result.strength.reduce((n, e) => n + e.record_count, 0),
-    highlights: result.strength
-      .filter((e) => e.record_count > 0)
-      .sort((a, b) => b.last_practice.localeCompare(a.last_practice))
-      .slice(0, 3)
-      .map((e) => ({ name: e.name, records: e.record_count })),
+    insights: result.insights.slice(0, 50).map((i) => ({
+      ...i,
+      session_ids: i.session_ids.slice(-12),
+      exercise_ids: i.exercise_ids.slice(-12),
+      plan_ids: i.plan_ids.slice(-12),
+    })),
     strength: cards
       .slice(exercise_page * 12, (exercise_page + 1) * 12)
       .map((e) => ({

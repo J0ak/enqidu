@@ -16,3 +16,14 @@ export const durationLabel = (seconds) => {
     ? `${Math.floor(minutes / 60)} h ${minutes % 60} min`
     : `${minutes} min`;
 };
+
+export const unitLabel = (unit) =>
+  ({
+    kg_each: "kg por implemento",
+    kg_total: "kg totales",
+    "kg total": "kg totales",
+    kg_external_discs: "kg en discos",
+    bodyweight: "peso corporal",
+  })[unit] ||
+  unit ||
+  "";

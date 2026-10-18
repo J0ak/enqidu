@@ -32,4 +32,15 @@ select planned_date,title,session_type,status,
 from public.planned_training_sessions
 where planned_date between '2026-10-12' and '2026-10-18'
 order by planned_date,title;
+-- Weekly semantic coverage: JSON objects/string arrays remain non-numeric.
+select count(*) exercise_rows,
+ count(*) filter (where e.exercise_id is null and lower(trim(e.reported_name)) = 'unknown') unidentified,
+ count(*) filter (where jsonb_typeof(e.reps_per_set) = 'array'
+   and jsonb_array_length(case when jsonb_typeof(e.reps_per_set) = 'array' then e.reps_per_set else '[]'::jsonb end) > 0
+   and not exists (select 1 from jsonb_array_elements(case when jsonb_typeof(e.reps_per_set) = 'array' then e.reps_per_set else '[]'::jsonb end) r(value)
+     where jsonb_typeof(r.value) <> 'number')) numeric_array_candidates
+from public.session_exercises e
+join public.training_sessions s on s.id=e.session_id
+where s.local_date between '2026-10-12' and '2026-10-18'
+ and s.session_status in ('completed','recorded');
 rollback;

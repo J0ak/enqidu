@@ -51,6 +51,38 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
       status: "confirmed",
       linked_completed_session_id: strength.id,
     });
+    const [previous] = await a.insert("training_sessions", {
+      user_id: a.user.id,
+      title: "Exposición histórica",
+      local_date: a.date(-14),
+      session_date: a.date(-14),
+      session_status: "completed",
+      duration_seconds: 1200,
+    });
+    for (const [session, reps] of [
+      [previous, [8]],
+      [strength, [10]],
+    ]) {
+      const [block] = await a.insert("session_blocks", {
+        session_id: session.id,
+        block_order: 1,
+        name: "Fuerza técnica",
+        block_type: "strength",
+        execution_notes: "Modificación observada: apoyo en cajón",
+        data_confidence: "reported",
+      });
+      await a.insert("session_exercises", {
+        session_id: session.id,
+        block_id: block.id,
+        exercise_order: 1,
+        name: "Press banca",
+        reported_name: "Press banca",
+        load_value: 20,
+        load_unit: "kg",
+        reps_per_set: reps,
+        data_confidence: "manual",
+      });
+    }
     const before = await a.snapshot();
     const call = async (owner) => {
       const r = await request.post(`${owner.url}/functions/v1/enqidu-tools`, {
@@ -68,6 +100,13 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
       foreign = await call(b);
     expect(progress.summary.sessions).toBe(2);
     expect(progress.summary.seconds).toBe(5400);
+    expect(progress.observed_records).toBe(1);
+    const day = progress.weekly_dashboard.days.find((d) => d.date === a.date());
+    expect(day.chart_seconds).toBe(5400);
+    expect(day.activities.map((s) => s.id).sort()).toEqual(
+      [strength.id, pilates.id].sort(),
+    );
+    expect(progress.weekly_dashboard.insights).toEqual(progress.insights);
     expect(foreign.weekly_dashboard.activity.sessions).toBe(0);
     await page.addInitScript(() =>
       localStorage.setItem(
@@ -126,7 +165,7 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
     await expect(dashboard).toBeVisible();
     for (const name of [
       "Día a día",
-      "¿Dónde has dedicado tu tiempo?",
+      "¿Cómo has repartido el tiempo esta semana?",
       "¿Qué está avanzando?",
       "Tu semana, con perspectiva",
       "Qué sabemos de tus datos",
@@ -138,6 +177,20 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
     await expect(
       dashboard.getByText("Pilates semanal", { exact: true }),
     ).toBeVisible();
+    await expect(
+      dashboard.getByLabel("Distribución diaria del tiempo"),
+    ).toBeVisible();
+    await expect(dashboard.locator(".weeklyDailyBar")).toHaveCount(7);
+    await expect(dashboard.getByText(/8 → 10 reps/)).toBeVisible();
+    await expect(
+      dashboard.getByText(/Plan enlazado: Fuerza prevista/),
+    ).toBeVisible();
+    await expect(
+      dashboard.getByText(/Nota de Fuerza técnica: Modificación observada/),
+    ).toBeVisible();
+    await expect(dashboard.locator(".weeklyExerciseHighlight")).toContainText(
+      "20 kg × 10 reps",
+    );
     expect(await dashboard.getByRole("button").count()).toBe(0);
     await expect(page).toHaveURL(/#\/coach$/);
     expect(
@@ -212,4 +265,45 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
     await a.dispose();
     await b.dispose();
   }
+});
+
+test("390px daily bars distinguish observed zero, missing, unconfirmed rest, completed rest and future", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.evaluate(() => import("/e2e/weekly-editorial-harness.jsx"));
+  const chart = page.getByLabel("Distribución diaria del tiempo");
+  await expect(chart.locator(".weeklyDailyBar")).toHaveCount(7);
+  await expect(chart.locator('[data-state="observed"]').first()).toContainText(
+    "0 min observados",
+  );
+  await expect(chart.locator('[data-state="missing_duration"]')).toContainText(
+    "duración sin dato",
+  );
+  await expect(chart.locator('[data-state="unconfirmed"]')).toContainText(
+    "descanso sin confirmar",
+  );
+  await expect(chart.locator('[data-state="confirmed_rest"]')).toContainText(
+    "0 min · descanso confirmado",
+  );
+  await expect(chart.locator('[data-state="partial"]')).toContainText(
+    "15 min conocidos · duración parcial",
+  );
+  await expect(chart.locator('[data-state="future"]')).toContainText(
+    "Próximo · planificación",
+  );
+  for (const state of ["missing_duration", "unconfirmed", "future"])
+    await expect(chart.locator(`[data-state="${state}"] meter`)).toHaveCount(0);
+  await expect(
+    chart.getByRole("meter", { name: "Tiempo observado 2026-10-15" }),
+  ).toHaveAttribute("value", "5400");
+  await expect(page.getByText("Fuerza", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pilates", { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await chart.screenshot({ path: "test-results/weekly-daily-states-390.png" });
 });

@@ -1,3 +1,4 @@
+import { progressInsights } from "./insights.js";
 import { comparePlannedVsExecuted } from "../closedLoop/plannedVsExecuted.js";
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
 export const numeric = (value) =>
@@ -20,7 +21,13 @@ const units = new Set([
 export const monday = (date) =>
   shift(date, -((new Date(date + "T12:00:00Z").getUTCDay() + 6) % 7));
 export function periodBounds(today, period) {
-  if (period === "week") return { from: monday(today), to: shift(monday(today), 6), previousFrom: shift(monday(today), -7), days: 7 };
+  if (period === "week")
+    return {
+      from: monday(today),
+      to: shift(monday(today), 6),
+      previousFrom: shift(monday(today), -7),
+      days: 7,
+    };
   const to = shift(monday(today), -1); // completed weeks only; today never compared against a full day
   const days = period === "4" ? 28 : 84;
   return {
@@ -36,6 +43,88 @@ export function observedReps(value) {
     value.every((v) => numeric(v) && Number.isInteger(v))
     ? value
     : null;
+}
+export function exerciseIdentity(e) {
+  const name = normalizeName(e.reported_name);
+  if (
+    !e.exercise_id &&
+    (!name ||
+      /^(unknown|desconocido|sin identificar|ejercicio desconocido)(?: \d+)?$/.test(
+        name,
+      ))
+  )
+    return null;
+  return JSON.stringify([
+    e.exercise_id || name,
+    e.execution_type ?? null,
+    e.side ?? null,
+    e.tempo_or_pause ?? null,
+    e.load_unit ?? null,
+  ]);
+}
+export function exerciseObservation(e, date) {
+  const reps = observedReps(e.reps_per_set);
+  const load =
+    units.has(e.load_unit) && numeric(e.load_value) ? e.load_value : null;
+  return {
+    exercise_id: e.id,
+    session_id: e.session_id,
+    date,
+    load,
+    max_reps: reps ? Math.max(...reps) : null,
+    volume:
+      load !== null && reps ? load * reps.reduce((a, b) => a + b, 0) : null,
+  };
+}
+export function observedRecords(points, priorPoints, unit) {
+  const records = [];
+  for (const point of points) {
+    const before = [...priorPoints, ...points].filter(
+      (p) => p.date < point.date && p.session_id !== point.session_id,
+    );
+    const best = (rows, field) =>
+      rows
+        .filter((p) => numeric(p[field]))
+        .sort((a, b) => b[field] - a[field] || b.date.localeCompare(a.date))[0];
+    const load = best(before, "load");
+    const reps = best(
+      before.filter(
+        (p) =>
+          p.load === point.load &&
+          (point.load !== null || unit === "bodyweight"),
+      ),
+      "max_reps",
+    );
+    for (const [kind, previous, field] of [
+      ["load", load, "load"],
+      ["reps_at_load", reps, "max_reps"],
+    ]) {
+      if (previous && numeric(point[field]) && point[field] > previous[field])
+        records.push({
+          kind,
+          value: point[field],
+          previous: previous[field],
+          date: point.date,
+          exercise_id: point.exercise_id,
+          session_id: point.session_id,
+          previous_exercise_id: previous.exercise_id,
+          previous_session_id: previous.session_id,
+          previous_date: previous.date,
+          load: point.load,
+        });
+    }
+  }
+  const daily = new Map();
+  for (const record of records) {
+    const key = JSON.stringify([
+      record.kind,
+      record.date,
+      record.kind === "reps_at_load" ? record.load : null,
+    ]);
+    if (!daily.has(key) || daily.get(key).value < record.value)
+      daily.set(key, record);
+  }
+  return [...daily.values()];
 }
 export function modality(row) {
   if (row.modality_code) return row.modality_code;
@@ -79,6 +168,59 @@ export function summarizeSessions(rows) {
     session_ids: rows.map((s) => s.id),
   };
 }
+export function confirmedRestDates(plans, sessions, from, today) {
+  return [
+    ...new Set(
+      plans
+        .filter(
+          (p) =>
+            p.session_type === "rest" &&
+            p.status === "completed" &&
+            p.planned_date >= from &&
+            p.planned_date <= today &&
+            !sessions.some((s) => s.local_date === p.planned_date),
+        )
+        .map((p) => p.planned_date),
+    ),
+  ].sort();
+}
+export const progressHighlights = (strength) =>
+  strength
+    .filter((e) => e.record_count > 0)
+    .sort((a, b) => b.last_practice.localeCompare(a.last_practice))
+    .slice(0, 3)
+    .map((e) => ({ name: e.name, records: e.record_count }));
+export function classifyProgressPlan(p, owned, plans, today) {
+  const executed =
+    (p.planned_date <= today
+      ? owned.find((s) => s.id === p.linked_completed_session_id)
+      : null) || null;
+  const ambiguous =
+    Boolean(p.linked_completed_session_id) &&
+    plans.filter(
+      (other) =>
+        other.linked_completed_session_id === p.linked_completed_session_id,
+    ).length > 1;
+  // Reuse the canonical unknown/skipped semantics. A link measures adherence,
+  // not a new assertion that every prescribed block was completed as planned.
+  const comparison = comparePlannedVsExecuted({
+    planned: p,
+    executed,
+    ambiguous,
+  });
+  return {
+    id: p.id,
+    session_id: executed?.id || null,
+    status:
+      executed && !ambiguous
+        ? p.status === "modified"
+          ? "modified"
+          : "linked"
+        : comparison.status === "missed"
+          ? "skipped"
+          : "unknown",
+  };
+}
 export function buildProgress({
   sessions,
   exercises,
@@ -88,11 +230,19 @@ export function buildProgress({
   period = "4",
   filter = "all",
   firstDate = null,
+  comparisonFrom = null,
+  baselineExercises = [],
 }) {
   const bounds = periodBounds(today, period);
   const owned = [
     ...new Map(
-      sessions.filter((s) => ["completed", "recorded"].includes(s.session_status) && s.local_date <= today).map((s) => [s.id, { ...s, modality: modality(s) }]),
+      sessions
+        .filter(
+          (s) =>
+            ["completed", "recorded"].includes(s.session_status) &&
+            s.local_date <= today,
+        )
+        .map((s) => [s.id, { ...s, modality: modality(s) }]),
     ).values(),
   ];
   owned.sort(
@@ -114,105 +264,37 @@ export function buildProgress({
   const currentIds = new Set(current.map((s) => s.id));
   const grouped = new Map();
   for (const e of exercises) {
-    if (!currentIds.has(e.session_id) || !normalizeName(e.reported_name))
-      continue;
-    // Preserve execution variant, side and tempo even when an exercise identity exists.
-    const key = JSON.stringify([
-      e.exercise_id || normalizeName(e.reported_name),
-      e.execution_type,
-      e.side,
-      e.tempo_or_pause,
-      e.load_unit,
-    ]);
+    const key = exerciseIdentity(e);
+    if (!currentIds.has(e.session_id) || !key) continue;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(e);
   }
   const strength = [...grouped.entries()]
     .map(([key, rows]) => {
       const points = rows
-        .map((e) => {
-          const reps = observedReps(e.reps_per_set);
-          const load =
-            units.has(e.load_unit) && numeric(e.load_value)
-              ? e.load_value
-              : null;
-          return {
-            exercise_id: e.id,
-            session_id: e.session_id,
-            date: current.find((s) => s.id === e.session_id).local_date,
-            load,
-            max_reps: reps ? Math.max(...reps) : null,
-            volume:
-              load !== null && reps
-                ? load * reps.reduce((a, b) => a + b, 0)
-                : null,
-          };
-        })
+        .map((e) =>
+          exerciseObservation(
+            e,
+            current.find((s) => s.id === e.session_id).local_date,
+          ),
+        )
         .sort(
           (a, b) =>
             a.date.localeCompare(b.date) ||
             a.exercise_id.localeCompare(b.exercise_id),
         );
-      const records = [];
-      for (const point of points) {
-        const before = points.filter(
-          (p) => p.date < point.date && p.session_id !== point.session_id,
-        );
-        const loads = before.map((p) => p.load).filter(numeric);
-        if (
-          numeric(point.load) &&
-          loads.length &&
-          point.load > Math.max(...loads)
-        )
-          records.push({
-            kind: "load",
-            value: point.load,
-            previous: Math.max(...loads),
-            date: point.date,
-            exercise_id: point.exercise_id,
-            session_id: point.session_id,
-          });
-        const reps = before
-          .filter(
-            (p) =>
-              p.load === point.load &&
-              (point.load !== null || rows[0].load_unit === "bodyweight"),
-          )
-          .map((p) => p.max_reps)
-          .filter(numeric);
-        if (
-          numeric(point.max_reps) &&
-          reps.length &&
-          point.max_reps > Math.max(...reps)
-        )
-          records.push({
-            kind: "reps_at_load",
-            value: point.max_reps,
-            previous: Math.max(...reps),
-            date: point.date,
-            exercise_id: point.exercise_id,
-            session_id: point.session_id,
-          });
-      }
-      // Repeated blocks/sets at the same day's best mark are one observed record.
-      // A date groups record observations only; it never reconciles activities.
-      const dailyRecords = new Map();
-      for (const record of records) {
-        const load = points.find(
-          (p) => p.exercise_id === record.exercise_id,
-        )?.load;
-        const recordKey = JSON.stringify([
-          record.kind,
-          record.date,
-          record.kind === "reps_at_load" ? load : null,
-        ]);
-        if (
-          !dailyRecords.has(recordKey) ||
-          dailyRecords.get(recordKey).value < record.value
-        )
-          dailyRecords.set(recordKey, record);
-      }
-      const observedRecords = [...dailyRecords.values()];
+      const historical = baselineExercises
+        .filter((e) => exerciseIdentity(e) === key)
+        .flatMap((e) => {
+          const session = matching.find((s) => s.id === e.session_id);
+          return session &&
+            comparisonFrom &&
+            session.local_date >= comparisonFrom &&
+            session.local_date < bounds.from
+            ? [exerciseObservation(e, session.local_date)]
+            : [];
+        });
+      const records = observedRecords(points, historical, rows[0].load_unit);
       const exposures = new Set(points.map((p) => p.session_id)).size;
       const max = (values) =>
         values.filter(numeric).length
@@ -237,7 +319,9 @@ export function buildProgress({
       const earlier = comparable.filter((p) => p.date < midpoint),
         later = comparable.filter((p) => p.date >= midpoint);
       const direction =
-        !["all", "week"].includes(period) && earlier.length >= 2 && later.length >= 2
+        !["all", "week"].includes(period) &&
+        earlier.length >= 2 &&
+        later.length >= 2
           ? trend(
               max(earlier.map((p) => p.max_reps)),
               max(later.map((p) => p.max_reps)),
@@ -260,8 +344,8 @@ export function buildProgress({
           .join(" · "),
         exposures,
         best_load: bestLoad,
-        records: observedRecords,
-        record_count: observedRecords.length,
+        records,
+        record_count: records.length,
         best_reps: max(points.map((p) => p.max_reps)),
         best_reps_at_load: max(atLoad.map((p) => p.max_reps)),
         known_volume: total(points.map((p) => p.volume)),
@@ -344,35 +428,9 @@ export function buildProgress({
       ) &&
       p.session_type !== "rest",
   );
-  const plan = relevant.map((p) => {
-    const executed =
-      (p.planned_date <= today ? owned.find((s) => s.id === p.linked_completed_session_id) : null) || null;
-    const ambiguous =
-      Boolean(p.linked_completed_session_id) &&
-      relevant.filter(
-        (other) =>
-          other.linked_completed_session_id === p.linked_completed_session_id,
-      ).length > 1;
-    // Reuse the canonical unknown/skipped semantics. A link measures adherence,
-    // not a new assertion that every prescribed block was completed as planned.
-    const comparison = comparePlannedVsExecuted({
-      planned: p,
-      executed,
-      ambiguous,
-    });
-    return {
-      id: p.id,
-      session_id: executed?.id || null,
-      status:
-        executed && !ambiguous
-          ? p.status === "modified"
-            ? "modified"
-            : "linked"
-          : comparison.status === "missed"
-            ? "skipped"
-            : "unknown",
-    };
-  });
+  const plan = relevant.map((p) =>
+    classifyProgressPlan(p, owned, plans, today),
+  );
   const counts = Object.fromEntries(
     ["linked", "modified", "skipped", "unknown"].map((status) => [
       status,
@@ -382,13 +440,80 @@ export function buildProgress({
   const s = summarizeSessions(current),
     previous = summarizeSessions(prior);
   const adequate =
-    !["all", "week"].includes(period) && firstDate && firstDate <= bounds.previousFrom;
+    !["all", "week"].includes(period) &&
+    firstDate &&
+    firstDate <= bounds.previousFrom;
+  const selectedExercises = exercises.filter((e) =>
+    currentIds.has(e.session_id),
+  );
+  const identified = selectedExercises.filter((e) => exerciseIdentity(e));
+  const volumeKnown = identified.filter(
+    (e) => exerciseObservation(e, "").volume !== null,
+  ).length;
+  const coverage = (known, count) =>
+    !count || !known ? "missing" : known === count ? "complete" : "partial";
+  const quality = {
+    status: !current.length
+      ? "missing"
+      : s.duration_known < s.sessions ||
+          identified.length < selectedExercises.length ||
+          volumeKnown < selectedExercises.length ||
+          current.some(
+            (session) =>
+              !selectedExercises.some((e) => e.session_id === session.id),
+          )
+        ? "partial"
+        : "complete",
+    duration: coverage(s.duration_known, s.sessions),
+    exercise_identity: coverage(identified.length, selectedExercises.length),
+    volume: coverage(volumeKnown, selectedExercises.length),
+    comparison: strength.some(
+      (e) => e.records.length || e.trend !== "insufficient_data",
+    )
+      ? "partial"
+      : "insufficient_data",
+    exercise_count: selectedExercises.length,
+    unidentified_exercises: selectedExercises.length - identified.length,
+    volume_observations: volumeKnown,
+    sessions_without_exercises: current.filter(
+      (s) => !selectedExercises.some((e) => e.session_id === s.id),
+    ).length,
+  };
+  const executionLinks = plans
+    .filter(
+      (p) =>
+        currentIds.has(p.linked_completed_session_id) &&
+        !["cancelled", "canceled", "rescheduled", "recommended"].includes(
+          p.status,
+        ),
+    )
+    .map((p) => classifyProgressPlan(p, owned, plans, today));
+  const restDates = confirmedRestDates(
+    plans,
+    owned,
+    bounds.from,
+    period === "all" || period === "week" ? today : bounds.to,
+  );
   return {
     schema_version: "progress_performance_v1",
+    data_quality: quality,
+    execution_links: executionLinks,
+    confirmed_rest_dates: restDates,
+    highlights: progressHighlights(strength),
+    insights: progressInsights({
+      strength,
+      quality,
+      summary: s,
+      executionLinks,
+      restDates,
+      comparisonFrom,
+    }),
+    comparison_from: comparisonFrom,
     status:
       !current.length && !relevant.length
         ? "empty"
-        : s.duration_known < s.sessions ||
+        : quality.status === "partial" ||
+            s.duration_known < s.sessions ||
             strength.some((e) => e.volume_known < e.observations) ||
             current.some((s) => s.modality === "unknown")
           ? "partial"

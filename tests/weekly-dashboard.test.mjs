@@ -56,6 +56,8 @@ const build = (patch = {}) => {
       progress,
       sessions: input.sessions,
       plans: input.plans,
+      exercises: input.exercises,
+      blocks: input.blocks || [],
     }),
   };
 };
@@ -243,4 +245,91 @@ test("weekly loader shares Progress aggregates, pages over 100, isolates tenants
   );
   assert.equal(result.weekly_dashboard.planning.upcoming, 1);
   assert.ok(!JSON.stringify(result).includes("foreign"));
+});
+
+// Semantic coverage rechecked with read-only production SELECT on 2026-10-18.
+// These reference rows deliberately retain unparseable reps and unidentified exercises.
+test("golden daily chart and semantic quality reflect observed coverage, not visual-reference numbers", () => {
+  const unknown = [
+    [0, 6],
+    [2, 1],
+    [4, 4],
+    [5, 1],
+    [6, 4],
+    [7, 2],
+  ].flatMap(([index, count]) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `unknown-${index}-${i}`,
+      session_id: `s${index}`,
+      reported_name: "Unknown",
+      load_value: 0,
+      load_unit: "kg",
+      reps_per_set: { total: 8, rest_seconds: 90 },
+    })),
+  );
+  const known = [
+    ["rotaciones generales", null, null],
+    ["movilidad/estiramiento de cadera de pie", null, null],
+    ["KB halo alrededor de la cabeza", 12, ["3 por lado"]],
+    ["remo unilateral con apoyo en cajón", 12, ["6 por lado"]],
+    ["press jerk con apertura/cierre de piernas", 12, ["no confirmado"]],
+    ["landmine squat + press diagonal", 40, ["no confirmado"]],
+    ["sandbag plank drag lateral", 10, ["4 por lado"]],
+    ["remo ergómetro", null, null],
+    ["step-up al cajón sin peso", null, ["5 por lado"]],
+    ["remo unilateral en posición sumo con kettlebell", 16, ["5 por lado"]],
+    ["trineo", null, null],
+    ["Assault Bike", null, null],
+    ["shuttle con step-up al cajón", null, null],
+    ["shuttle sin cajón con giro/salida", null, null],
+  ].map(([reported_name, load_value, reps_per_set], i) => ({
+    id: `identified-${i}`,
+    session_id: "s3",
+    reported_name,
+    load_value,
+    load_unit: load_value === null ? null : "kg",
+    reps_per_set,
+  }));
+  const blocks = [
+    "warmup_mobility",
+    "kettlebell_strength_skill",
+    "hybrid_landmine_row",
+    "main_hybrid_conditioning",
+    "finisher",
+    "cooldown",
+  ].map((name, i) => ({
+    id: `block-${i}`,
+    session_id: "s3",
+    name,
+    block_order: i,
+    execution_notes: i === 5 ? "vuelta a la calma realizada" : null,
+  }));
+  const { dashboard: d } = build({ exercises: [...unknown, ...known], blocks });
+  assert.deepEqual(
+    d.days.map((day) => day.chart_seconds),
+    [4753, 6425, 3632, 5966, null, 6911, null],
+  );
+  assert.equal(d.days[1].activities.length, 2);
+  assert.equal(d.days[2].activities[0].block_count, 6);
+  assert.equal(d.days[2].activities[0].exercise_count, 14);
+  assert.equal(d.days[3].activities.length, 2);
+  assert.equal(d.days[4].time_state, "unconfirmed");
+  assert.equal(d.days[6].time_state, "future");
+  assert.equal(d.quality.exercise_count, 32);
+  assert.equal(d.quality.unidentified_exercises, 18);
+  assert.equal(d.quality.volume_observations, 0);
+  assert.equal(d.observed_records, 0);
+  assert.ok(
+    d.days[2].activities[0].exercises.every(
+      (e) => e.reps === null && e.known_volume === null,
+    ),
+  );
+  assert.equal(
+    build({ today: "2026-10-18" }).dashboard.days[6].activities.length,
+    0,
+  );
+  assert.equal(
+    build({ today: "2026-10-18" }).dashboard.days[6].confirmed_rest,
+    false,
+  );
 });

@@ -55,7 +55,7 @@ Home has a compact “PROGRESO · Ver evolución” entry to the same view. Its 
 - Session/minute trend: exact increase/equality/decrease, only if oldest recorded history reaches the prior window. Missing duration on either side disables minute trend. This is recorded-history coverage, not proof of wearable completeness.
 - Exercise identity: structured ID when present, otherwise trim/case/spacing/accent normalization. Execution type, side, tempo and exact load unit remain separate. No DB bench/Press banca fusion.
 - Volume = load × sum of explicit numeric reps array, for kg, lb, kg_each, kg_total, kg total, kg_external_discs separately. `kg_each` remains per implement; never doubled. No sets/rounds expansion. Totals and best-session volume are labelled **known**, potentially partial, not complete-volume PRs.
-- Observed records: greater load or greater reps at the same load, compared with previous strictly earlier dates of the same identity/variant/unit. First observation is a baseline, not a PR. All records are **within the selected period**, not lifetime records. No estimated 1RM.
+- Observed records: greater load or greater reps at the same load, compared with previous strictly earlier dates of the same identity/variant/unit. First observation is a baseline, not a PR. Record occurrences are **within the selected period**, not lifetime records. Weekly records additionally use the declared preceding 52-week compatible baseline (see the editorial completion below); 4/12/all keep their existing selected-period scope. No estimated 1RM.
 - Exercise trend: highest reps at the period's best observed load, at least two distinct sessions in each half of the complete selected period. Explicit bodyweight permits same-variant reps comparison; missing load does not imply bodyweight. No defensible comparison => insufficient_data.
 - Skills: explicit bounded name classification (HSPU/pike, muscle-up, high pull, pistol, strict pull-up/dominadas estrictas); no user-specific data. Variants remain separate. Notes are context only.
 - Cardio: canonical modality or observed FIT metadata only. Trail/running remain separate. Paired positive distance/time supplies aggregate observed pace. Distance/duration/elevation are known sums with coverage; no trail terrain adjustment or VO2max.
@@ -166,3 +166,49 @@ Security review also found that the previous browser chat key was not user-scope
 - `git diff --check`: clean.
 
 [Weekly Coach report at 390 px](screenshots/weekly-coach-390.png) · [Home activity and human Recovery at 390 px](screenshots/weekly-home-390.png). These screenshots use synthetic local users, not production data.
+
+
+## Weekly editorial fidelity — continuation from ced0280
+
+The existing architecture, Home, human Recovery copy and Coach persistence remain intact. The same `weekly_dashboard_v1` projection now adds daily chart states, canonical semantic detail, typed insights and data-quality dimensions. There is no new endpoint, RPC, migration, dependency or production write.
+
+### Daily reading and visual hierarchy
+
+The inline report is ordered: title/period → actual activity → day-by-day → daily time chart → observed improvements → deterministic assessment → secondary planning → data quality. Modality time is retained in secondary expandable content. The chart reads `days[].chart_seconds`, computed using the shared session summarizer. It distinguishes observed (including real zero), partial duration, missing duration, unconfirmed empty day, explicitly completed rest, and future. Only completed confirmed rest may represent an empty day as zero. A partial total is visibly labelled as known time. Planned future activity never enters execution totals.
+
+Every physical activity retains its own canonical ID, title, modality and duration. Its semantic projection includes ordered block names/recorded execution notes, identified exercises with structured load/unit, numeric-array reps, sets/rounds, and notes as context. No numbers are parsed from notes, object reps or string arrays. Placeholder Unknown names without catalog identity contribute to quality counts, not exercise identity, records or muscle-volume claims. The linked plan is resolved only through the persisted link, including plans scheduled outside the week; day-level plans remain explicitly labelled as intention. The existing canonical reconciliation's physiological fields remain untouched.
+
+The display is bounded to 12 identified exercises, 8 blocks and 30 reps per exercise; total counts and sampling scope are disclosed. Three exercise highlights are visible immediately, with further detail expandable. Totals and insights use all selected evidence, not these display samples. Notes are capped at 600 characters. Each record retains both current and previous exercise/session provenance internally; bounded transport samples are declared by the existing evidence scope.
+
+### Shared deterministic rules and historical comparison
+
+`exerciseIdentity`, `exerciseObservation` and `observedRecords` are shared Progress helpers. Weekly comparisons use current exercise identities against **52 weeks before the Monday of the selected week**, plus strictly earlier dates in the week. Exact identity means catalog ID when present, otherwise trivial name normalization, with the same execution type, side, tempo and unit. No aliases or unit conversion. Current-week totals/exposures still exclude baseline sessions. A single current exposure can therefore establish an observed improvement over a compatible prior session without fabricating a trend.
+
+A record requires a value strictly greater than the maximum earlier compatible observation: observed load, or reps with the same explicit load (or explicit bodyweight). The first observation is a baseline. Records on the same date/kind/load are deduplicated; within-day ordering is not invented from dates. The lookback is stated in the report: these are not certified lifetime records. Weekly global trend remains insufficient; more minutes or variety cannot prove progress.
+
+`progressInsights` explains those records and existing facts: confirmed completed rest, modality distribution, persisted linked/modified plans, activity without a unique plan link, unidentified exercises and partial volume. It never infers the nature of a modification from a plan status; actual block/exercise notes remain attributed context. Home, Coach and Progress consume the same result. `response_mode=deterministic`, `llm_used=false` remain unchanged.
+
+Historical reads run only for `period=week` when identified current exercises exist. Authenticated parent scope, narrow column selections, keyset pages of 250 and batches of 100 owned session IDs bound server work. Historical exercises are filtered to compatible current identities before aggregation, and never sent wholesale to the browser. The 50,000-row and 128 KiB transport guards fail explicitly. No speculative index/cache is added. The 52-week bound and display samples are intentional residual limits.
+
+### Data quality and golden week recheck
+
+Structured states are `complete`, `partial`, `insufficient_data`, `missing`, with separate duration, exercise identity, known-volume and comparison coverage. Complete known-volume coverage describes the recorded rows only; it is not proof of a complete muscular workout log. Missing is never converted to zero.
+
+Read-only production recheck on **2026-10-18** confirmed the same eight activities, 27,687 seconds and five active days listed above. The daily known seconds are 4,753 / 6,425 / 3,632 / 5,966 / missing / 6,911 / missing. Tuesday has two activities; reconciled Wednesday has six blocks and fourteen exercises; Thursday retains separate Fuerza and Pilates; Saturday has two activities. Friday has no canonical completed rest. The Sunday rest plan is future as of Saturday, and remains merely planned as of Sunday: it is not an executed activity or confirmed completed rest.
+
+There are **32 exercise rows: 18 Unknown, 14 identified, zero usable numeric reps arrays**. The identified Wednesday rows include explicit loads (12, 40, 10, 16 kg), but their reps are string arrays or absent; the report preserves those loads without turning text into reps/volume. The six semantic blocks and cooldown note are available. Exact prior reported-name overlap in the 52-week reference window was limited to Assault Bike (six observations without load, with different variant fields); it does not justify a weekly record. The correct product result is useful actual activity plus semantic context and partial-data explanations, not invented PRs.
+
+Regression references reproduce this coverage without production IDs or provider payloads. Additional synthetic cases verify historical PRs, changed variants/units, structured identity, 300 prior sessions, zeros, unknown exercises, partial time, explicit rest and future plans. Authenticated E2E checks inline persistence, next-message placement, actual Home KPIs, secondary planning, matching Home/Coach/Progress results, isolation and unchanged canonical snapshots. A separate 390 px chart scenario checks all daily states without changing the system date.
+
+Final validation results are recorded below after the complete run. Incremental cost remains **0,00 €**. No merge or deploy.
+
+### Final validation of the editorial continuation
+
+- `npm test`: **769/769**, no skipped tests. The new 300-session regression initially exposed a missing `gt` operator in the read-client test double; the double now supports the real PostgREST cursor operation and the complete run passes.
+- Coach evals: **28/28**.
+- Local PostgreSQL transactional: **33/33**; reconciliation: **43/43**.
+- Full E2E against local Auth/Edge/PostgreSQL with one worker and frozen source: **39/39** (2.9 minutes), including the two weekly 390 px flows.
+- Build passes; existing >500 kB Vite bundle warning remains.
+- `git diff --check`: clean.
+
+[Updated full Coach report at 390 px](screenshots/weekly-coach-390.png) · [Daily chart with all evidence states at 390 px](screenshots/weekly-daily-states-390.png). Both use synthetic local users/data. Production was queried only with SELECT.

@@ -1,3 +1,4 @@
+import { unitLabel } from "./presentation.js";
 import React, { useEffect, useState } from "react";
 import { requestEnqiduTool } from "../services/enqiduToolsService";
 import "./Progress.css";
@@ -11,16 +12,6 @@ const labels = {
   swimming: "Natación",
   unknown: "Modalidad no registrada",
 };
-const unitLabel = (unit) =>
-  ({
-    kg_each: "kg por implemento",
-    kg_total: "kg totales",
-    "kg total": "kg totales",
-    kg_external_discs: "kg en discos",
-    bodyweight: "peso corporal",
-  })[unit] ||
-  unit ||
-  "";
 const directions = {
   improving: "↑ Mejorando",
   stable: "→ Estable",
@@ -316,7 +307,9 @@ export function ProgressContent({
                 reps en mejora. {data.stable_count} estables.
               </p>
               <p>
-                {period === "week" ? "Esta semana está en curso. Mostramos actividad real hasta hoy; no comparamos una semana parcial con una completa." : "Comparamos semanas completas de igual duración. Sin histórico comparable, la tendencia queda sin determinar."}
+                {period === "week"
+                  ? "Esta semana está en curso. Mostramos actividad real hasta hoy; no comparamos una semana parcial con una completa."
+                  : "Comparamos semanas completas de igual duración. Sin histórico comparable, la tendencia queda sin determinar."}
               </p>
             </>
           )}
