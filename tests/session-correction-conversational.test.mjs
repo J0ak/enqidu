@@ -26,60 +26,14 @@ test("session correction Edge Functions expose preview and apply with JWT", asyn
   assert.doesNotMatch(shared, /fixture_user/);
 });
 
-test("preview path is dry-run and does not perform writes", async () => {
+test("legacy preview is read-only and apply is explicitly retired after authentication", async () => {
   const shared = await readText("supabase/functions/_shared/sessionCorrection.ts");
-  const previewBranch = shared.slice(
-    shared.indexOf('if (mode === "preview")'),
-    shared.indexOf("const structureHash"),
-  );
-
-  assert.match(previewBranch, /dry_run: true/);
-  assert.doesNotMatch(previewBranch, /\.insert\(/);
-  assert.doesNotMatch(previewBranch, /\.upsert\(/);
-  assert.doesNotMatch(previewBranch, /\.delete\(/);
-  assert.doesNotMatch(previewBranch, /\.update\(/);
-});
-
-test("apply requires session_id and never creates or updates training_sessions", async () => {
-  const shared = await readText("supabase/functions/_shared/sessionCorrection.ts");
-
+  assert.match(shared, /if \(mode === "apply"\) return reply\([\s\S]*legacy_correction_deprecated/);
+  assert.match(shared, /dry_run: true/);
+  assert.doesNotMatch(shared, /\.(insert|upsert|delete|update)\(/);
+  assert.match(shared, /preview_training_semantics_v1/);
   assert.match(shared, /session_id_required/);
-  assert.match(shared, /\.from\("training_sessions"\)[\s\S]*\.select\(/);
-  assert.doesNotMatch(shared, /\.from\("training_sessions"\)[\s\S]{0,120}\.insert\(/);
-  assert.doesNotMatch(shared, /\.from\("training_sessions"\)[\s\S]{0,120}\.update\(/);
-  assert.doesNotMatch(shared, /\.from\("training_sessions"\)[\s\S]{0,120}\.delete\(/);
-});
-
-test("apply only replaces coach/manual blocks and preserves Garmin FIT surfaces", async () => {
-  const shared = await readText("supabase/functions/_shared/sessionCorrection.ts");
-
-  assert.match(shared, /REPLACEABLE_SOURCES = new Set\(\["chatgpt_manual_pilot", "chatgpt_session_correction"\]\)/);
-  assert.match(shared, /protected_non_coach_blocks_preserved/);
-  assert.match(shared, /conversation_training_log/);
-  assert.match(shared, /hasConversationEvidence/);
-  assert.match(shared, /no_existing_coach_blocks_creating_from_conversation_enrichment/);
-  assert.match(shared, /error: "no_replaceable_coach_blocks_found"/);
-  assert.match(shared, /}, 409\)/);
   assert.match(shared, /garmin_fit: true/);
-  assert.match(shared, /activity_metrics: true/);
-  assert.doesNotMatch(shared, /\.from\("session_samples"\)/);
-  assert.doesNotMatch(shared, /\.from\("session_laps"\)/);
-  assert.doesNotMatch(shared, /\.from\("fit_message_payloads"\)/);
-  assert.doesNotMatch(shared, /\.from\("wearable_provider_raw_payloads"\)/);
-  assert.doesNotMatch(shared, /\.from\("training_sources"\)[\s\S]{0,120}\.insert\(/);
-  assert.doesNotMatch(shared, /\.from\("training_sources"\)[\s\S]{0,120}\.update\(/);
-  assert.doesNotMatch(shared, /\.from\("training_sources"\)[\s\S]{0,120}\.delete\(/);
-});
-
-test("apply records traceability and is idempotent by correction key", async () => {
-  const shared = await readText("supabase/functions/_shared/sessionCorrection.ts");
-
-  assert.match(shared, /correction_key/);
-  assert.match(shared, /session_correction/);
-  assert.match(shared, /onConflict: "session_id,enrichment_type,source"/);
-  assert.match(shared, /\.from\("enkidu_conversation_enrichments"\)[\s\S]*\.upsert\(/);
-  assert.match(shared, /\.from\("session_metrics"\)[\s\S]*\.delete\(\)[\s\S]*source_path", "chatgpt_session_correction"/);
-  assert.doesNotMatch(shared, /order_index:/);
 });
 
 test("2026-07-01 corrected structure is documented as 6 blocks with integrated polea wall ball carry block", async () => {
@@ -113,8 +67,8 @@ test("metric confidence values are constrained to the allowed contract", async (
 
   assert.match(shared, /"reported", "calculated", "estimated", "manual", "unknown"/);
   assert.match(shared, /corrected_structure\.metrics_invalid_confidence/);
-  assert.match(shared, /data_confidence: normalizeConfidence\(block\.confidence, "manual"\)/);
-  assert.match(shared, /data_confidence: normalizeConfidence\(exercise\.confidence, "manual"\)/);
+
+
 });
 
 test("session correction docs record deployment and product boundaries", async () => {

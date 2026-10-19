@@ -38,8 +38,8 @@ export function createEnqiduToolsHttpHandler({ createClients, observe, now } = {
       if (!/^Bearer\s+\S+$/i.test(authorization || "")) throw toolError("auth_required");
       const body = await boundedJson(request);
       if (!matchesSchema(body, requestSchema)) throw toolError("invalid_request");
-      const { db, adminDb, recordEvent } = await createClients({ authorization, needsWriter: body.tool.startsWith("apply_"), needsHistory: body.tool === "get_daily_coach_operating_brief" || /^(preview|apply)_/.test(body.tool) });
-      const runtime = await createEnqiduToolRuntime({ db, adminDb, source: "app", now, observe, recordEvent });
+      const { db, adminDb, recordEvent, semanticSigningKey } = await createClients({ authorization, needsWriter: body.tool.startsWith("apply_"), needsHistory: body.tool === "get_daily_coach_operating_brief" || /^(preview|apply)_/.test(body.tool) });
+      const runtime = await createEnqiduToolRuntime({ db, adminDb, source: "app", now, observe, recordEvent, semanticSigningKey });
       const result = await runtime.execute(body.tool, body.arguments);
       return reply(result, result.ok ? 200 : result.error.code === "preview_stale" ? 409 : 400);
     } catch (error) {

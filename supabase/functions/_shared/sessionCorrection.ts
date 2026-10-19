@@ -61,11 +61,6 @@ function validLocalDate(value: unknown) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
 }
 
-async function sha256(text: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 async function parseBody(req: Request) {
   const rawBody = await req.text();
   if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
@@ -119,16 +114,6 @@ function normalizePayload(body: Record<string, unknown>) {
     blocks,
     metrics,
     exercisesCount,
-  };
-}
-
-function compactBlock(block: Record<string, unknown>) {
-  return {
-    order: Number(block.block_order ?? block.order_index ?? 0) || null,
-    type: block.block_type || null,
-    name: block.name || null,
-    source: asRecord(block.prescription).source || null,
-    exercises: asArray(block.exercises).length,
   };
 }
 
@@ -250,6 +235,9 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
   const userId = (await db.auth.getUser()).data.user?.id;
   if (!userId) return reply({ ok: false, error: "invalid_user" }, 401);
 
+  // #102: historical preview remains readable; non-atomic replacement writes are retired.
+  if (mode === "apply") return reply({ ok: false, error: "legacy_correction_deprecated", replacement: "preview_training_semantics_v1" }, 410);
+
   try {
     const state = await readSessionState(db, normalized.sessionId, userId);
     if (state.error) {
@@ -304,179 +292,7 @@ export async function handleSessionCorrection(req: Request, mode: "preview" | "a
       }, 409);
     }
 
-    const structureHash = await sha256(JSON.stringify(normalized.correctedStructure));
-    const correctionKey = cleanText(asRecord(parsed.body).correction_key, 180)
-      || `session_correction:${normalized.sessionId}:${normalized.localDate}:${structureHash.slice(0, 16)}`;
-    const beforeSummary = {
-      blocks: state.replaceableBlocks.map(compactBlock),
-      protected_blocks: state.blockedBlocks.map(compactBlock),
-      counts: diff.before,
-      has_fit: state.hasFit,
-    };
-    const afterSummary = {
-      title: cleanText(normalized.correctedStructure.title, 180),
-      session_type: cleanText(normalized.correctedStructure.session_type, 80),
-      blocks: normalized.blocks.map((block) => ({
-        order: Number(block.order) || null,
-        type: cleanText(block.type, 40) || "other",
-        name: cleanText(block.name, 180),
-        exercises: asArray(block.exercises).length,
-      })),
-      metrics: normalized.metrics.map((metric) => cleanText(metric.metric_code ?? metric.code, 100)).filter(Boolean),
-      counts: diff.after,
-    };
-
-    const enrichmentPayload = {
-      correction_key: correctionKey,
-      correction_type: normalized.correctionType,
-      source: normalized.source,
-      reason: normalized.reason,
-      local_date: normalized.localDate,
-      before: beforeSummary,
-      after: afterSummary,
-      corrected_structure: normalized.correctedStructure,
-      preserves: common.preserves,
-      raw_payloads_excluded: true,
-    };
-
-    const enrichmentResult = await db
-      .from("enkidu_conversation_enrichments")
-      .upsert({
-        session_id: normalized.sessionId,
-        local_date: normalized.localDate,
-        enrichment_type: "session_correction",
-        source: correctionKey,
-        payload: enrichmentPayload,
-        ai_usage: { source: normalized.source, automatic_llm_extraction: false },
-        status: "active",
-      }, { onConflict: "session_id,enrichment_type,source" })
-      .select("id")
-      .single();
-    if (enrichmentResult.error) throw enrichmentResult.error;
-
-    const replaceableBlockIds = state.replaceableBlocks.map((block: any) => block.id).filter(Boolean);
-    if (replaceableBlockIds.length) {
-      const exerciseDelete = await db
-        .from("session_exercises")
-        .delete()
-        .eq("session_id", normalized.sessionId)
-        .in("block_id", replaceableBlockIds);
-      if (exerciseDelete.error) throw exerciseDelete.error;
-
-      const blockDelete = await db
-        .from("session_blocks")
-        .delete()
-        .eq("session_id", normalized.sessionId)
-        .in("id", replaceableBlockIds);
-      if (blockDelete.error) throw blockDelete.error;
-    }
-
-    const metricDelete = await db
-      .from("session_metrics")
-      .delete()
-      .eq("session_id", normalized.sessionId)
-      .eq("source_path", "chatgpt_session_correction");
-    if (metricDelete.error) throw metricDelete.error;
-
-    let insertedBlocks = 0;
-    let insertedExercises = 0;
-    for (const [index, block] of normalized.blocks.entries()) {
-      const order = Number(block.order) || index + 1;
-      const blockInsert = await db
-        .from("session_blocks")
-        .insert({
-          session_id: normalized.sessionId,
-          block_order: order,
-          block_type: cleanText(block.type, 40) || "other",
-          name: cleanText(block.name, 160) || `Bloque ${order}`,
-          rounds_completed: Number.isFinite(Number(block.rounds_completed)) ? Number(block.rounds_completed) : null,
-          prescription: {
-            source: "chatgpt_session_correction",
-            correction_key: correctionKey,
-            correction_id: enrichmentResult.data.id,
-            summary: cleanText(block.summary, 500),
-          },
-          execution_notes: cleanText(block.summary, 500) || null,
-          data_confidence: normalizeConfidence(block.confidence, "manual"),
-        })
-        .select("id")
-        .single();
-      if (blockInsert.error) throw blockInsert.error;
-      insertedBlocks += 1;
-
-      for (const [exerciseIndex, exercise] of asArray(block.exercises).map(asRecord).entries()) {
-        const exerciseInsert = await db
-          .from("session_exercises")
-          .insert({
-            session_id: normalized.sessionId,
-            block_id: blockInsert.data.id,
-            exercise_order: Number(exercise.order) || exerciseIndex + 1,
-            reported_name: cleanText(exercise.name, 200) || "Ejercicio reportado",
-            execution_type: "performed",
-            sets_completed: Number.isFinite(Number(exercise.sets_completed)) ? Number(exercise.sets_completed) : null,
-            rounds_completed: Number.isFinite(Number(exercise.rounds_completed)) ? Number(exercise.rounds_completed) : null,
-            reps_per_set: exercise.reps_per_set ?? null,
-            duration_seconds: Number.isFinite(Number(exercise.duration_seconds)) ? Number(exercise.duration_seconds) : null,
-            load_value: Number.isFinite(Number(exercise.load_value)) ? Number(exercise.load_value) : null,
-            load_unit: cleanText(exercise.load_unit, 40) || null,
-            equipment_snapshot: {
-              source: "chatgpt_session_correction",
-              correction_key: correctionKey,
-              equipment: asArray(exercise.equipment),
-            },
-            side: ["left", "right", "bilateral", "alternating", "each_side", "na"].includes(cleanText(exercise.side, 40))
-              ? cleanText(exercise.side, 40)
-              : null,
-            notes: cleanText(exercise.notes, 500) || null,
-            data_confidence: normalizeConfidence(exercise.confidence, "manual"),
-          });
-        if (exerciseInsert.error) throw exerciseInsert.error;
-        insertedExercises += 1;
-      }
-    }
-
-    let insertedMetrics = 0;
-    for (const metric of normalized.metrics) {
-      const metricCode = cleanText(metric.metric_code ?? metric.code, 100);
-      if (!metricCode) continue;
-      const confidence = normalizeConfidence(metric.confidence);
-      const metricInsert = await db
-        .from("session_metrics")
-        .insert({
-          session_id: normalized.sessionId,
-          metric_code: metricCode,
-          metric_name: cleanText(metric.metric_name ?? metric.name, 160) || metricCode,
-          value_numeric: Number.isFinite(Number(metric.value_numeric)) ? Number(metric.value_numeric) : null,
-          value_text: cleanText(metric.value_text, 240) || null,
-          unit: cleanText(metric.unit, 40) || null,
-          metric_scope: cleanText(metric.metric_scope, 40) || "session",
-          scope_reference: cleanText(metric.scope_reference, 120) || "",
-          source_path: "chatgpt_session_correction",
-          confidence: ALLOWED_CONFIDENCE.has(confidence) ? confidence : "unknown",
-        });
-      if (metricInsert.error) throw metricInsert.error;
-      insertedMetrics += 1;
-    }
-
-    return reply({
-      ok: true,
-      dry_run: false,
-      ...common,
-      correction_id: enrichmentResult.data.id,
-      correction_key: correctionKey,
-      replaced: {
-        blocks: diff.before.coach_blocks,
-        exercises: diff.before.coach_exercises,
-      },
-      inserted: {
-        blocks: insertedBlocks,
-        exercises: insertedExercises,
-        metrics: insertedMetrics,
-      },
-      preserved: {
-        garmin_fit: true,
-      },
-    });
+    return reply({ ok: false, error: "legacy_correction_deprecated" }, 410);
   } catch (error) {
     console.error(error);
     return reply({ ok: false, error: "session_correction_failed" }, 500);

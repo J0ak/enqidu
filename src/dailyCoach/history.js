@@ -7,6 +7,8 @@ export async function historyKey(value) {
 }
 
 export async function dailyCoachEvent(tool, args, data, context) {
+  // Semantic corrections have their own atomic ledger; previews remain read-only.
+  if (tool.endsWith("training_semantics_v1")) return null;
   const base = { user_id: context.authenticated_user_id, calendar_date: context.request_calendar_date,
     timezone: context.profile_timezone, occurred_at: context.generated_at, decision: null, reasons: [],
     proposal: null, proposal_key: null, fingerprint: null, expires_at: null };

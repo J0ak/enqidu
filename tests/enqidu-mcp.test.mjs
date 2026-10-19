@@ -41,7 +41,7 @@ async function connected(t, options = {}) {
 test("MCP: real SDK discovery exposes the exact closed read/preview registry and valid schemas", async (t) => {
   const { client } = await connected(t);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 19);
+  assert.equal(tools.length, 22);
   assert.deepEqual(tools.map((tool) => tool.name), listEnqiduTools({ includeWrites: false }).map((tool) => tool.id));
   for (const descriptor of tools) {
     assert.ok(ToolSchema.safeParse(descriptor).success, descriptor.name);
@@ -53,10 +53,10 @@ test("MCP: real SDK discovery exposes the exact closed read/preview registry and
   }
 });
 
-test("MCP: all 25 descriptors have valid SDK schemas and conservative write annotations", () => {
+test("MCP: 28 descriptors (semantic writes never exposed) have valid SDK schemas and conservative write annotations", () => {
   const tools = listEnqiduMcpTools({ writesEnabled: true });
-  assert.equal(tools.length, 25);
-  assert.equal(new Set(tools.map((tool) => tool.name)).size, 25);
+  assert.equal(tools.length, 28);
+  assert.equal(new Set(tools.map((tool) => tool.name)).size, 28);
   for (const descriptor of tools) {
     assert.ok(ToolSchema.safeParse(descriptor).success, descriptor.name);
     if (descriptor.name.startsWith("apply_")) {
@@ -128,7 +128,7 @@ test("MCP: default gate rejects all guessed apply calls, including request metad
     assert.equal(result.structuredContent.error.code, "mcp_writes_disabled");
     assert.ok(matchesSchema(result.structuredContent, definition.output_schema));
   }
-  assert.equal(observations.length, 6);
+  assert.equal(observations.length, 7);
   assert.ok(observations.every((event) => event.status === "error" && event.error_code === "mcp_writes_disabled"));
   assert.doesNotMatch(JSON.stringify(observations), /user_id|arguments|confirmation|source_date/);
   assert.equal(mcpWritesEnabled(), false);
@@ -138,7 +138,7 @@ test("MCP: default gate rejects all guessed apply calls, including request metad
 
 test("MCP: enabled gate does not invent mutation authority or bypass explicit confirmation", async (t) => {
   const { client } = await connected(t, { writesEnabled: true });
-  assert.equal((await client.listTools()).tools.length, 25);
+  assert.equal((await client.listTools()).tools.length, 28);
   const preview = (await client.callTool({ name: "preview_cancel_session", arguments: { source_date: DATE } })).structuredContent.data;
   const args = { source_date: DATE, fingerprint: preview.fingerprint, expires_at: preview.expires_at };
   const unconfirmed = await client.callTool({ name: "apply_cancel_session", arguments: args });
@@ -300,7 +300,7 @@ test("MCP local: actual stdio executable verifies bearer auth for every call and
   const client = new Client({ name: "enqidu-stdio-auth-test", version: "1.0.0" });
   t.after(() => client.close());
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 19);
+  assert.equal((await client.listTools()).tools.length, 22);
   const result = await client.callTool({ name: "get_today_plan", arguments: {} });
   assert.equal(result.structuredContent.ok, true);
   assert.equal(result.structuredContent.timezone, "Europe/Madrid");

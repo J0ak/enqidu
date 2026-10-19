@@ -86,10 +86,11 @@ test("SEC-01 final migration keeps conversation enrichment behind caller RLS", a
   assert.doesNotMatch(sql, /security definer/i);
 });
 
-test("frontend still uses the reviewed conversation enrichment RPC", async () => {
+test("legacy frontend capture is retired in favor of explicit semantic preview/apply", async () => {
   const source = await readFile(
     new URL("../src/services/conversationEnrichmentService.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /supabase\.rpc\("capture_training_semantics_v1"/);
+  assert.doesNotMatch(source, /supabase\.rpc/);
+  assert.match(source, /Completar \/ corregir entrenamiento/);
 });

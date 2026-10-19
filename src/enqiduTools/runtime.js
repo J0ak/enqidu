@@ -1,3 +1,5 @@
+import { interpretSemanticCorrection } from "../training/semantics/interpret.js";
+import { readSemanticState, previewSemanticCorrection, applySemanticCorrection } from "../training/semantics/domain.js";
 import { dailyCoachEvent } from "../dailyCoach/history.js";
 import { isValidTimeZone, resolveUserCalendar } from "../time/userCalendar.js";
 import { getEnqiduTool, ENQIDU_TOOLS_VERSION, TOOL_VERSION } from "./registry.js";
@@ -37,7 +39,7 @@ export async function createToolExecutionContext({ db, source = "app", now, capa
 }
 
 /** One authenticated runtime, closed registry; no generic query/RPC/mutation interface. */
-export async function createEnqiduToolRuntime({ db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {}, recordEvent = null } = {}) {
+export async function createEnqiduToolRuntime({ db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {}, recordEvent = null, semanticSigningKey = null } = {}) {
   let context = await createToolExecutionContext({ db, source, now, capabilities });
   const originalUserId = context.authenticated_user_id;
   let domain;
@@ -72,7 +74,26 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
       if (definition.access === "write" && !scope.capabilities.writes) throw toolError(scope.source === "mcp" ? "mcp_writes_disabled" : "writes_disabled");
       if (definition.access === "write" && args?.confirmation !== true) throw toolError("explicit_confirmation_required");
       if (!matchesSchema(args, definition.input_schema) || new TextEncoder().encode(JSON.stringify(args)).length > 8192) throw toolError("invalid_arguments");
-      if (definition.access === "read") {
+      if (toolId === 'interpret_training_correction_v1') {
+        result.data = await interpretSemanticCorrection({db,userId:scope.authenticated_user_id,args,calendar:calendarFor(scope),now:scope.generated_at,signingKey:semanticSigningKey});
+      } else if (toolId.endsWith('training_semantics_v1')) {
+        if (toolId === 'get_training_semantics_v1') result.data = await readSemanticState(db,args.session_id);
+        else if (definition.access === 'preview') result.data = await previewSemanticCorrection({db,userId:scope.authenticated_user_id,args,now:scope.generated_at,signingKey:semanticSigningKey});
+        else {
+          if (scope.source === 'mcp') throw toolError('mcp_writes_disabled');
+          const rechecked = await createToolExecutionContext({db,source,now,capabilities});
+          if (rechecked.authenticated_user_id !== scope.authenticated_user_id) throw toolError('identity_changed');
+          if (!adminDb?.rpc) throw toolError('mutation_unavailable');
+          result.data = await applySemanticCorrection({db,adminDb,userId:scope.authenticated_user_id,args,source:scope.source,now:rechecked.generated_at,signingKey:semanticSigningKey});
+          acknowledgedActionReceipt = {...result.data};
+          try {
+            const state = await readSemanticState(db,args.session_id);
+            result.data.state = state;
+            result.data.persistence_verified = state.revision === result.data.revision;
+            if (!result.data.persistence_verified) result.warnings.push('semantic_readback_changed');
+          } catch { result.warnings.push('semantic_readback_unavailable'); }
+        }
+      } else if (definition.access === "read") {
         result.data = await readDomain.read(toolId, args);
       } else {
         const isApply = definition.access === "write";
@@ -132,7 +153,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
       result.data = JSON.parse(JSON.stringify(result.data));
       if (!matchesSchema(result.data, definition.data_schema)) throw toolError("output_contract_violation");
       result.evidence = result.data?.schema_version ? [{ kind: definition.access === "read" ? "canonical_domain" : "action_preview", schema_version: result.data.schema_version }] : [];
-      if (definition.access === "preview") result.warnings.push(...result.data.warnings);
+      if (definition.access === "preview") result.warnings.push(...(result.data.warnings || []));
       if (new TextEncoder().encode(JSON.stringify(result)).length > MAX_TOOL_OUTPUT_BYTES) throw toolError("output_limit_exceeded");
       // Audit is a backend-only capability, never a client/model-selected write.
       // Read/preview domains remain pure; an audit failure cannot undo an applied action.

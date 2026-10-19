@@ -17,7 +17,7 @@ Deno.serve(createEnqiduToolsHttpHandler({
       // Server-only capability for the narrow action dispatcher and append-only audit.
       adminDb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     }
-    return { db, adminDb: needsWriter ? adminDb : null, recordEvent: adminDb ? createDailyCoachRecorder(adminDb) : null };
+    return { db, semanticSigningKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), adminDb: needsWriter ? adminDb : null, recordEvent: adminDb ? createDailyCoachRecorder(adminDb) : null };
   },
   observe(event: Record<string, unknown>) { console.info("enqidu_tool", JSON.stringify(event)); },
 }));

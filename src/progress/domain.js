@@ -45,6 +45,7 @@ export function observedReps(value) {
     : null;
 }
 export function exerciseIdentity(e) {
+  if (["skipped", "planned"].includes(e.execution_type)) return null;
   const name = normalizeName(e.reported_name);
   if (
     !e.exercise_id &&
