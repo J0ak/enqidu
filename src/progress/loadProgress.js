@@ -1,4 +1,5 @@
 import { buildWeeklyDashboard } from "./weeklyDashboard.js";
+import { buildExerciseCatalogIndex } from "./exerciseCatalogIdentity.js";
 import {
   buildProgress,
   exerciseIdentity,
@@ -60,7 +61,7 @@ export async function loadProgress(
       .select(SESSION)
       .eq("user_id", userId)
       .in("session_status", ["completed", "recorded"]);
-  const [sessions, plans, first, codes] = await Promise.all([
+  const [sessions, plans, first, codes, catalog] = await Promise.all([
     readPages(() =>
       ownSessions().gte("local_date", from).lte("local_date", calendar.date),
     ),
@@ -83,8 +84,14 @@ export async function loadProgress(
       .order("local_date", { ascending: true })
       .limit(1),
     db.from("sport_modalities").select("id,code").limit(250),
+    readPages(
+      () =>
+        db.from("exercise_catalog").select("id,code,name,metadata,is_active"),
+      { maxRows: 2000 },
+    ),
   ]);
   if (first.error || codes.error) throw new Error("canonical_read_unavailable");
+  const withCanonicalIdentity = buildExerciseCatalogIndex(catalog);
   const owned = sessions.filter((s) => s.user_id === userId),
     ownedPlans = plans.filter((p) => p.user_id === userId);
   const missingLinks = [
@@ -121,7 +128,9 @@ export async function loadProgress(
         await readPages(() =>
           db.from("session_exercises").select(EXERCISE).in("session_id", ids),
         )
-      ).filter((e) => ids.includes(e.session_id)),
+      )
+        .filter((e) => ids.includes(e.session_id))
+        .map(withCanonicalIdentity),
     );
     if (exercises.length > 50000) throw new Error("progress_scope_too_large");
   }
@@ -154,9 +163,10 @@ export async function loadProgress(
         historyRead += rows.length;
         if (historyRead > 50000) throw new Error("progress_scope_too_large");
         baselineExercises.push(
-          ...rows.filter(
-            (e) => ids.includes(e.session_id) && keys.has(exerciseIdentity(e)),
-          ),
+          ...rows
+            .filter((e) => ids.includes(e.session_id))
+            .map(withCanonicalIdentity)
+            .filter((e) => keys.has(exerciseIdentity(e))),
         );
       }
     }

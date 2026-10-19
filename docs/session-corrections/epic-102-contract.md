@@ -126,3 +126,35 @@ overflow. Confirmation is protected against double clicks and stale previews.
 
 Incremental cost: **€0.00**. Dependencies are unchanged; tests use disposable local
 PostgreSQL/Supabase and Chromium. No paid model or infrastructure was provisioned.
+
+## Historical exercise identity continuity (review blocker)
+
+Progress resolves identity at read time, without changing historical rows. The
+authenticated loader reads `exercise_catalog` (`id`, `code`, `name`, `metadata`,
+`is_active`) in pages of 250 with a hard ceiling of 2,000 rows. A read error or
+overflow fails explicitly; a partial catalog must not produce confident matches.
+The existing #102 SELECT grant and the catalog's existing authenticated SELECT
+policy suffice. This follow-up adds no migration or grants.
+
+One exact index enriches current and historical exercises with
+`canonical_exercise_code` before the 52-week identity filter and aggregation:
+
+- A persisted exercise UUID resolves only through that catalog ID.
+- Without a UUID, code/name/explicit aliases resolve only when exactly one catalog
+  row matches after trim/case/space/accent normalization. No fuzzy or substring lookup.
+- Unresolved or ambiguous rows retain the normalized reported-name identity;
+  Unknown/desconocido placeholders remain unidentified. Catalog and unresolved-name
+  keys use separate namespaces, preventing an ambiguous name from accidentally
+  equalling a canonical code.
+- Inactive catalog entries remain usable for historical identity. Deactivation
+  restricts capture; it must not erase a past exercise's identity.
+- Execution type, side, tempo/pause and load unit remain compatibility dimensions.
+
+Progress, Weekly, highlights, 4/12-week trends and the 52-week comparison use the
+same enriched rows and `exerciseIdentity`; Weekly has no separate resolver. An old
+null-ID “Peso muerto rumano” at 45 kg `[8,8,8]` and a corrected UUID “RDL” at 45 kg
+`[10,10,10]` now produce an observed **8 → 10 reps at the same load** record.
+
+Unresolved UUIDs and missing/ambiguous aliases deliberately cannot establish a
+canonical equivalence. Catalog codes and historical aliases must remain maintained
+as identity data. No production backfill, reconciliation or write is required.

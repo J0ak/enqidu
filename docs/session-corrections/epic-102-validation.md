@@ -6,14 +6,14 @@ Node 22, disposable local Supabase/PostgreSQL 17 and Chromium. OpenAI disabled.
 
 | Exact command | Result |
 | --- | --- |
-| `npm test` | 808 passed, 0 failed/skipped |
+| `npm test` | 826 passed, 0 failed/skipped |
 | `npm run test:coach-evals` | 28 passed |
 | `npm run test:transactional-actions` | 37 passed, including 4 semantic concurrency/rollback tests with real PostgreSQL connections |
 | `node scripts/test-reconciliation-postgres.mjs` | 43 passed in an isolated real PostgreSQL database |
 | `node scripts/test-semantics-postgres.mjs` | 7 passed in an isolated real PostgreSQL database |
 | `node --test tests/semantic-tools-runtime.test.mjs tests/semantic-corrections.test.mjs` | 35 passed; final read-contract metadata included |
-| `npm run test:e2e -- --workers=1` | Full suite: 42 passed |
-| `npm run build` | Passed; existing Vite >500 kB chunk advisory (586.16 kB JS, 180.47 kB gzip) |
+| `npm run test:e2e -- --workers=1` | Full suite: 43 passed |
+| `npm run build` | Passed; existing Vite >500 kB chunk advisory |
 | `supabase --workdir e2e-local db lint --local --level warning` | No findings in new semantic functions; existing findings listed below |
 | `git diff --check` | Passed |
 
@@ -53,6 +53,27 @@ The original #94–#101 test suites remain included. Reconciliation fixtures rem
 green. Production SELECT audit independently confirmed 21/07 **5/21/2**, 07/10
 **6/14/2**, 14/10 **6/14/2**, and separate Fuerza/Pilates on 15/10. See the
 [production audit](epic-102-audit.md) and its [read-only queries](epic-102-audit.sql).
+
+## Historical identity continuity
+
+The review-blocker follow-up reran every required command above. The 18 dedicated
+`tests/progress-catalog-continuity.test.mjs` cases verify exact catalog ID/code/name/
+alias resolution, historical NULL IDs, Unknown,
+ambiguous aliases, no fuzzy matching, preserved comparison dimensions, catalog
+pagination/failure bounds, tenant scope, and shared 4/12/52-week comparisons.
+
+The additional real PostgreSQL/Edge E2E confirms a correction on the existing
+session persists the RDL catalog UUID, then compares `[10,10,10]` at 45 kg against
+historical `Peso muerto rumano`, NULL ID, `[8,8,8]` at 45 kg. Progress reports
+**8 → 10 reps at 45 kg**; Weekly records and highlights agree. The historical row
+and all read snapshots remain unchanged, and tenant B receives no observations.
+No backfill, migration, additional grant, or production write is required for this
+follow-up. The catalog SELECT grant already belongs to the original #102 migration.
+
+Unresolved or ambiguous labels retain their normalized reported-name identity;
+Unknown remains unidentified. Catalog deactivation does not erase historical
+identity. More than 2,000 catalog rows or a failed read produces an explicit error
+instead of silently using a partial alias index.
 
 ## Existing advisory findings and remaining limits
 

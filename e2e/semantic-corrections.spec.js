@@ -450,3 +450,100 @@ test("102 Coach ambiguous date requires explicit choice; no autoapply", async ({
     await a.dispose();
   }
 });
+
+test("102 historical continuity: null alias → confirmed catalog UUID → weekly 8 to 10 reps without backfill", async () => {
+  const a = await setup("semantic-continuity");
+  const b = await createToolsFixture("semantic-continuity-other", {
+    plans: false,
+    health: false,
+  });
+  try {
+    const [past] = await a.insert("training_sessions", {
+      user_id: a.user.id,
+      title: "Histórico RDL",
+      local_date: a.date(-100),
+      session_date: a.date(-100),
+      session_status: "completed",
+      session_kind: "completed",
+      duration_seconds: 3600,
+    });
+    const [historical] = await a.insert("session_exercises", {
+      session_id: past.id,
+      reported_name: "Peso muerto rumano",
+      name: "Peso muerto rumano",
+      exercise_id: null,
+      execution_type: "performed",
+      load_value: 45,
+      load_unit: "kg",
+      reps_per_set: [8, 8, 8],
+    });
+    const preview = await call(a, "preview_training_semantics_v1", {
+      session_id: a.session.id,
+      operations: [
+        { op: "rename_exercise", target: a.unknown.id, reported_name: "RDL" },
+        { op: "set_reps", target: a.unknown.id, reps: [10, 10, 10] },
+        { op: "set_load", target: a.unknown.id, value: 45, unit: "kg" },
+      ],
+    });
+    expect(preview.ok, JSON.stringify(preview)).toBe(true);
+    const {
+      session_id,
+      operations,
+      channel,
+      revision,
+      fingerprint,
+      expires_at,
+    } = preview.data;
+    const applied = await call(a, "apply_training_semantics_v1", {
+      session_id,
+      operations,
+      channel,
+      revision,
+      fingerprint,
+      expires_at,
+      confirmation: true,
+    });
+    expect(applied.ok, JSON.stringify(applied)).toBe(true);
+    expect(applied.data.state.exercises[0].exercise_id).toBeTruthy();
+    const beforeRead = await a.snapshot();
+    const progress = await call(a, "get_progress_performance_v1", {
+      period: "week",
+    });
+    expect(progress.ok, JSON.stringify(progress)).toBe(true);
+    expect(progress.data.strength).toHaveLength(1);
+    expect(progress.data.strength[0].records).toEqual([
+      expect.objectContaining({
+        kind: "reps_at_load",
+        previous: 8,
+        value: 10,
+        load: 45,
+        previous_exercise_id: historical.id,
+      }),
+    ]);
+    expect(progress.data.weekly_dashboard.observed_records).toBe(1);
+    expect(progress.data.weekly_dashboard.highlights).toEqual(
+      progress.data.highlights,
+    );
+    expect(
+      progress.data.insights.find((i) => i.kind === "observed_reps_record")
+        .text,
+    ).toContain("8 → 10 reps");
+    expect(await a.snapshot()).toEqual(beforeRead);
+    const persisted = await a.adminDb
+      .from("session_exercises")
+      .select("*")
+      .eq("id", historical.id)
+      .single();
+    expect(persisted.error).toBeNull();
+    expect(persisted.data).toEqual(historical);
+    const foreign = await call(b, "get_progress_performance_v1", {
+      period: "week",
+    });
+    expect(foreign.ok, JSON.stringify(foreign)).toBe(true);
+    expect(foreign.data.strength).toEqual([]);
+    expect(foreign.data.observed_records).toBe(0);
+  } finally {
+    await a.dispose();
+    await b.dispose();
+  }
+});
