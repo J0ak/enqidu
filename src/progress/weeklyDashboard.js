@@ -122,7 +122,7 @@ export function buildWeeklyDashboard({
             links.length === 1
               ? plans.find((plan) => plan.id === links[0].id)
               : null;
-          const observed = exercises.filter((e) => e.session_id === s.id);
+          const observed = exercises.filter((e) => e.session_id === s.id && !["skipped", "planned"].includes(e.execution_type));
           const identified = observed
             .filter(exerciseIdentity)
             .sort(

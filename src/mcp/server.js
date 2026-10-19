@@ -13,7 +13,7 @@ export function mcpWritesEnabled(environment = {}) {
 }
 
 export function listEnqiduMcpTools({ writesEnabled = false } = {}) {
-  return listEnqiduTools({ includeWrites: writesEnabled === true }).map((tool) => ({
+  return listEnqiduTools({ includeWrites: writesEnabled === true }).filter((tool) => tool.id !== "apply_training_semantics_v1").map((tool) => ({
     name: tool.id,
     description: tool.description,
     inputSchema: tool.input_schema,
@@ -76,11 +76,15 @@ export function createEnqiduMcpServer({
   observe,
 } = {}) {
   const writes = writesEnabled === true;
+  // Inspection-only semantic previews need no service credential. A per-server key
+  // cannot authorize an App apply; the App must prepare and confirm its own preview.
+  const semanticSigningKey = crypto.randomUUID() + crypto.randomUUID();
   const manifest = new Map(listEnqiduTools().map((tool) => [tool.id, tool]));
   const runtime = () => createEnqiduToolRuntime({
     db,
     adminDb,
     source: "mcp",
+    semanticSigningKey,
     capabilities: { writes },
     ...(now == null ? {} : { now }),
     ...(observe == null ? {} : { observe }),

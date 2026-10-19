@@ -44,18 +44,20 @@ export function observedReps(value) {
     ? value
     : null;
 }
+export const isUnknownExerciseName = (name) =>
+  /^(unknown|desconocido|sin identificar|ejercicio desconocido)(?: \d+)?$/.test(
+    name,
+  );
 export function exerciseIdentity(e) {
+  if (["skipped", "planned"].includes(e.execution_type)) return null;
   const name = normalizeName(e.reported_name);
-  if (
-    !e.exercise_id &&
-    (!name ||
-      /^(unknown|desconocido|sin identificar|ejercicio desconocido)(?: \d+)?$/.test(
-        name,
-      ))
-  )
+  if (!e.canonical_exercise_code && (!name || isUnknownExerciseName(name)))
     return null;
   return JSON.stringify([
-    e.exercise_id || name,
+    // Distinguish an unresolved name from a catalog code with the same spelling.
+    e.canonical_exercise_code
+      ? ["catalog", e.canonical_exercise_code]
+      : ["reported", name],
     e.execution_type ?? null,
     e.side ?? null,
     e.tempo_or_pause ?? null,

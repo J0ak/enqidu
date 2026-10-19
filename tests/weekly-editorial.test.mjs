@@ -284,6 +284,7 @@ test("structured exercise identity wins over reported labels but never over a ch
     exercises: [
       exercise("now", "Fuerza", {
         exercise_id: "canonical-id",
+        canonical_exercise_code: "bench_press",
         reported_name: "Press banca",
         reps_per_set: [10],
       }),
@@ -291,6 +292,7 @@ test("structured exercise identity wins over reported labels but never over a ch
     baselineExercises: [
       exercise("before", "past", {
         exercise_id: "canonical-id",
+        canonical_exercise_code: "bench_press",
         reported_name: "DB bench",
       }),
     ],

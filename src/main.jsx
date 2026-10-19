@@ -1,3 +1,5 @@
+import SemanticCorrection from "./training/semantics/SemanticCorrection.jsx";
+import { isSemanticCorrectionIntent } from "./training/semantics/parser.js";
 import { useCoachMessages } from "./coachContext/useCoachMessages.js";
 import WeeklyDashboardV1 from "./progress/WeeklyDashboardV1.jsx";
 import { LAP_COLUMNS, readLap, writeLap } from "./training/lapSchema.js";
@@ -23,7 +25,7 @@ import { fetchCoachContextStatus } from "@/services/coachContextService";
 import { findLatestPlannedTrainingContext, findLatestRecommendationSaveAction, formatCoachCardDate, formatCoachCardDateRange, formatCoachCardMetric, markLatestPlannedTrainingAdapted, markLatestPlannedTrainingCancelled, markLatestPlannedTrainingMoved, resolveCoachCardAction } from "@/coachContext/coachCardsView";
 import { detectEnqiduFastPathCommand } from "@/coachTools/fastPath";
 import { buildTrainingSessionCardView } from "@/training/smartCardView";
-import { applyQuickEditToTrainingSession, buildUniversalSessionView } from "@/training/metrics";
+import { buildUniversalSessionView } from "@/training/metrics";
 import { dedupeGarminSeriesRows, extractRawGarminStrengthSets, pairGarminStrengthSets } from "@/training/garminStrengthSeries";
 import {
   fetchReadonlyPlannedSessions,
@@ -554,7 +556,7 @@ function App() {
         .maybeSingle(),
       supabase
         .from("session_exercises")
-        .select("block_id, reported_name, exercise_order, sets_completed, rounds_completed, reps_per_set, duration_seconds, load_value, load_unit, tempo_or_pause, side, notes, equipment_snapshot, data_confidence")
+        .select("id, execution_type, block_id, reported_name, exercise_order, sets_completed, rounds_completed, reps_per_set, duration_seconds, load_value, load_unit, tempo_or_pause, side, notes, equipment_snapshot, data_confidence")
         .eq("session_id", latestSession.id)
         .order("exercise_order", { ascending: true }),
       fetchHeartRateZoneProfile(detailUserId),
@@ -1061,6 +1063,7 @@ function App() {
             activityDetail={activityDetail}
             onBack={() => setRoute("activities")}
             onRenameSession={renameActivitySession}
+            onSemanticApplied={() => openSessionDetail(activityDetail.session)}
           />
         )}
         {route === "plannedSessionDetail" && (
@@ -1637,7 +1640,7 @@ function PlannedDetailCard({ title, wide = false, children }) {
   );
 }
 
-function ActivityView({ activityDetail, onBack, onRenameSession }) {
+function ActivityView({ activityDetail, onBack, onRenameSession, onSemanticApplied }) {
   if (!activityDetail?.session) return <ActivityDetailSkeleton />;
   if (activityDetail.session.session_status === "archived") return <ArchivedSessionNotice detail={activityDetail} />;
   const conversationView = buildConversationActivityView(activityDetail);
@@ -1652,6 +1655,7 @@ function ActivityView({ activityDetail, onBack, onRenameSession }) {
         minimal={hasConversationView}
         subtitle={conversationView?.subtitle}
       />
+      <SemanticCorrection key={activityDetail.session.id} sessionId={activityDetail.session.id} onApplied={onSemanticApplied} />
       <LinkedPlannedSessionPanel detail={activityDetail} />
       {isLinkedPlanned && hasConversationView && <ConversationActivityCard view={conversationView} title="Registro realizado / Coach" />}
       <ActivitySummaryMetrics detail={activityDetail} />
@@ -2230,12 +2234,10 @@ function readableSessionStatus(status) {
 function TrainingSessionCard({ detail }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [sessionModel, setSessionModel] = useState(() => buildUniversalSessionView(detail));
-  const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
     setSessionModel(buildUniversalSessionView(detail));
     setSelectedIndex(0);
-    setSaveStatus("");
   }, [detail]);
 
   const view = useMemo(() => buildTrainingSessionCardView(sessionModel, selectedIndex), [sessionModel, selectedIndex]);
@@ -2243,33 +2245,6 @@ function TrainingSessionCard({ detail }) {
   const metrics = view.session_summary.metrics || {};
   const selectedBlock = view.block_detail;
   if (!blocks.length) return null;
-
-  const handleQuickEditSave = async ({ block, item, exercise, values }) => {
-    setSaveStatus("Guardando...");
-    try {
-      const localId = exercise.item_exercise_id || exercise.id || exercise.exercise_id;
-      const preview = applyQuickEditToTrainingSession(sessionModel, localId, values);
-      const persisted = await persistQuickTrainingEdit({
-        sessionId: detail.session?.id,
-        block,
-        item,
-        exercise,
-        values,
-        summaryMetrics: preview.summary_metrics,
-      });
-      setSessionModel((current) => {
-        const itemExerciseId = persisted.itemExerciseId || exercise.item_exercise_id || exercise.id || exercise.exercise_id;
-        const next = applyQuickEditToTrainingSession(current, itemExerciseId, values);
-        return persisted.itemExerciseId && itemExerciseId !== persisted.itemExerciseId
-          ? applyQuickEditToTrainingSession(next, persisted.itemExerciseId, values)
-          : next;
-      });
-      setSaveStatus("Guardado");
-    } catch (error) {
-      setSaveStatus(error.message || "No se pudo guardar");
-      throw error;
-    }
-  };
 
   return (
     <article className="activityMainCard trainingSessionCard">
@@ -2303,9 +2278,8 @@ function TrainingSessionCard({ detail }) {
             />
           ))}
         </div>
-        {selectedBlock && <TrainingBlockDetail block={selectedBlock} onQuickEditSave={handleQuickEditSave} />}
+        {selectedBlock && <TrainingBlockDetail block={selectedBlock} />}
       </div>
-      {saveStatus && <small className="trainingSaveStatus">{saveStatus}</small>}
     </article>
   );
 }
@@ -2339,7 +2313,7 @@ function TrainingBlockSummaryRow({ block, active, onSelect }) {
   );
 }
 
-function TrainingBlockDetail({ block, onQuickEditSave }) {
+function TrainingBlockDetail({ block }) {
   const metrics = [
     block.rounds ? `${block.rounds} rondas` : null,
     block.duration_s ? formatDurationClock(block.duration_s) : null,
@@ -2357,14 +2331,14 @@ function TrainingBlockDetail({ block, onQuickEditSave }) {
       </header>
       <div className="blockItemRows">
         {block.items.map((item) => (
-          <BlockItemRow key={item.id} block={block} item={item} onQuickEditSave={onQuickEditSave} />
+          <BlockItemRow key={item.id} block={block} item={item} />
         ))}
       </div>
     </section>
   );
 }
 
-function BlockItemRow({ block, item, onQuickEditSave }) {
+function BlockItemRow({ block, item }) {
   return (
     <div className="blockItemRow">
       <div className="blockItemLabel">
@@ -2373,14 +2347,14 @@ function BlockItemRow({ block, item, onQuickEditSave }) {
       </div>
       <div className="exerciseMetricLines">
         {item.exercises.map((exercise) => (
-          <ExerciseMetricLine key={exercise.id} block={block} item={item} exercise={exercise} onQuickEditSave={onQuickEditSave} />
+          <ExerciseMetricLine key={exercise.id} block={block} item={item} exercise={exercise} />
         ))}
       </div>
     </div>
   );
 }
 
-function ExerciseMetricLine({ block, item, exercise, onQuickEditSave }) {
+function ExerciseMetricLine({ exercise }) {
   return (
     <div className="exerciseMetricLine">
       <div>
@@ -2389,12 +2363,6 @@ function ExerciseMetricLine({ block, item, exercise, onQuickEditSave }) {
       </div>
       <MissingFieldsBadge fields={exercise.missing_fields} />
       {exercise.performed_sets?.length > 0 && <PerformedSetList sets={exercise.performed_sets} />}
-      {exercise.missing_fields?.length > 0 && (
-        <QuickMissingFieldsEditor
-          fields={exercise.missing_fields}
-          onSave={(values) => onQuickEditSave?.({ block, item, exercise, values })}
-        />
-      )}
     </div>
   );
 }
@@ -2413,55 +2381,6 @@ function PerformedSetList({ sets }) {
         </span>
       ))}
     </div>
-  );
-}
-
-function QuickMissingFieldsEditor({ fields, onSave }) {
-  const [draft, setDraft] = useState({});
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  if (!fields?.length) return null;
-  return (
-    <form
-      className="missingFieldEditor"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        const values = parseQuickEditValues(draft);
-        if (!Object.keys(values).length) {
-          setError("Introduce al menos un valor");
-          return;
-        }
-        try {
-          setError("");
-          setSaving(true);
-          await onSave?.(values);
-          setSaved(true);
-        } catch (saveError) {
-          setSaved(false);
-          setError(saveError.message || "No se pudo guardar");
-        } finally {
-          setSaving(false);
-        }
-      }}
-    >
-      {fields.slice(0, 4).map((field) => (
-        <label key={field}>
-          <span>{fieldLabel(field)}</span>
-          <input
-            inputMode="decimal"
-            value={draft[field] || ""}
-            onChange={(event) => {
-              setSaved(false);
-              setDraft((current) => ({ ...current, [field]: event.target.value }));
-            }}
-          />
-        </label>
-      ))}
-      <button type="submit" disabled={saving}>{saving ? "Guardando" : "Guardar"}</button>
-      {saved && <small>Actualizado</small>}
-      {error && <small className="fieldError">{error}</small>}
-    </form>
   );
 }
 
@@ -2544,181 +2463,6 @@ function formatKg(value) {
 
 function safeMetric(value) {
   return value == null || value === "" || value === 0 ? "—" : value;
-}
-
-function parseQuickEditValues(draft = {}) {
-  return Object.fromEntries(
-    Object.entries(draft)
-      .map(([key, value]) => [key, numericInput(value)])
-      .filter(([, value]) => value != null),
-  );
-}
-
-function numericInput(value) {
-  if (value == null || `${value}`.trim() === "") return null;
-  const number = Number(`${value}`.replace(",", "."));
-  return Number.isFinite(number) ? number : null;
-}
-
-async function persistQuickTrainingEdit({ sessionId, block, item, exercise, values, summaryMetrics }) {
-  if (!supabase) throw new Error("Sin conexión de datos");
-  if (!sessionId) throw new Error("Sesión no disponible");
-
-  const itemExerciseId = await ensureItemExerciseForQuickEdit({ block, item, exercise });
-  const setPatch = performedSetPayload(values);
-  const metricRows = performedMetricPayload(values);
-
-  if (Object.keys(setPatch).length) {
-    const { error } = await supabase
-      .from("performed_sets")
-      .upsert(
-        {
-          item_exercise_id: itemExerciseId,
-          set_index: 1,
-          ...setPatch,
-          completed: true,
-        },
-        { onConflict: "item_exercise_id,set_index" },
-      );
-    if (error) throw new Error(error.message);
-  }
-
-  if (metricRows.length) {
-    const { error } = await supabase
-      .from("performed_metrics")
-      .upsert(
-        metricRows.map((row) => ({ ...row, item_exercise_id: itemExerciseId })),
-        { onConflict: "item_exercise_id,metric_name" },
-      );
-    if (error) throw new Error(error.message);
-  }
-
-  const missingFields = (exercise.missing_fields || []).filter((field) => !quickEditFieldProvided(field, values));
-  const { error: exerciseError } = await supabase
-    .from("item_exercises")
-    .update({ missing_fields: missingFields })
-    .eq("id", itemExerciseId);
-  if (exerciseError) throw new Error(exerciseError.message);
-
-  if (summaryMetrics) {
-    const { error: sessionError } = await supabase
-      .from("training_sessions")
-      .update({
-        summary_metrics: summaryMetrics,
-        completion_score: summaryMetrics.completion_score ?? null,
-      })
-      .eq("id", sessionId);
-    if (sessionError) throw new Error(sessionError.message);
-  }
-
-  return { itemExerciseId };
-}
-
-async function ensureItemExerciseForQuickEdit({ block, item, exercise }) {
-  if (isUuid(exercise.item_exercise_id)) return exercise.item_exercise_id;
-  const blockId = block.block_id || block.id;
-  if (!isUuid(blockId)) throw new Error("Bloque canonico no disponible para persistir");
-
-  const blockItemId = isUuid(item.block_item_id)
-    ? item.block_item_id
-    : await upsertBlockItemForQuickEdit(blockId, item);
-
-  const exerciseId = exercise.exercise_id || exercise.canonical_slug || slugFromText(exercise.display_name);
-  const { data, error } = await supabase
-    .from("item_exercises")
-    .upsert(
-      {
-        block_item_id: blockItemId,
-        order_index: item.order_index || 1,
-        exercise_id: exerciseId,
-        display_name: exercise.display_name || exerciseId,
-        measurement_type: exercise.measurement_type || "mixed",
-        missing_fields: exercise.missing_fields || [],
-        summary_metrics: exercise.summary_metrics || {},
-      },
-      { onConflict: "block_item_id,order_index" },
-    )
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data.id;
-}
-
-async function upsertBlockItemForQuickEdit(blockId, item) {
-  const { data, error } = await supabase
-    .from("block_items")
-    .upsert(
-      {
-        block_id: blockId,
-        order_index: item.order_index || 1,
-        item_type: item.item_type || "exercise_direct",
-        item_name: item.item_name || "Ejercicio",
-        station_label: item.station_label || null,
-        minute_slot: item.minute_slot || null,
-        duration_s: item.duration_s || null,
-        rest_s: item.rest_s || null,
-        summary_metrics: {},
-      },
-      { onConflict: "block_id,order_index" },
-    )
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data.id;
-}
-
-function performedSetPayload(values = {}) {
-  const payload = {};
-  if (values.reps != null) payload.reps = values.reps;
-  if (values.reps_per_side != null) {
-    payload.reps_left = values.reps_per_side;
-    payload.reps_right = values.reps_per_side;
-  }
-  if (values.load_kg != null) payload.load_kg = values.load_kg;
-  if (values.duration_s != null) payload.duration_s = values.duration_s;
-  if (values.distance_m != null) payload.distance_m = values.distance_m;
-  if (values.rpe != null) payload.rpe = values.rpe;
-  if (values.rir != null) payload.rir = values.rir;
-  return payload;
-}
-
-function performedMetricPayload(values = {}) {
-  const setFields = new Set(["reps", "reps_per_side", "load_kg", "duration_s", "distance_m", "rpe", "rir"]);
-  return Object.entries(values)
-    .filter(([key]) => !setFields.has(key))
-    .map(([metric_name, metric_value]) => ({
-      metric_name,
-      metric_value,
-      metric_unit: metricUnit(metric_name),
-      confidence: "user_reported",
-    }));
-}
-
-function metricUnit(field) {
-  if (field.endsWith("_s")) return "s";
-  if (field.endsWith("_m")) return "m";
-  if (field.endsWith("_kg")) return "kg";
-  return "";
-}
-
-function quickEditFieldProvided(field, values = {}) {
-  if (field === "sets") return Object.keys(values).some((key) => ["reps", "reps_per_side", "load_kg", "duration_s", "distance_m"].includes(key));
-  return values[field] != null;
-}
-
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(`${value || ""}`);
-}
-
-function slugFromText(value) {
-  return `${value || "exercise"}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
 }
 
 function hasHeartRateData(detail) {
@@ -4015,6 +3759,11 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
     try {
       setSending(true);
 
+      if (isSemanticCorrectionIntent(text)) {
+        setMessages(current => [...current.slice(0,-1), {role:'assistant',content:'Vamos a revisar los datos de esa actividad.',semanticCorrection:{text}}]);
+        return;
+      }
+
       const previewCommand = detectPreviewConversationAction(text);
       if (previewCommand) {
         if (!pendingToolAction) {
@@ -4309,13 +4058,23 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
       <CoachContextStatusCard context={coachContextState} onMemoryPrompt={startMemoryDraft} />
       <div className="chatLog">
         {messages.map((message, index) => (
+          <React.Fragment key={`${message.role}-${index}`}>
           <CopyableChatMessage
-            key={`${message.role}-${index}`}
             message={message}
             onCopied={() => setMicNotice("Copiado")}
             onCardAction={handleCardAction}
             cardActionDisabled={cardActionBusy}
           />
+          {message.semanticCorrection && <SemanticCorrection text={message.semanticCorrection.text} initialReceipt={message.semanticCorrection.receipt} onApplied={async receipt => {
+            setMessages(current => current.map((m,i)=>i===index?{...m,semanticCorrection:{...m.semanticCorrection,receipt:{session_id:receipt.session_id,event_id:receipt.event_id,persistence_verified:receipt.persistence_verified}}}:m));
+            setDailyRevision(n=>n+1);
+            if (messages.some(m=>m.cards?.some(c=>c.type==='weekly_dashboard_v1'))) {
+              const refreshed=await requestEnqiduTool({tool:'get_progress_performance_v1',arguments:{period:'week'}});
+              if(refreshed.ok) setMessages(current=>current.map(m=>({...m,cards:m.cards?.map(c=>c.type==='weekly_dashboard_v1'?{...c,dashboard:refreshed.data.weekly_dashboard}:c)})));
+            }
+            await onPlanSaved?.();
+          }} />}
+          </React.Fragment>
         ))}
         <CoachActionPreview
           pending={pendingToolAction}
@@ -7672,7 +7431,10 @@ function firstPresent(source = {}, keys = []) {
 }
 
 function mapExerciseBlocks(blockRows, exerciseRows) {
-  if (!blockRows.length) return [];
+  const unassigned = exerciseRows.filter((row) => !row.block_id);
+  const displayBlocks = unassigned.length
+    ? [...blockRows, { id: "unassigned", name: "Ejercicios registrados", block_order: blockRows.length + 1, block_type: "strength" }]
+    : blockRows;
   const exercisesByBlock = exerciseRows.reduce((acc, row) => {
     const key = row.block_id || "unassigned";
     if (!acc[key]) acc[key] = [];
@@ -7680,7 +7442,7 @@ function mapExerciseBlocks(blockRows, exerciseRows) {
     return acc;
   }, {});
 
-  return blockRows.map((block) => {
+  return displayBlocks.map((block) => {
     const rows = exercisesByBlock[block.id] || [];
     const exerciseDetails = buildConversationExerciseDetails(block, rows);
 
@@ -7788,17 +7550,14 @@ function buildTemporalWarningText(block) {
 
 function buildConversationExerciseDetails(block, rows = []) {
   const prescribed = Array.isArray(block.prescription?.exercises) ? block.prescription.exercises : [];
-  const rowsByName = rows.reduce((acc, row) => {
-    acc[exerciseKey(row.reported_name)] = row;
-    return acc;
-  }, {});
-  const sources = prescribed.length
-    ? prescribed.map((item) => ({ item, row: rowsByName[exerciseKey(item.name)] }))
-    : rows.map((row) => ({ item: {}, row }));
+  // Confirmed canonical rows describe execution; prescription remains intention.
+  const sources = rows.length
+    ? rows.map((row) => ({ item: {}, row }))
+    : prescribed.map((item) => ({ item, row: {} }));
 
   return sources.map(({ item, row = {} }) => {
     const name = item.name || row.reported_name || "Ejercicio";
-    const fallback = plannedExerciseFallback(name);
+    const fallback = row.id ? null : plannedExerciseFallback(name);
     const sets = optionalNumber(item.sets_completed ?? row.sets_completed ?? fallback?.sets);
     const work = resolveExerciseWork(item, row, fallback, sets);
     const loadValue = optionalNumber(item.load_value ?? row.load_value);
@@ -7818,7 +7577,7 @@ function buildConversationExerciseDetails(block, rows = []) {
     });
     return {
       name,
-      detailText,
+      detailText: row.execution_type === "skipped" ? `Omitido · ${detailText}` : detailText,
       notes: normalizeNotes(item.notes ?? row.notes),
       stats: {
         sets: sets || 0,
@@ -7869,7 +7628,7 @@ function formatLoad(loadValue, loadUnit) {
   const value = optionalNumber(loadValue);
   const unit = `${loadUnit || ""}`.trim();
   if (value == null || !unit) return "";
-  return `${formatNumberValue(value)} ${unit}`;
+  return `${formatNumberValue(value)} ${unit === "kg_each" ? "kg por mancuerna" : unit}`;
 }
 
 function formatCoachDuration(seconds) {

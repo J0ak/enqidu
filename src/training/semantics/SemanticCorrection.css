@@ -1,0 +1,86 @@
+.semanticCorrection {
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid #3f4b48;
+  border-radius: 16px;
+  background: var(--panel, #15211e);
+  color: var(--text, #eef4f0);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.semanticCorrection h3,
+.semanticCorrection h4 {
+  margin: 0 0 10px;
+}
+.semanticCorrection p {
+  margin: 6px 0 12px;
+  white-space: pre-wrap;
+}
+.semanticCorrection label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  min-width: 0;
+  font-size: 14px;
+}
+.semanticCorrection input,
+.semanticCorrection select,
+.semanticCorrection textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+  color: #182522;
+  border: 1px solid #778680;
+}
+.semanticCorrection button,
+.semanticEntry {
+  min-height: 44px;
+  padding: 10px 14px;
+  margin: 6px 6px 6px 0;
+  white-space: normal;
+  max-width: 100%;
+  border: 1px solid #607b6d;
+  border-radius: 10px;
+  background: #d6f5df;
+  color: #183323;
+  font: inherit;
+  cursor: pointer;
+}
+.semanticCorrection button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.semanticFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.semanticDiff {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 0;
+}
+.semanticExercise {
+  font-size: 14px;
+}
+.semanticChoices {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+@media (max-width: 430px) {
+  .semanticDiff {
+    grid-template-columns: 1fr;
+  }
+  .semanticCorrection {
+    padding: 12px;
+  }
+}

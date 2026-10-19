@@ -1,3 +1,4 @@
+import { INTERPRET_SCHEMA, INTERPRET_RESULT_SCHEMA, COMMAND_SCHEMA, APPLY_SCHEMA, STATE_SCHEMA, PREVIEW_SCHEMA, RECEIPT_SCHEMA } from "../training/semantics/contract.js";
 import { READ_OUTPUT_SCHEMAS } from "./readSchemas.js";
 import { objectSchema as object, textSchema as text, nullable, listSchema as list, DATE_SCHEMA as date, ID_SCHEMA as id } from "./schema.js";
 
@@ -83,6 +84,10 @@ function freeze(value) {
   return value;
 }
 export const ENQIDU_TOOLS = freeze([
+  definition("interpret_training_correction_v1", "Parse bounded Spanish and ask for explicit session or exercise selection when ambiguous. No writes.", "preview", INTERPRET_SCHEMA, INTERPRET_RESULT_SCHEMA),
+  definition("get_training_semantics_v1", "Read the owned canonical semantic state.", "read", object({session_id:id}), STATE_SCHEMA),
+  definition("preview_training_semantics_v1", "Preview explicit exercise operations; no writes or LLM.", "preview", COMMAND_SCHEMA, PREVIEW_SCHEMA),
+  {...definition("apply_training_semantics_v1", "Confirm an atomic semantic correction on the same session.", "write", APPLY_SCHEMA, RECEIPT_SCHEMA), side_effects:"append_semantic_evidence_and_patch_exercises"},
   ...reads.map(([id, description, input]) => definition(id, description, "read", input, READ_OUTPUT_SCHEMAS[id])),
   ...actions.map(([name, description, input]) => definition(`preview_${name}`, `Preview exactly how to ${description}. No writes.`, "preview", input, ACTION_PREVIEW_OUTPUT_SCHEMA)),
   ...actions.map(([name, description, input]) => definition(`apply_${name}`, `Explicitly accept a reviewed preview to ${description}. Reloads and revalidates state before the existing action.`, "write", object({ ...input.properties, fingerprint, expires_at: timestamp, confirmation: { const: true } }, [...input.required, "fingerprint", "expires_at", "confirmation"]), ACTION_RESULT_OUTPUT_SCHEMA)),

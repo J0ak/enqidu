@@ -1,3 +1,4 @@
+import { isSemanticCorrectionIntent } from "../../../src/training/semantics/parser.js";
 import { createDailyCoachRecorder } from "../../../src/dailyCoach/history.js";
 import { isMorningCoachRequest } from "../../../src/health/morningCoachV1.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -92,6 +93,13 @@ Deno.serve(async (req: Request) => {
     });
     if (!calendar.ok || !calendar.date) {
       return reply({ error: calendar.error || "invalid_calendar" }, 400);
+    }
+
+    // Corrections always remain deterministic, even if optional OpenAI is enabled.
+    if (isSemanticCorrectionIntent(message)) {
+      const semanticRuntime = await createEnqiduToolRuntime({db,source:"coach",capabilities:{writes:false},semanticSigningKey:Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")});
+      const correction = await semanticRuntime.execute("interpret_training_correction_v1", {text:message});
+      return reply({ok:correction.ok,answer:correction.ok?correction.data.message:correction.error.safe_message,response_mode:"deterministic",llm_used:false,usage:null,cards:[],semantic_correction:correction.data});
     }
 
     const requestDate = calendar.date;

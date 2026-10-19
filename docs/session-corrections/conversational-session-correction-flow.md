@@ -1,6 +1,6 @@
 # Conversational Session Correction Flow
 
-Status: PR #22 design and implementation.
+Status: historical PR #22 design. **Retired by #102**: legacy preview remains read-only; legacy apply now returns HTTP 410 after JWT validation. New corrections use `preview_training_semantics_v1` / `apply_training_semantics_v1`. The replacement implementation described below documents historical behavior, not a supported write path.
 
 This flow adds an explicit preview/apply path for correcting the coach/manual structure of an existing training session after the user clarifies the real block order or grouping.
 
