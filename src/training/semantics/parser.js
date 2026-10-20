@@ -3,7 +3,9 @@ import { normalizeExactName } from "./domain.js";
 export function isSemanticCorrectionIntent(text) {
   if (typeof text !== "string") return false;
   const normalized = normalizeExactName(text);
-  return /^(?:en .+? (?:hice|fueron|eran) |hice |fueron |eran |eso (?:era |no era )|no hice |la ultima |fue por lado|pausa de |anade que )/.test(
+  if (/^(?:\d+(?:x\d+|[,.]\d+)?(?:\s|,)|por lado$)/.test(normalized))
+    return true;
+  return /^(?:hoy en |ayer en |(?:[a-záéíóúñ][a-záéíóúñ \-]*?) \d+(?:[,.x ]|$)|(?:la )?ultima serie |en .+? (?:hice|fueron|eran) |hice |fueron |eran |eso (?:era |no era )|no hice |la ultima |fue por lado|pausa de |anade que )/.test(
     normalized,
   );
 }

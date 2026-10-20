@@ -160,6 +160,7 @@ export const progressDomainSchema = o({
       unit: text,
       variant: str,
       exposures: num,
+      metric_requirements: n(l(str, 2)),
       best_load: nums,
       record_count: num,
       records: l(

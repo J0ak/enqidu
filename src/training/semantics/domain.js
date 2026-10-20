@@ -1,23 +1,14 @@
-import { exerciseCatalog } from "../exerciseCatalog.js";
+import { MATERIALIZATION_EVIDENCE_SCHEMA } from "../materialization/contract.js";
+import {
+  createCatalogResolver,
+  loadExerciseCatalog,
+} from "../catalogResolver.js";
+import { exerciseCatalog, resolveExerciseAlias } from "../exerciseCatalog.js";
 import { matchesSchema } from "../../enqiduTools/schema.js";
 import { toolError } from "../../enqiduTools/errors.js";
 import { COMMAND_SCHEMA, STATE_SCHEMA, VERSION } from "./contract.js";
-export const normalizeExactName = (value) =>
-  String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-export function resolveExactExercise(value) {
-  const key = normalizeExactName(value);
-  const matches = exerciseCatalog.filter((e) =>
-    [e.canonical_slug, e.display_name_es, e.display_name_en, ...e.aliases].some(
-      (a) => normalizeExactName(a) === key,
-    ),
-  );
-  return matches.length === 1 ? matches[0] : null;
-}
+export { normalizeExactName } from "../catalogResolver.js";
+export const resolveExactExercise = resolveExerciseAlias;
 export function patchExercises(exercises, operations) {
   const result = structuredClone(exercises);
   for (const operation of operations) {
@@ -127,6 +118,9 @@ export async function semanticFingerprint(userId, args, signingKey) {
           channel: args.channel,
           session_id: args.session_id,
           operations: args.operations,
+          ...(args.materialization
+            ? { materialization: args.materialization }
+            : {}),
           revision: args.revision,
           expires_at: args.expires_at,
         }),
@@ -158,11 +152,33 @@ export async function previewSemanticCorrection({
   now,
   signingKey,
   channel = "app",
+  materialization,
 }) {
-  if (!matchesSchema(args, COMMAND_SCHEMA))
+  if (
+    !matchesSchema(args, COMMAND_SCHEMA) ||
+    (materialization &&
+      !matchesSchema(materialization, MATERIALIZATION_EVIDENCE_SCHEMA))
+  )
     throw toolError("invalid_arguments");
+  args = { ...args, ...(materialization ? { materialization } : {}) };
   const state = await readSemanticState(db, args.session_id);
   const after = patchExercises(state.exercises, args.operations);
+  if (
+    args.operations.some((o) =>
+      ["add_exercise", "rename_exercise"].includes(o.op),
+    )
+  ) {
+    const resolve = createCatalogResolver(
+      (await loadExerciseCatalog(db)).filter((e) => e.is_active !== false),
+    );
+    for (const op of args.operations.filter((o) =>
+      ["add_exercise", "rename_exercise"].includes(o.op),
+    )) {
+      const e = after.find((e) => e.id === op.target);
+      e.exercise_id =
+        resolve({ reported_name: op.reported_name }).exercise?.id || null;
+    }
+  }
   const expires_at = new Date(new Date(now).getTime() + 300000).toISOString();
   const fingerprint = await semanticFingerprint(
     userId,
@@ -182,7 +198,8 @@ export async function previewSemanticCorrection({
     fingerprint,
     expires_at,
     requires_confirmation: true,
-    warnings: [],
+    warnings: args.materialization?.facts.warnings.slice(0, 10) || [],
+    ...(args.materialization ? { materialization: args.materialization } : {}),
     llm_used: false,
     usage: null,
   };
@@ -217,6 +234,9 @@ export async function applySemanticCorrection({
     p_expires_at: args.expires_at,
     p_operations: args.operations,
     p_channel: args.channel,
+    ...(args.materialization
+      ? { p_materialization: args.materialization }
+      : {}),
   });
   if (error)
     throw toolError(

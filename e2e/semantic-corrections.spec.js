@@ -248,14 +248,16 @@ test("102 Coach 390: Unknown FIT → RDL preview/confirm → same activity → P
       period: "week",
     });
     expect(progress.ok, JSON.stringify(progress)).toBe(true);
-    const rdl = progress.data.strength.find((e) => e.name === "rdl");
+    const rdl = progress.data.strength.find(
+      (e) => e.name === "Peso muerto rumano",
+    );
     expect(rdl.known_volume).toBe(1080);
     expect(rdl.best_load).toBe(45);
     await send(page, "¿Qué he entrenado esta semana?");
     const dashboard = page.getByRole("article", {
       name: "Informe semanal de entrenamiento",
     });
-    await expect(dashboard).toContainText("rdl");
+    await expect(dashboard).toContainText("Peso muerto rumano");
     await expect(dashboard).toContainText("45");
     await noOverflow(page);
     await page.reload();
@@ -312,7 +314,7 @@ test("102 manual detail editor 390: explicit identity, last reps, omission, stal
     await page.getByRole("button", { name: /Ver última actividad/i }).click();
     await page
       .getByRole("button", {
-        name: "Completar / corregir entrenamiento",
+        name: "Completar datos",
         exact: true,
       })
       .click();
@@ -348,7 +350,7 @@ test("102 manual detail editor 390: explicit identity, last reps, omission, stal
     ).not.toContainText("Unknown");
     await page
       .getByRole("button", {
-        name: "Completar / corregir entrenamiento",
+        name: "Completar datos",
         exact: true,
       })
       .click();
@@ -368,7 +370,7 @@ test("102 manual detail editor 390: explicit identity, last reps, omission, stal
     await page.getByRole("button", { name: /Ver última actividad/i }).click();
     await page
       .getByRole("button", {
-        name: "Completar / corregir entrenamiento",
+        name: "Completar datos",
         exact: true,
       })
       .click();
@@ -545,5 +547,100 @@ test("102 historical continuity: null alias → confirmed catalog UUID → weekl
   } finally {
     await a.dispose();
     await b.dispose();
+  }
+});
+
+test("103 golden 390: three observations → one preview → same session → consumers → reload", async ({
+  page,
+}) => {
+  test.setTimeout(240000);
+  const f = await setup("materialization-golden", { withBlock: true });
+  try {
+    await f.adminDb
+      .from("session_exercises")
+      .update({
+        reported_name: "Press banca",
+        reps_per_set: [10, 10, 10],
+        sets_completed: 3,
+        load_value: 40,
+        load_unit: "kg",
+        execution_type: "performed",
+      })
+      .eq("id", f.unknown.id);
+    const before = await f.physiology();
+    await login(page, f);
+    await page.locator('button.railButton[aria-label="Coach"]').click();
+    const text =
+      "Hoy en press banca hice 40 kg, 10, 10 y 9. En RDL hice 3x8 con 45 kg. No hice dead bug.";
+    await send(page, text);
+    const card = page
+      .getByRole("region", { name: "Corrección de entrenamiento" })
+      .last();
+    await expect(card).toContainText("10 / 10 / 9");
+    await expect(card).toContainText("8 / 8 / 8");
+    await expect(card).toContainText("Omitido");
+    const prior = await f.adminDb
+      .from("session_exercises")
+      .select("id,reps_per_set")
+      .eq("session_id", f.session.id);
+    expect(prior.data).toHaveLength(1);
+    expect(prior.data[0].reps_per_set).toEqual([10, 10, 10]);
+    await noOverflow(page);
+    await page.screenshot({
+      path: "test-results/103-multi-preview-390.png",
+      fullPage: true,
+    });
+    const receipt = await confirm(page);
+    expect(receipt.data.session_id).toBe(f.session.id);
+    expect(receipt.data.state.exercises).toHaveLength(3);
+    expect(receipt.data.state.exercises.every((e) => e.exercise_id)).toBe(true);
+    expect(await f.physiology()).toEqual(before);
+    const event = await f.adminDb
+      .from("enkidu_conversation_enrichments")
+      .select("payload")
+      .eq("id", receipt.data.event_id)
+      .single();
+    expect(event.data.payload.materialization.original_text).toBe(text);
+    expect(event.data.payload.materialization.facts.observations).toHaveLength(
+      3,
+    );
+    const progress = await call(f, "get_progress_performance_v1", {
+      period: "week",
+    });
+    expect(progress.ok, JSON.stringify(progress)).toBe(true);
+    expect(
+      progress.data.strength.find((e) => e.name === "Peso muerto rumano"),
+    ).toMatchObject({ best_load: 45, best_reps: 8, known_volume: 1080 });
+    expect(
+      progress.data.strength.find((e) => e.name === "Dead bug"),
+    ).toBeUndefined();
+    await send(page, "¿Qué he entrenado esta semana?");
+    await expect(
+      page.getByRole("article", { name: "Informe semanal de entrenamiento" }),
+    ).toContainText("45");
+    const coach = await call(f, "get_training_semantics_v1", {
+      session_id: f.session.id,
+    });
+    expect(coach.data.exercises).toEqual(receipt.data.state.exercises);
+    await page.reload();
+    await page.locator('button.railButton[aria-label="Hoy"]').click();
+    await page.getByRole("button", { name: /Ver última actividad/i }).click();
+    await expect(
+      page.getByRole("button", { name: "Completar datos", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("body")).toContainText("Peso muerto rumano");
+    await expect(page.locator("body")).toContainText("Registrado como: rdl");
+    await noOverflow(page);
+    await page.screenshot({
+      path: "test-results/103-activity-390.png",
+      fullPage: true,
+    });
+    const repeat = await call(f, "interpret_training_correction_v1", {
+      text,
+      session_id: f.session.id,
+    });
+    expect(repeat.data.status).toBe("already_materialized");
+  } finally {
+    await f.dispose();
   }
 });

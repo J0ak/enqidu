@@ -339,7 +339,8 @@ export function buildProgress({
       );
       return {
         key,
-        name: rows[0].reported_name,
+        name: rows[0].canonical_name || rows[0].reported_name,
+        metric_requirements: rows[0].metric_requirements || null,
         unit: rows[0].load_unit || null,
         variant: [rows[0].execution_type, rows[0].side, rows[0].tempo_or_pause]
           .filter(Boolean)

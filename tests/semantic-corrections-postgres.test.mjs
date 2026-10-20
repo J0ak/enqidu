@@ -173,7 +173,7 @@ test("SEMANTICS PostgreSQL E: tenant scope and minimum execution privileges", as
     /session_not_found/,
   );
   const grants = await db.query(
-    "select has_function_privilege('anon','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text)','execute') a,has_function_privilege('authenticated','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text)','execute') b,has_function_privilege('service_role','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text)','execute') c",
+    "select has_function_privilege('anon','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text,jsonb)','execute') a,has_function_privilege('authenticated','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text,jsonb)','execute') b,has_function_privilege('service_role','public.apply_training_semantics_v1(uuid,uuid,text,text,timestamptz,jsonb,text,jsonb)','execute') c",
   );
   assert.deepEqual(grants.rows[0], { a: false, b: false, c: true });
 });
@@ -304,5 +304,165 @@ test("SEMANTICS PostgreSQL confirmed evidence is append-only", async () => {
         r.source_id,
       ]),
     /Immutable/,
+  );
+});
+
+test("103 catalog DB/seed exact consistency and ambiguous aliases fail closed", async () => {
+  const { catalogSeed } = await import("../src/training/catalogSeed.js");
+  const { createCatalogResolver } = await import(
+    "../src/training/catalogResolver.js"
+  );
+  const catalog = (
+    await db.query(
+      "select id,code,name,metadata,is_active from exercise_catalog",
+    )
+  ).rows;
+  const resolve = createCatalogResolver(catalog);
+  for (const seed of catalogSeed) {
+    const actual = catalog.find((c) => c.code === seed.code);
+    assert.ok(actual, seed.code);
+    assert.deepEqual(actual.metadata, seed.metadata);
+    for (const name of [seed.code, seed.name, ...seed.metadata.aliases]) {
+      const sqlId = (
+        await db.query("select training_semantics.resolve_exercise($1) id", [
+          name,
+        ])
+      ).rows[0].id;
+      assert.equal(
+        sqlId,
+        resolve({ reported_name: name }).exercise?.id || null,
+        name,
+      );
+    }
+  }
+  for (const label of [
+    "\tPÉSO   MUERTO RÚMANO\n",
+    " HSPU ",
+    "RDL\t",
+    "\u00a0PESO\u202fMUERTO\u2009RUMANO\ufeff",
+  ]) {
+    assert.equal(
+      (
+        await db.query("select training_semantics.resolve_exercise($1) id", [
+          label,
+        ])
+      ).rows[0].id,
+      resolve({ reported_name: label }).exercise?.id || null,
+    );
+  }
+  for (const name of ["Unknown", "algo RDL", "pike", "peso"])
+    assert.equal(
+      (
+        await db.query("select training_semantics.resolve_exercise($1) id", [
+          name,
+        ])
+      ).rows[0].id,
+      null,
+    );
+  const duplicate = crypto.randomUUID();
+  await db.query(
+    "insert into exercise_catalog(id,code,name,metadata) values($1,'duplicate_103','Test duplicate','{\"aliases\":[\"RDL\"]}')",
+    [duplicate],
+  );
+  assert.equal(
+    (await db.query("select training_semantics.resolve_exercise('RDL') id"))
+      .rows[0].id,
+    null,
+  );
+  await db.query("delete from exercise_catalog where id=$1", [duplicate]);
+  await db.query(
+    "insert into exercise_catalog(id,code,name,metadata) values($1,'malformed_103','Malformed aliases','{\"aliases\":null}')",
+    [duplicate],
+  );
+  assert.equal(
+    (await db.query("select training_semantics.resolve_exercise('RDL') id"))
+      .rows[0].id,
+    resolve({ reported_name: "RDL" }).exercise.id,
+  );
+  await db.query("delete from exercise_catalog where id=$1", [duplicate]);
+});
+
+test("103 PostgreSQL materialization evidence, catalog stale, atomic golden and retry", async () => {
+  const { parseMaterialization } = await import(
+    "../src/training/materialization/parser.js"
+  );
+  const { compileMaterialization } = await import(
+    "../src/training/materialization/compile.js"
+  );
+  const f = await semanticFixture(db),
+    before = await state(db, f);
+  const catalog = (await db.query("select * from exercise_catalog")).rows;
+  const text =
+    "Hoy en press banca hice 40 kg, 10, 10 y 9. En RDL hice 3x8 con 45 kg. No hice dead bug.";
+  const c = compileMaterialization(parseMaterialization(text), before, catalog);
+  assert.equal(c.status, "preview_ready");
+  const request = await command(db, f, c.operations);
+  const evidence = {
+    original_text: text,
+    facts: c.facts,
+    generated_at: new Date().toISOString(),
+  };
+  const invoke = async () =>
+    (
+      await db.query(
+        "select apply_training_semantics_v1($1,$2,$3,$4,$5,$6,$7,$8) r",
+        [
+          f.user,
+          f.session,
+          request.revision,
+          request.fingerprint,
+          request.expires,
+          JSON.stringify(request.operations),
+          "coach",
+          JSON.stringify(evidence),
+        ],
+      )
+    ).rows[0].r;
+  await db.query(
+    "update exercise_catalog set is_active=false where code='romanian_deadlift'",
+  );
+  await assert.rejects(invoke, /preview_stale/);
+  assert.deepEqual(await state(db, f), before);
+  await db.query(
+    "update exercise_catalog set is_active=true where code='romanian_deadlift'",
+  );
+  await db.exec("set role service_role");
+  let receipt;
+  try {
+    receipt = await invoke();
+  } finally {
+    await db.exec("reset role");
+  }
+  assert.equal(receipt.applied, true);
+  assert.equal((await invoke()).replayed, true);
+  const after = await state(db, f);
+  assert.equal(after.exercises.length, 3);
+  assert.ok(after.exercises.every((e) => e.exercise_id));
+  assert.deepEqual(
+    after.exercises.find((e) => e.id === f.exercise).reps_per_set,
+    [10, 10, 9],
+  );
+  const event = (
+    await db.query(
+      "select payload from enkidu_conversation_enrichments where id=$1",
+      [receipt.event_id],
+    )
+  ).rows[0].payload;
+  assert.deepEqual(event.materialization, evidence);
+  assert.deepEqual(event.operations, request.operations);
+  assert.equal(event.actor_id, f.user);
+  assert.equal(event.channel, "coach");
+  assert.ok(event.timestamp);
+  assert.deepEqual(
+    (
+      await db.query("select original_json from training_sources where id=$1", [
+        f.source,
+      ])
+    ).rows[0].original_json,
+    { immutable: "FIT raw marker" },
+  );
+  assert.equal(
+    compileMaterialization(parseMaterialization(text), after, catalog).status,
+    "already_materialized",
   );
 });

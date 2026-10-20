@@ -1,10 +1,22 @@
-export const exerciseCatalog = [
+import { catalogSeed } from "./catalogSeed.js";
+import {
+  createCatalogResolver,
+  normalizeExactName,
+} from "./catalogResolver.js";
+const planningMetadata = [
   {
     id: "pallof_press",
     canonical_slug: "pallof_press",
     display_name_es: "Press Pallof",
     display_name_en: "Pallof Press",
-    aliases: ["press palof", "pres palof", "pallof", "anti-rotacion con goma", "press antirotacion", "press anti-rotacion"],
+    aliases: [
+      "press palof",
+      "pres palof",
+      "pallof",
+      "anti-rotacion con goma",
+      "press antirotacion",
+      "press anti-rotacion",
+    ],
     category: "core",
     movement_pattern: "anti_rotation",
     primary_muscles: ["core", "obliques"],
@@ -96,7 +108,12 @@ export const exerciseCatalog = [
     canonical_slug: "single_arm_row",
     display_name_es: "Remo unilateral",
     display_name_en: "Single-arm Row",
-    aliases: ["remo unilateral", "remo a una mano", "single arm row", "one arm row"],
+    aliases: [
+      "remo unilateral",
+      "remo a una mano",
+      "single arm row",
+      "one arm row",
+    ],
     category: "strength",
     movement_pattern: "horizontal_pull",
     primary_muscles: ["lats", "mid_back"],
@@ -119,7 +136,12 @@ export const exerciseCatalog = [
     canonical_slug: "wall_ball",
     display_name_es: "Wall ball",
     display_name_en: "Wall Ball",
-    aliases: ["wall ball", "wall balls", "lanzamiento balon pared", "sentadilla con balon"],
+    aliases: [
+      "wall ball",
+      "wall balls",
+      "lanzamiento balon pared",
+      "sentadilla con balon",
+    ],
     category: "functional",
     movement_pattern: "squat_throw",
     primary_muscles: ["quadriceps", "glutes", "shoulders"],
@@ -142,7 +164,14 @@ export const exerciseCatalog = [
     canonical_slug: "rowing_ergometer",
     display_name_es: "Remo ergometro",
     display_name_en: "Row Ergometer",
-    aliases: ["remo ergometro", "remoergometro", "row", "rower", "rowing machine", "remo"],
+    aliases: [
+      "remo ergometro",
+      "remoergometro",
+      "row",
+      "rower",
+      "rowing machine",
+      "remo",
+    ],
     category: "cardio",
     movement_pattern: "cyclical_pull",
     primary_muscles: ["cardiorespiratory"],
@@ -234,7 +263,12 @@ export const exerciseCatalog = [
     canonical_slug: "diaphragmatic_breathing",
     display_name_es: "Respiración diafragmática",
     display_name_en: "Diaphragmatic Breathing",
-    aliases: ["respiracion diafragmatica", "diafragmatica", "breathing", "respiracion 90/90"],
+    aliases: [
+      "respiracion diafragmatica",
+      "diafragmatica",
+      "breathing",
+      "respiracion 90/90",
+    ],
     category: "breathing",
     movement_pattern: "breathing",
     primary_muscles: ["diaphragm"],
@@ -257,7 +291,11 @@ export const exerciseCatalog = [
     canonical_slug: "lateral_monster_walk",
     display_name_es: "Monster walk lateral",
     display_name_en: "Lateral Monster Walk",
-    aliases: ["monster walk lateral", "lateral monster walk", "caminar lateral con banda"],
+    aliases: [
+      "monster walk lateral",
+      "lateral monster walk",
+      "caminar lateral con banda",
+    ],
     category: "activation",
     movement_pattern: "lateral_locomotion",
     primary_muscles: ["glute_med"],
@@ -277,29 +315,43 @@ export const exerciseCatalog = [
   },
 ];
 
-export function normalizeExerciseName(value) {
-  return `${value || ""}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+// Planning metadata is not an independent identity catalog. Names/codes/aliases come from the migration seed.
+export const exerciseCatalog = catalogSeed.map((row) => ({
+  ...(planningMetadata.find((e) => e.canonical_slug === row.code) || {}),
+  id: row.code,
+  canonical_slug: row.code,
+  display_name_es: row.name,
+  display_name_en: row.name,
+  aliases: row.metadata.aliases,
+}));
+export const normalizeExerciseName = normalizeExactName;
+export function catalogSeedRows(catalog = exerciseCatalog) {
+  return catalog.map((e) => ({
+    id: e.id,
+    code: e.canonical_slug,
+    name: e.display_name_es,
+    metadata: { aliases: [e.display_name_en, ...e.aliases] },
+    is_active: true,
+  }));
 }
-
 export function buildExerciseAliasIndex(catalog = exerciseCatalog) {
-  const index = new Map();
-  catalog.forEach((exercise) => {
-    [exercise.canonical_slug, exercise.display_name_es, exercise.display_name_en, ...(exercise.aliases || [])]
-      .filter(Boolean)
-      .forEach((alias) => index.set(normalizeExerciseName(alias), exercise));
-  });
+  const rows = catalogSeedRows(catalog),
+    resolve = createCatalogResolver(rows),
+    index = new Map();
+  for (const row of rows)
+    for (const label of [row.code, row.name, ...row.metadata.aliases]) {
+      const match = resolve({ reported_name: label });
+      if (match.state === "resolved")
+        index.set(
+          normalizeExactName(label),
+          catalog.find((e) => e.id === match.exercise.id),
+        );
+    }
   return index;
 }
-
 export function resolveExerciseAlias(value, catalog = exerciseCatalog) {
-  const normalized = normalizeExerciseName(value);
-  if (!normalized) return null;
-  const index = buildExerciseAliasIndex(catalog);
-  if (index.has(normalized)) return index.get(normalized);
-  return catalog.find((exercise) => normalized.includes(normalizeExerciseName(exercise.display_name_es))) || null;
+  const r = createCatalogResolver(catalogSeedRows(catalog))({
+    reported_name: value,
+  });
+  return r.exercise ? catalog.find((e) => e.id === r.exercise.id) : null;
 }

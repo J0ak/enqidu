@@ -28,6 +28,7 @@ export async function semanticDatabase() {
  create policy owner_link on session_source_links for all to authenticated using(exists(select 1 from training_sessions s where s.id=session_id and s.user_id=auth.uid()));
  create policy owner_event on enkidu_conversation_enrichments for all to authenticated using(exists(select 1 from training_sessions s where s.id=session_id and s.user_id=auth.uid()));`);
   await db.exec(semanticMigration);
+  await db.exec(readFileSync(new URL("../../supabase/migrations/20261019190737_semantic_materialization_v1.sql",import.meta.url),"utf8"));
   return db;
 }
 export async function semanticFixture(db) {

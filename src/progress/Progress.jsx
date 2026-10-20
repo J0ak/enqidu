@@ -1,3 +1,4 @@
+import SemanticCorrection from "../training/semantics/SemanticCorrection.jsx";
 import { unitLabel } from "./presentation.js";
 import React, { useEffect, useState } from "react";
 import { requestEnqiduTool } from "../services/enqiduToolsService";
@@ -31,7 +32,7 @@ function Metric({ label, value, note }) {
     </div>
   );
 }
-function Exercise({ item: e }) {
+function Exercise({ item: e, refresh }) {
   return (
     <article className="progressExercise">
       <header>
@@ -46,39 +47,81 @@ function Exercise({ item: e }) {
         </span>
       </header>
       <div className="progressMetrics">
-        <Metric
-          label="Mejor carga observada"
-          value={
-            e.unit === "bodyweight"
-              ? "Peso corporal"
-              : fmt(e.best_load, ` ${unitLabel(e.unit)}`)
-          }
-        />
-        <Metric
-          label="Máx. reps a esa carga"
-          value={fmt(e.best_reps_at_load)}
-        />
-        <Metric label="Máx. reps por serie" value={fmt(e.best_reps)} />
+        {(e.best_load !== null || e.unit === "bodyweight") && (
+          <Metric
+            label="Mejor carga observada"
+            value={
+              e.unit === "bodyweight"
+                ? "Peso corporal"
+                : fmt(e.best_load, ` ${unitLabel(e.unit)}`)
+            }
+          />
+        )}
+        {e.best_reps_at_load !== null && (
+          <Metric
+            label="Máx. reps a esa carga"
+            value={fmt(e.best_reps_at_load)}
+          />
+        )}
+        {e.best_reps !== null && (
+          <Metric label="Máx. reps por serie" value={fmt(e.best_reps)} />
+        )}
       </div>
-      <p className="progressSequence" aria-label="Repeticiones observadas">
-        {e.points.slice(-6).map((p, i) => (
-          <React.Fragment key={p.exercise_id}>
-            {i > 0 && " → "}
-            <span
-              title={`${p.date} · ${fmt(p.load, e.unit ? " " + unitLabel(e.unit) : "")}`}
-            >
-              {fmt(p.max_reps)}
-              <small>
-                {fmt(p.load, e.unit ? " " + unitLabel(e.unit) : "")}
-              </small>
-            </span>
-          </React.Fragment>
-        ))}
-      </p>
-      <small>
-        Últimas observaciones; las flechas muestran el orden, no una mejora.
-        Tendencia: misma carga y variante, dos sesiones por mitad del periodo.
-      </small>
+      {e.best_reps === null &&
+        (!e.metric_requirements || e.metric_requirements.includes("reps")) && (
+          <p>
+            Aún no tenemos repeticiones estructuradas suficientes para medir
+            evolución.
+          </p>
+        )}
+      {e.best_reps !== null &&
+        e.best_load === null &&
+        e.unit !== "bodyweight" &&
+        (!e.metric_requirements || e.metric_requirements.includes("load")) && (
+          <p>Tenemos repeticiones, pero no carga registrada.</p>
+        )}
+      <details>
+        <summary>Completar datos</summary>
+        {[...new Map(e.points.map((p) => [p.session_id, p])).values()]
+          .slice(-3)
+          .map((p) => (
+            <div key={p.session_id}>
+              <p>{p.date}</p>
+              <SemanticCorrection
+                sessionId={p.session_id}
+                onApplied={refresh}
+              />
+            </div>
+          ))}
+      </details>
+      {e.best_reps !== null && (
+        <p className="progressSequence" aria-label="Repeticiones observadas">
+          {e.points
+            .filter((p) => p.max_reps !== null)
+            .slice(-6)
+            .map((p, i) => (
+              <React.Fragment key={p.exercise_id}>
+                {i > 0 && " → "}
+                <span
+                  title={`${p.date} · ${fmt(p.load, e.unit ? " " + unitLabel(e.unit) : "")}`}
+                >
+                  {fmt(p.max_reps)}
+                  {p.load !== null && (
+                    <small>
+                      {fmt(p.load, e.unit ? " " + unitLabel(e.unit) : "")}
+                    </small>
+                  )}
+                </span>
+              </React.Fragment>
+            ))}
+        </p>
+      )}
+      {e.best_reps !== null && (
+        <small>
+          Últimas observaciones; las flechas muestran el orden, no una mejora.
+          Tendencia: misma carga y variante, dos sesiones por mitad del periodo.
+        </small>
+      )}
       {e.records?.length > 0 && (
         <p className="progressDirection improving">
           {e.record_count} mejoras observadas del periodo:{" "}
@@ -93,15 +136,19 @@ function Exercise({ item: e }) {
       )}
       <details>
         <summary>Volumen y evidencia</summary>
-        <p>
-          Volumen conocido:{" "}
-          {fmt(e.known_volume, ` ${unitLabel(e.unit)} × reps`)} ·{" "}
-          {e.volume_known}/{e.observations} registros calculables.
-        </p>
-        <p>
-          Mejor volumen conocido de sesión: {fmt(e.best_session_volume)}. Puede
-          ser parcial; no equivale al volumen total.
-        </p>
+        {e.known_volume !== null && (
+          <p>
+            Volumen conocido:{" "}
+            {fmt(e.known_volume, ` ${unitLabel(e.unit)} × reps`)} ·{" "}
+            {e.volume_known}/{e.observations} registros calculables.
+          </p>
+        )}
+        {e.best_session_volume !== null && (
+          <p>
+            Mejor volumen conocido de sesión: {fmt(e.best_session_volume)}.
+            Puede ser parcial; no equivale al volumen total.
+          </p>
+        )}
         <p>
           Última práctica: {e.last_practice}. Marcas observadas dentro del
           periodo, no récords de toda la vida.
@@ -112,8 +159,10 @@ function Exercise({ item: e }) {
         <ul>
           {e.points.slice(-12).map((p) => (
             <li key={p.exercise_id}>
-              {p.date} · {fmt(p.load, e.unit ? ` ${unitLabel(e.unit)}` : "")} ·{" "}
-              {fmt(p.max_reps, " reps")} · volumen {fmt(p.volume)}
+              {p.date}
+              {p.load !== null &&
+                ` · ${fmt(p.load, e.unit ? ` ${unitLabel(e.unit)}` : "")}`}
+              {p.max_reps !== null && ` · ${fmt(p.max_reps, " reps")}`}
             </li>
           ))}
         </ul>
@@ -328,7 +377,7 @@ export function ProgressContent({
                 .filter((e) => section !== "Skills" || e.skill)
                 .slice(0, count)
                 .map((e) => (
-                  <Exercise key={e.key} item={e} />
+                  <Exercise key={e.key} item={e} refresh={refresh} />
                 ))}
               {!data.strength.some((e) => section !== "Skills" || e.skill) && (
                 <p>

@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { requestEnqiduTool } from "../../services/enqiduToolsService.js";
-import { exerciseCatalog } from "../exerciseCatalog.js";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  loadExerciseCatalog,
+  withCatalogIdentity,
+} from "../catalogResolver.js";
+import {
+  normalizationQueue,
+  qualityLabels,
+} from "../materialization/quality.js";
 import { units, sides } from "./contract.js";
 import "./SemanticCorrection.css";
 const unitLabel = (u) =>
@@ -23,17 +31,26 @@ export function SemanticExercise({ exercise: e }) {
   if (!e) return <p>Ejercicio sin registrar</p>;
   return (
     <div className="semanticExercise">
-      <strong>{e.reported_name}</strong>
-      <p>
-        {e.execution_type === "skipped" ? "Omitido · " : ""}
-        {e.load_value === null
-          ? "Carga sin registrar"
-          : `${e.load_value} ${unitLabel(e.load_unit) || ""}`}{" "}
-        ·{" "}
-        {e.reps_per_set?.length
-          ? `${e.reps_per_set.join(" / ")} reps`
-          : "Reps sin registrar"}
-      </p>
+      <strong>{e.canonical_name || e.reported_name}</strong>
+      {e.canonical_name && e.canonical_name !== e.reported_name && (
+        <small>Registrado como: {e.reported_name}</small>
+      )}
+      {e.execution_type === "skipped" ? (
+        <p>Omitido · No realizado</p>
+      ) : (
+        <p>
+          {[
+            e.load_value != null
+              ? `${e.load_value} ${unitLabel(e.load_unit) || ""}`
+              : null,
+            e.reps_per_set?.length
+              ? `${e.reps_per_set.join(" / ")} reps`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Aún no hay métricas estructuradas."}
+        </p>
+      )}
       {e.sets_completed !== null && <p>{e.sets_completed} series</p>}
       {e.rounds_completed !== null && <p>{e.rounds_completed} rondas</p>}
       {e.side && <p>{sideLabel(e.side) || e.side}</p>}
@@ -58,6 +75,7 @@ export default function SemanticCorrection({
     exercise_target: null,
   });
   const [state, setState] = useState(null);
+  const [catalog, setCatalog] = useState([]);
   const [preview, setPreview] = useState(null);
   const [reviewed, setReviewed] = useState(false);
   const [editor, setEditor] = useState(!text);
@@ -115,7 +133,12 @@ export default function SemanticCorrection({
         setMessage(r.error.safe_message);
         return;
       }
-      setState(r.data);
+      const rows = await loadExerciseCatalog(supabase);
+      setCatalog(rows);
+      setState({
+        ...r.data,
+        exercises: r.data.exercises.map(withCatalogIdentity(rows)),
+      });
       setSelection((s) => ({ ...s, session_id: id }));
       setEditor(true);
       setPreview(null);
@@ -123,6 +146,9 @@ export default function SemanticCorrection({
       setTarget("");
       setStatus("idle");
       setMessage("Completa solo los datos que quieras cambiar.");
+    } catch {
+      setStatus("error");
+      setMessage("No se han podido leer los datos. Vuelve a intentarlo.");
     } finally {
       inFlight.current = false;
     }
@@ -209,6 +235,9 @@ export default function SemanticCorrection({
           fingerprint,
           expires_at,
           confirmation: true,
+          ...(preview.materialization
+            ? { materialization: preview.materialization }
+            : {}),
         },
       });
       if (!r.ok) {
@@ -223,6 +252,7 @@ export default function SemanticCorrection({
           : "Cambio confirmado. No se pudo verificar el estado actual; recarga la actividad.",
       );
       setPreview(null);
+      setState(r.data.state || null);
       setEditor(false);
       try {
         await onApplied?.(r.data);
@@ -237,7 +267,7 @@ export default function SemanticCorrection({
   if (!opened)
     return (
       <button className="semanticEntry" onClick={() => openEditor(sessionId)}>
-        Completar / corregir entrenamiento
+        Completar datos
       </button>
     );
   if (initialReceipt)
@@ -268,6 +298,10 @@ export default function SemanticCorrection({
           : "Completar / corregir entrenamiento"}
       </h3>
       <p role="status">{message}</p>
+      {status === "applied" &&
+        state?.exercises.map((e) => (
+          <SemanticExercise key={e.id} exercise={e} />
+        ))}
       {status === "needs_clarification" && interpretation && (
         <div className="semanticChoices">
           {interpretation.sessions.length > 1 &&
@@ -319,9 +353,18 @@ export default function SemanticCorrection({
               }}
             >
               <option value="">Elige ejercicio</option>
-              {state.exercises.map((e) => (
+              {[
+                ...normalizationQueue(state.exercises),
+                ...state.exercises.filter(
+                  (e) =>
+                    !normalizationQueue(state.exercises).some(
+                      (q) => q.id === e.id,
+                    ),
+                ),
+              ].map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.reported_name}
+                  {e.canonical_name || e.reported_name}
+                  {e.quality ? ` · ${qualityLabels[e.quality]}` : ""}
                 </option>
               ))}
               <option value="new">Añadir ejercicio</option>
@@ -343,9 +386,11 @@ export default function SemanticCorrection({
                 />
               </label>
               <datalist id="semantic-catalog">
-                {exerciseCatalog.map((e) => (
-                  <option key={e.id} value={e.display_name_es} />
-                ))}
+                {catalog
+                  .filter((e) => e.is_active)
+                  .map((e) => (
+                    <option key={e.id} value={e.name} />
+                  ))}
               </datalist>
               <div className="semanticFields">
                 <label>
