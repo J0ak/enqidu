@@ -630,6 +630,15 @@ test("103 golden 390: three observations → one preview → same session → co
     ).toBeVisible();
     await expect(page.locator("body")).toContainText("Peso muerto rumano");
     await expect(page.locator("body")).toContainText("Registrado como: rdl");
+    const completedBlock = page.locator(".conversationBlockCard")
+      .filter({ hasText: "Registro confirmado" });
+    await completedBlock.locator("summary").click();
+    const rdlDetails = completedBlock.locator(".conversationExerciseList li")
+      .filter({ hasText: "Peso muerto rumano" });
+    await expect(rdlDetails.getByText("Peso muerto rumano", { exact: true })).toBeVisible();
+    await expect(rdlDetails.getByText(/45 kg/)).toBeVisible();
+    await expect(rdlDetails.getByText(/8 reps x 3/)).toBeVisible();
+    await expect(completedBlock.getByText(/Omitido/)).toBeVisible();
     await noOverflow(page);
     await page.screenshot({
       path: "test-results/103-activity-390.png",

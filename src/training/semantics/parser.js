@@ -3,9 +3,24 @@ import { normalizeExactName } from "./domain.js";
 export function isSemanticCorrectionIntent(text) {
   if (typeof text !== "string") return false;
   const normalized = normalizeExactName(text);
-  if (/^(?:\d+(?:x\d+|[,.]\d+)?(?:\s|,)|por lado$)/.test(normalized))
+  if (normalized === "por lado") return true;
+  // A number after arbitrary words is not enough: planning commands also contain
+  // numbers ("Hazlo de 30 minutos"). Require a complete supported metric clause.
+  const first = normalizeExactName(
+    text.trim().split(/\s*(?:;|\n|\.(?=\s|$))\s*/)[0],
+  );
+  const metric = first
+    .replace(/^(?:en (?:el |la )?)?[a-z][a-z_ \-]*? (?=\d)/, "")
+    .replace(/[, ]+pausa de \d{1,3} segundos$/, "")
+    .replace(/ por lado$/, "");
+  if (
+    /^\d/.test(metric) &&
+    (parseSemanticSpanish(`hice ${metric}`) ||
+      /^\d+(?:,\s*\d+)*(?: y \d+)? (?:reps|repeticiones)$/.test(metric) ||
+      /^\d+(?:,\s*\d+)+(?: y \d+)?$/.test(metric))
+  )
     return true;
-  return /^(?:hoy en |ayer en |(?:[a-záéíóúñ][a-záéíóúñ \-]*?) \d+(?:[,.x ]|$)|(?:la )?ultima serie |en .+? (?:hice|fueron|eran) |hice |fueron |eran |eso (?:era |no era )|no hice |la ultima |fue por lado|pausa de |anade que )/.test(
+  return /^(?:hoy en |ayer en |(?:la )?ultima serie |en .+? (?:hice|fueron|eran) |hice |fueron |eran |eso (?:era |no era )|no hice |la ultima |fue por lado|pausa de |anade que )/.test(
     normalized,
   );
 }

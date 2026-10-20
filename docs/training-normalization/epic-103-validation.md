@@ -4,9 +4,14 @@ Entorno de validación: Node 22, PostgreSQL/PGlite y Supabase local desechable.
 Las únicas consultas a producción fueron SELECT para el contrato y el corpus.
 No se aplicó la migración en producción, no se realizó backfill y no se llamó a OpenAI.
 
-Estado al abrir el borrador: Coach evals 28/28 y build correctos. La suite
-completa, PostgreSQL local y navegador están en curso; no se consideran
-completados hasta revisar sus resultados.
+Los resultados definitivos, ligados al commit validado, se publican en los
+[checks del PR #103](https://github.com/J0ak/enqidu/pull/103/checks).
+Los contadores de tests y cualquier limitación se recogen en la entrega del PR.
+Una ejecución interrumpida o una preparación local incompleta no cuenta como éxito.
+
+Las capturas de [Progress](evidence/progress-390.png) y
+[preview multi-ejercicio](evidence/materialization-preview-390.png) proceden del
+golden y la prueba visual de CI del 20 de octubre, inspeccionados a 390 px.
 
 ## Matriz de aceptación
 
@@ -19,6 +24,7 @@ completados hasta revisar sus resultados.
 | PostgreSQL | `tests/semantic-corrections-postgres.test.mjs`: writer #102, catálogo DB/seed, paridad JS/SQL, rollback/stale/retry, ownership, FIT intacto y provenance |
 | Progress / Weekly | Continuidad ES/EN sin escrituras históricas; carga/reps estructuradas; variantes separadas; omisiones y Unknown excluidos de marcas |
 | Navegador 390 px | `e2e/semantic-corrections.spec.js`: golden de tres observaciones, confirmación, consumidores y reload; `e2e/progress.spec.js`: métricas vacías ocultas, explicación y Completar datos |
+| Routing Coach | Eval de regresión: «Hazlo de 30 minutos» y «Déjalo en 30 minutos» conservan el preview de planificación; las métricas de ejercicios usan materialización |
 
 ## Comandos reproducibles
 
