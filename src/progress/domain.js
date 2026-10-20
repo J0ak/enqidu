@@ -1,15 +1,13 @@
 import { progressInsights } from "./insights.js";
 import { comparePlannedVsExecuted } from "../closedLoop/plannedVsExecuted.js";
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
+import {
+  normalizeExactName as normalizeName,
+  isUnknownName as isUnknownExerciseName,
+} from "../training/catalogResolver.js";
+export { normalizeName, isUnknownExerciseName };
 export const numeric = (value) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
-export const normalizeName = (value) =>
-  String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
 const units = new Set([
   "kg",
   "lb",
@@ -44,10 +42,6 @@ export function observedReps(value) {
     ? value
     : null;
 }
-export const isUnknownExerciseName = (name) =>
-  /^(unknown|desconocido|sin identificar|ejercicio desconocido)(?: \d+)?$/.test(
-    name,
-  );
 export function exerciseIdentity(e) {
   if (["skipped", "planned"].includes(e.execution_type)) return null;
   const name = normalizeName(e.reported_name);
