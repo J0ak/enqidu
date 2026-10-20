@@ -150,7 +150,15 @@ export function compileMaterialization(input, state, catalog, exerciseTarget) {
       tempo_or_pause: "set_tempo",
     }))
       if (x[field] !== undefined) add(op, { value: x[field] });
-    if (x.performed !== undefined) add("set_omitted", { value: !x.performed });
+    if (
+      x.performed === false ||
+      (x.performed === true &&
+        (!e?.execution_type || ["skipped", "planned"].includes(e.execution_type)))
+    ) {
+      // "Hice" confirms participation, not a different execution variant.
+      // Preserve an existing performed/scaled/eccentric variant unless omitted.
+      add("set_omitted", { value: !x.performed });
+    }
     if (o.notes && !e?.notes?.split("\n").includes(o.notes))
       add("append_note", { value: o.notes });
     if (o.technical_note !== undefined)

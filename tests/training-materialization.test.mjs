@@ -223,6 +223,19 @@ test("materialization unknown requires explicit editor selection; closed runtime
   f.observations[0].execution.sql = "delete";
   assert.equal(matchesSchema(f, MATERIALIZATION_SCHEMA), false);
 });
+
+test("materialization participation preserves an unspecified execution variant", () => {
+  const variant = { ...state, exercises: [row("RDL", { execution_type: "eccentric_only" })] };
+  const result = compileMaterialization(parseMaterialization("En RDL hice 3x9 con 45 kg"), variant, catalog);
+  const after = patchExercises(variant.exercises, result.operations)[0];
+  assert.equal(after.execution_type, "eccentric_only");
+  assert.deepEqual(after.reps_per_set, [9, 9, 9]);
+  const omitted = compileMaterialization(parseMaterialization("No hice RDL"), variant, catalog);
+  assert.equal(patchExercises(variant.exercises, omitted.operations)[0].execution_type, "skipped");
+  const resumed = compileMaterialization(parseMaterialization("En RDL hice 3x8"),
+    { ...state, exercises: [row("RDL", { execution_type: "skipped" })] }, catalog);
+  assert.equal(patchExercises([{ ...variant.exercises[0], execution_type: "skipped" }], resumed.operations)[0].execution_type, "performed");
+});
 test("quality queue prioritizes identity; structured data reflected after exact read-time normalization", () => {
   const adapt = withCatalogIdentity(catalog);
   assert.equal(
