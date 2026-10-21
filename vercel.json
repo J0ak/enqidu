@@ -12,7 +12,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "feat/101-progress-performance-v1": false
+      "feat/101-progress-performance-v1": false,
+      "codex/103-semantic-materialization": false
     }
   }
 }

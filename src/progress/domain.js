@@ -1,15 +1,31 @@
 import { progressInsights } from "./insights.js";
 import { comparePlannedVsExecuted } from "../closedLoop/plannedVsExecuted.js";
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
+import {
+  normalizeExactName as normalizeName,
+  isUnknownName as isUnknownExerciseName,
+} from "../training/catalogResolver.js";
+export { normalizeName, isUnknownExerciseName };
+// V1 product classification, not catalog resolution or identity grouping.
+const skillExerciseCodes = new Set([
+  "handstand_push_up",
+  "pike_push_up",
+  "elevated_feet_pike_push_up",
+  "elevated_pike_push_up_unspecified",
+  "high_pull_up",
+  "strict_pull_up",
+]);
+export function isSkillExercise(exercise) {
+  if (exercise.canonical_exercise_code != null)
+    return skillExerciseCodes.has(exercise.canonical_exercise_code);
+  // Preserve the bounded legacy classification only for unresolved history.
+  // This never resolves a name, assigns a catalog code, or merges identities.
+  return /\b(hspu|pike|muscle[ -]?up|high pull|pistol|dominadas? estrictas?|strict pull[ -]?ups?)\b/.test(
+    normalizeName(exercise.reported_name),
+  );
+}
 export const numeric = (value) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
-export const normalizeName = (value) =>
-  String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
 const units = new Set([
   "kg",
   "lb",
@@ -44,10 +60,6 @@ export function observedReps(value) {
     ? value
     : null;
 }
-export const isUnknownExerciseName = (name) =>
-  /^(unknown|desconocido|sin identificar|ejercicio desconocido)(?: \d+)?$/.test(
-    name,
-  );
 export function exerciseIdentity(e) {
   if (["skipped", "planned"].includes(e.execution_type)) return null;
   const name = normalizeName(e.reported_name);
@@ -339,7 +351,8 @@ export function buildProgress({
       );
       return {
         key,
-        name: rows[0].reported_name,
+        name: rows[0].canonical_name || rows[0].reported_name,
+        metric_requirements: rows[0].metric_requirements || null,
         unit: rows[0].load_unit || null,
         variant: [rows[0].execution_type, rows[0].side, rows[0].tempo_or_pause]
           .filter(Boolean)
@@ -356,10 +369,7 @@ export function buildProgress({
         observations: points.length,
         trend: direction,
         last_practice: points.at(-1).date,
-        skill:
-          /\b(hspu|pike|muscle[ -]?up|high pull|pistol|dominadas? estrictas?|strict pull[ -]?ups?)\b/.test(
-            normalizeName(rows[0].reported_name),
-          ),
+        skill: isSkillExercise(rows[0]),
         notes: [...new Set(rows.map((e) => e.notes).filter(Boolean))].slice(-3),
         points,
       };

@@ -30,6 +30,9 @@ function adapter(user, { failReadback = false } = {}) {
           filters.push(`${k}=$${params.push(v)}`);
           return q;
         },
+        order() {
+          return q;
+        },
         limit(v) {
           limit = v;
           return q;
@@ -37,7 +40,7 @@ function adapter(user, { failReadback = false } = {}) {
         then(resolve, reject) {
           return sql
             .query(
-              `select ${columns} from ${table} where ${filters.join(" and ")} limit ${limit}`,
+              `select ${columns} from ${table} ${filters.length ? "where " + filters.join(" and ") : ""} limit ${limit}`,
               params,
             )
             .then(
@@ -66,7 +69,7 @@ function adapter(user, { failReadback = false } = {}) {
         assert.equal(name, "apply_training_semantics_v1");
         const c = args;
         const r = await sql.query(
-          "select apply_training_semantics_v1($1,$2,$3,$4,$5,$6,$7) r",
+          "select apply_training_semantics_v1($1,$2,$3,$4,$5,$6,$7,$8) r",
           [
             c.p_user_id,
             c.p_session_id,
@@ -75,6 +78,7 @@ function adapter(user, { failReadback = false } = {}) {
             c.p_expires_at,
             JSON.stringify(c.p_operations),
             c.p_channel,
+            c.p_materialization ? JSON.stringify(c.p_materialization) : null,
           ],
         );
         applied = true;
@@ -102,11 +106,14 @@ const accept = (p) => ({
   fingerprint: p.fingerprint,
   expires_at: p.expires_at,
   confirmation: true,
+  ...(p.materialization ? { materialization: p.materialization } : {}),
 });
 test("SEMANTIC TOOLS signed preview, confirmation, tamper, stale, readback and retry", async () => {
   const f = await semanticFixture(sql),
     rt = await runtime(f);
-  const current = await rt.execute("get_training_semantics_v1", { session_id: f.session });
+  const current = await rt.execute("get_training_semantics_v1", {
+    session_id: f.session,
+  });
   assert.equal(current.ok, true);
   assert.equal(current.data.llm_used, false);
   assert.equal(current.data.usage, null);
@@ -271,4 +278,104 @@ test("SEMANTIC MCP real SDK previews are read-only and cannot authorize App writ
   } finally {
     await connection.close();
   }
+});
+
+test("103 runtime golden: text → facts → signed #102 → canonical data → provenance → retry", async () => {
+  const f = await semanticFixture(sql),
+    rt = await runtime(f);
+  const text =
+    "Hoy en press banca hice 40 kg, 10, 10 y 9. En RDL hice 3x8 con 45 kg. No hice dead bug.";
+  const before = (
+    await sql.query(
+      "select to_jsonb(s) s from training_sessions s where id=$1",
+      [f.session],
+    )
+  ).rows[0].s;
+  const source = (
+    await sql.query("select original_json from training_sources where id=$1", [
+      f.source,
+    ])
+  ).rows[0];
+  const p = await rt.execute("interpret_training_correction_v1", {
+    text,
+    session_id: f.session,
+  });
+  assert.equal(p.ok, true, JSON.stringify(p));
+  assert.equal(p.data.status, "preview_ready");
+  assert.equal(p.data.materialization.observations.length, 3);
+  assert.equal(
+    (
+      await sql.query(
+        "select count(*)::int n from session_exercises where session_id=$1",
+        [f.session],
+      )
+    ).rows[0].n,
+    1,
+  );
+  const request = accept(p.data.preview);
+  const forged = structuredClone(request);
+  forged.materialization.original_text = "Texto falsificado";
+  assert.equal(
+    (await rt.execute("apply_training_semantics_v1", forged)).error.code,
+    "preview_stale",
+  );
+  const receipt = await rt.execute("apply_training_semantics_v1", request);
+  assert.equal(receipt.ok, true, JSON.stringify(receipt));
+  assert.equal(receipt.data.persistence_verified, true);
+  assert.equal(receipt.data.state.exercises.length, 3);
+  assert.ok(receipt.data.state.exercises.every((e) => e.exercise_id));
+  assert.deepEqual(
+    receipt.data.state.exercises.find((e) => e.id === f.exercise).reps_per_set,
+    [10, 10, 9],
+  );
+  const event = (
+    await sql.query(
+      "select payload from enkidu_conversation_enrichments where id=$1",
+      [receipt.data.event_id],
+    )
+  ).rows[0].payload;
+  assert.equal(event.materialization.original_text, text);
+  assert.deepEqual(event.materialization.facts, p.data.materialization);
+  assert.deepEqual(event.operations, request.operations);
+  assert.equal(event.actor_id, f.user);
+  assert.equal(event.channel, "coach");
+  assert.ok(event.timestamp);
+  assert.equal(event.before.exercises.length, 1);
+  assert.equal(event.after.exercises.length, 3);
+  assert.equal(event.receipt.session_id, f.session);
+  assert.deepEqual(
+    (
+      await sql.query(
+        "select to_jsonb(s) s from training_sessions s where id=$1",
+        [f.session],
+      )
+    ).rows[0].s,
+    before,
+  );
+  assert.deepEqual(
+    (
+      await sql.query(
+        "select original_json from training_sources where id=$1",
+        [f.source],
+      )
+    ).rows[0],
+    source,
+  );
+  const retry = await rt.execute("apply_training_semantics_v1", request);
+  assert.equal(retry.data.replayed, true);
+  const noChange = await rt.execute("interpret_training_correction_v1", {
+    text,
+    session_id: f.session,
+  });
+  assert.equal(noChange.data.status, "already_materialized");
+  assert.equal(noChange.data.preview, null);
+  const other = await createEnqiduToolRuntime({
+    db: adapter(f.other),
+    adminDb: adapter(f.other),
+    semanticSigningKey: key,
+  });
+  assert.equal(
+    (await other.execute("apply_training_semantics_v1", request)).error.code,
+    "preview_stale",
+  );
 });

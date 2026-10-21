@@ -1,3 +1,4 @@
+import { loadExerciseCatalog, withCatalogIdentity } from "./training/catalogResolver.js";
 import SemanticCorrection from "./training/semantics/SemanticCorrection.jsx";
 import { isSemanticCorrectionIntent } from "./training/semantics/parser.js";
 import { useCoachMessages } from "./coachContext/useCoachMessages.js";
@@ -523,6 +524,7 @@ function App() {
       zoneProfileResult,
       canonicalResult,
       semanticContext,
+      semanticCatalog,
     ] = await Promise.all([
       supabase
         .from("session_metrics")
@@ -556,12 +558,13 @@ function App() {
         .maybeSingle(),
       supabase
         .from("session_exercises")
-        .select("id, execution_type, block_id, reported_name, exercise_order, sets_completed, rounds_completed, reps_per_set, duration_seconds, load_value, load_unit, tempo_or_pause, side, notes, equipment_snapshot, data_confidence")
+        .select("id, exercise_id, execution_type, block_id, reported_name, exercise_order, sets_completed, rounds_completed, reps_per_set, duration_seconds, load_value, load_unit, tempo_or_pause, side, notes, equipment_snapshot, data_confidence")
         .eq("session_id", latestSession.id)
         .order("exercise_order", { ascending: true }),
       fetchHeartRateZoneProfile(detailUserId),
       fetchCanonicalTrainingSession(latestSession),
       fetchSessionSemanticContext(supabase, latestSession.id, detailUserId),
+      loadExerciseCatalog(supabase),
     ]);
 
     if (lapsResult.data) lapsResult.data = lapsResult.data.map(row => readLap(row, latestSession.started_at));
@@ -578,7 +581,7 @@ function App() {
     const relationalGarminSeries = garminSetsResult.error ? [] : garminSetsResult.data || [];
     const garminSeriesSource = relationalGarminSeries.length ? relationalGarminSeries : summary.garmin_series || summary.sets || [];
     const garminSeries = mapGarminSeries(dedupeGarminSeriesRows(garminSeriesSource));
-    const blocks = mapExerciseBlocks(blocksResult.data || [], exercisesResult.data || []);
+    const blocks = mapExerciseBlocks(blocksResult.data || [], (exercisesResult.data || []).map(withCatalogIdentity(semanticCatalog)));
     const enrichmentBlocks = !blocks.length ? mapEnrichmentBlocks(enrichmentResult.data?.payload?.blocks || []) : [];
     const renderBlocks = blocks.length ? blocks : enrichmentBlocks;
     const conversationStats = buildConversationSessionStats(renderBlocks);
@@ -7556,7 +7559,7 @@ function buildConversationExerciseDetails(block, rows = []) {
     : prescribed.map((item) => ({ item, row: {} }));
 
   return sources.map(({ item, row = {} }) => {
-    const name = item.name || row.reported_name || "Ejercicio";
+    const name = item.name || row.canonical_name || row.reported_name || "Ejercicio";
     const fallback = row.id ? null : plannedExerciseFallback(name);
     const sets = optionalNumber(item.sets_completed ?? row.sets_completed ?? fallback?.sets);
     const work = resolveExerciseWork(item, row, fallback, sets);
@@ -7578,7 +7581,7 @@ function buildConversationExerciseDetails(block, rows = []) {
     return {
       name,
       detailText: row.execution_type === "skipped" ? `Omitido · ${detailText}` : detailText,
-      notes: normalizeNotes(item.notes ?? row.notes),
+      notes: normalizeNotes([item.notes ?? row.notes, row.canonical_name && row.canonical_name !== row.reported_name ? `Registrado como: ${row.reported_name}` : null].filter(Boolean).join(" · ")),
       stats: {
         sets: sets || 0,
         reps: work.reps || 0,

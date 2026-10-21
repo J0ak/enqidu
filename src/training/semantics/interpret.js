@@ -1,10 +1,7 @@
-import { parseSemanticSpanish } from "./parser.js";
-import {
-  readSemanticState,
-  previewSemanticCorrection,
-  normalizeExactName,
-  resolveExactExercise,
-} from "./domain.js";
+import { parseMaterialization } from "../materialization/parser.js";
+import { compileMaterialization } from "../materialization/compile.js";
+import { loadExerciseCatalog } from "../catalogResolver.js";
+import { readSemanticState, previewSemanticCorrection } from "./domain.js";
 import { shiftHealthCalendarDate } from "../../health/healthEvidence.js";
 import { isValidCalendarDate } from "../../time/userCalendar.js";
 import { toolError } from "../../enqiduTools/errors.js";
@@ -16,7 +13,8 @@ export async function interpretSemanticCorrection({
   now,
   signingKey,
 }) {
-  const parsed = parseSemanticSpanish(args.text);
+  const facts = parseMaterialization(args.text);
+  const parsed = { date_reference: facts.session_resolution.date_reference };
   const result = {
     status: "needs_clarification",
     message:
@@ -64,54 +62,57 @@ export async function interpretSemanticCorrection({
     id: e.id,
     reported_name: e.reported_name,
   }));
-  if (!parsed) return result;
-  let target = args.exercise_target;
-  if (target && !state.exercises.some((e) => e.id === target))
-    throw toolError("invalid_arguments");
-  if (!target && parsed.exercise_name) {
-    const canonical = resolveExactExercise(parsed.exercise_name);
-    const matches = state.exercises.filter(
-      (e) =>
-        normalizeExactName(e.reported_name) ===
-          normalizeExactName(parsed.exercise_name) ||
-        (canonical &&
-          resolveExactExercise(e.reported_name)?.id === canonical.id),
-    );
-    if (matches.length === 1) target = matches[0].id;
-    else if (matches.length > 1) {
-      result.message =
-        "Ese ejercicio aparece varias veces. Elige cuál quieres corregir.";
-      return result;
-    }
+  if (facts.unresolved_facts.length)
+    return { ...result, materialization: facts };
+  const catalog = await loadExerciseCatalog(db);
+  const compiled = compileMaterialization(
+    facts,
+    state,
+    catalog,
+    args.exercise_target,
+  );
+  result.materialization = compiled.facts;
+  result.status = compiled.status;
+  if (compiled.status === "needs_clarification") {
+    result.message =
+      compiled.facts.unresolved_facts[0]?.reason || result.message;
+    return result;
   }
-  const operations = [];
-  if (!target) {
-    if (
-      !parsed.exercise_name ||
-      parsed.changes.some((c) =>
-        ["rename_exercise", "set_omitted", "set_last_reps"].includes(c.op),
-      )
-    ) {
-      result.message = "Elige el ejercicio al que se refiere el cambio.";
-      return result;
-    }
-    target = crypto.randomUUID();
-    operations.push({
-      op: "add_exercise",
-      target,
-      reported_name: parsed.exercise_name,
-    });
+  if (compiled.status === "already_materialized") {
+    result.message =
+      "Estos datos ya están registrados. No hay cambios que aplicar.";
+    return result;
   }
-  operations.push(...parsed.changes.map((c) => ({ ...c, target })));
+  const materialization = {
+    original_text: args.text,
+    facts: compiled.facts,
+    generated_at: new Date(now).toISOString(),
+  };
+  const boundedApply = {
+    session_id: sessionId,
+    operations: compiled.operations,
+    materialization,
+    channel: "coach",
+    revision: "a".repeat(64),
+    fingerprint: "sha256:" + "a".repeat(64),
+    expires_at: new Date(now).toISOString(),
+    confirmation: true,
+  };
+  if (new TextEncoder().encode(JSON.stringify(boundedApply)).length > 8192) {
+    result.status = "needs_clarification";
+    result.message =
+      "Son demasiados datos para un único cambio. Usa el editor o divide el texto.";
+    return result;
+  }
   result.preview = await previewSemanticCorrection({
     db,
     userId,
-    args: { session_id: sessionId, operations },
+    args: { session_id: sessionId, operations: compiled.operations },
+    materialization,
     now,
     signingKey,
     channel: "coach",
   });
-  result.status = "preview_ready";
   result.message = "He entendido estos cambios. Revísalos antes de confirmar.";
   return result;
 }

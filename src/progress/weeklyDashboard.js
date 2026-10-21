@@ -122,7 +122,11 @@ export function buildWeeklyDashboard({
             links.length === 1
               ? plans.find((plan) => plan.id === links[0].id)
               : null;
-          const observed = exercises.filter((e) => e.session_id === s.id && !["skipped", "planned"].includes(e.execution_type));
+          const observed = exercises.filter(
+            (e) =>
+              e.session_id === s.id &&
+              !["skipped", "planned"].includes(e.execution_type),
+          );
           const identified = observed
             .filter(exerciseIdentity)
             .sort(
@@ -155,10 +159,11 @@ export function buildWeeklyDashboard({
                 reps = observedReps(e.reps_per_set);
               return {
                 id: e.id,
-                name: (e.reported_name || "Ejercicio identificado").slice(
-                  0,
-                  2048,
-                ),
+                name: (
+                  e.canonical_name ||
+                  e.reported_name ||
+                  "Ejercicio identificado"
+                ).slice(0, 2048),
                 variant: [e.execution_type, e.side, e.tempo_or_pause]
                   .filter(Boolean)
                   .join(" · "),

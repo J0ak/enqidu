@@ -3,6 +3,24 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { coachHealthFixture } from "./fixtures/coach-health-v1.mjs";
 import { detectCoachIntents } from "../src/coachContext/coachCards.js";
+import { isSemanticCorrectionIntent } from "../src/training/semantics/parser.js";
+import { isSkillExercise } from "../src/progress/domain.js";
+
+test("EVAL: canonical exercise identity determines Skills regardless of reported wording", () => {
+  for (const reported_name of ["HSPU", "handstand push-up", "Press banca"]) {
+    assert.equal(isSkillExercise({ canonical_exercise_code: "handstand_push_up", reported_name }), true);
+    assert.equal(isSkillExercise({ canonical_exercise_code: "bench_press", reported_name }), false);
+  }
+});
+
+test("materialization routing preserves Coach planning duration commands", () => {
+  for (const text of ["Hazlo de 30 minutos", "Déjalo en 30 minutos", "Tengo 30 minutos", "30 minutos"]) {
+    assert.equal(isSemanticCorrectionIntent(text), false, text);
+  }
+  for (const text of ["RDL 3x8 con 45 kg", "Dominadas 8, 8 y 7; pike push-up 3x5.", "Dominadas 8, 8 y 7\nPike push-up 3x5", "17,5 kg por mancuerna"]) {
+    assert.equal(isSemanticCorrectionIntent(text), true, text);
+  }
+});
 
 import { buildDeterministicCoachReply } from "../src/coachContext/coachDeterministicReply.js";
 import { buildTrainingTrendRanges } from "../src/coachContext/trainingTrend.js";

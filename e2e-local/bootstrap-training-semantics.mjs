@@ -16,6 +16,13 @@ create unique index if not exists local_semantic_event_identity on public.enkidu
     ),
     "utf8",
   ) +
+  readFileSync(
+    new URL(
+      "../supabase/migrations/20261019190737_semantic_materialization_v1.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  ) +
   "\nnotify pgrst,'reload schema';";
 const env = { ...process.env };
 for (const key of [

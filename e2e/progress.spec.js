@@ -53,6 +53,28 @@ test("Progress: 390px states, cards, sections and no overflow", async ({
   });
   await page.getByRole("button", { name: "Fuerza", exact: true }).click();
   await expect(page.getByText("Press banca DB", { exact: true })).toBeVisible();
+  const missing = page
+    .locator(".progressExercise")
+    .filter({
+      has: page.getByRole("heading", { name: "Dominada alta", exact: true }),
+    });
+  await expect(missing).toContainText(
+    "Aún no tenemos repeticiones estructuradas suficientes",
+  );
+  await expect(missing.locator(".progressMetric")).toHaveCount(0);
+  await expect(missing).not.toContainText("Sin dato");
+  await expect(
+    missing.locator("summary").filter({ hasText: /^Completar datos$/ }),
+  ).toBeVisible();
+  const repsOnly = page
+    .locator(".progressExercise")
+    .filter({
+      has: page.getByRole("heading", { name: "Hip thrust", exact: true }),
+    });
+  await expect(repsOnly).toContainText(
+    "Tenemos repeticiones, pero no carga registrada.",
+  );
+  await expect(repsOnly).not.toContainText("Sin dato");
   await page.screenshot({
     path: "test-results/progress-390-strength.png",
     fullPage: true,

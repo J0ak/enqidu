@@ -1,4 +1,8 @@
 import {
+  MATERIALIZATION_SCHEMA,
+  MATERIALIZATION_EVIDENCE_SCHEMA,
+} from "../materialization/contract.js";
+import {
   objectSchema as object,
   textSchema as text,
   nullable,
@@ -58,14 +62,26 @@ export const fingerprintSchema = {
   maxLength: 71,
 };
 const timestamp = { type: "string", format: "date-time", maxLength: 40 };
-export const APPLY_SCHEMA = object({
-  ...COMMAND_SCHEMA.properties,
-  channel: { enum: ["app", "coach"] },
-  revision: revisionSchema,
-  fingerprint: fingerprintSchema,
-  expires_at: timestamp,
-  confirmation: { const: true },
-});
+export const APPLY_SCHEMA = object(
+  {
+    ...COMMAND_SCHEMA.properties,
+    materialization: MATERIALIZATION_EVIDENCE_SCHEMA,
+    channel: { enum: ["app", "coach"] },
+    revision: revisionSchema,
+    fingerprint: fingerprintSchema,
+    expires_at: timestamp,
+    confirmation: { const: true },
+  },
+  [
+    "session_id",
+    "operations",
+    "channel",
+    "revision",
+    "fingerprint",
+    "expires_at",
+    "confirmation",
+  ],
+);
 export const EXERCISE_SCHEMA = object({
   id,
   block_id: nullable(id),
@@ -93,7 +109,7 @@ export const STATE_SCHEMA = object({
   llm_used: { const: false },
   usage: { type: "null" },
 });
-export const PREVIEW_SCHEMA = object({
+const previewProperties = {
   schema_version: { const: VERSION },
   session_id: id,
   title: text(2000),
@@ -109,7 +125,12 @@ export const PREVIEW_SCHEMA = object({
   warnings: list(text(), 10),
   llm_used: { const: false },
   usage: { type: "null" },
-});
+  materialization: MATERIALIZATION_EVIDENCE_SCHEMA,
+};
+export const PREVIEW_SCHEMA = object(
+  previewProperties,
+  Object.keys(previewProperties).filter((k) => k !== "materialization"),
+);
 export const RECEIPT_SCHEMA = object(
   {
     schema_version: { const: VERSION },
@@ -139,11 +160,17 @@ export const RECEIPT_SCHEMA = object(
 );
 
 export const INTERPRET_SCHEMA = object(
-  { text: { ...text(600), minLength: 1 }, session_id: id, exercise_target: id },
+  {
+    text: { ...text(2000), minLength: 1 },
+    session_id: id,
+    exercise_target: id,
+  },
   ["text"],
 );
-export const INTERPRET_RESULT_SCHEMA = object({
-  status: { enum: ["needs_clarification", "preview_ready"] },
+const interpretationProperties = {
+  status: {
+    enum: ["needs_clarification", "preview_ready", "already_materialized"],
+  },
   message: text(),
   sessions: list(
     object({ id, title: text(2000), local_date: nullable(date) }),
@@ -153,4 +180,9 @@ export const INTERPRET_RESULT_SCHEMA = object({
   preview: nullable(PREVIEW_SCHEMA),
   llm_used: { const: false },
   usage: { type: "null" },
-});
+  materialization: MATERIALIZATION_SCHEMA,
+};
+export const INTERPRET_RESULT_SCHEMA = object(
+  interpretationProperties,
+  Object.keys(interpretationProperties).filter((k) => k !== "materialization"),
+);
