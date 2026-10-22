@@ -244,6 +244,7 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
     await page.getByPlaceholder("email").fill(b.email);
     await page.getByPlaceholder("password").fill(TOOLS_PASSWORD);
     await page.getByRole("button", { name: "Conectar", exact: true }).click();
+    await expect(page.getByText("Sesión iniciada.", { exact: true })).toBeVisible();
     await page.locator('button.railButton[aria-label="Coach"]').click();
     await expect(dashboard).toHaveCount(0);
     await expect(page.getByText("LEGACY_UNOWNED_PRIVATE_HISTORY")).toHaveCount(
@@ -259,6 +260,7 @@ test("390px: shared real activity in Home, inline weekly Coach report, persisten
     await page.getByPlaceholder("email").fill(a.email);
     await page.getByPlaceholder("password").fill(TOOLS_PASSWORD);
     await page.getByRole("button", { name: "Conectar", exact: true }).click();
+    await expect(page.getByText("Sesión iniciada.", { exact: true })).toBeVisible();
     await page.locator('button.railButton[aria-label="Coach"]').click();
     await expect(dashboard).toBeVisible();
   } finally {

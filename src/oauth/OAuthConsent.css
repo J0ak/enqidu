@@ -1,0 +1,81 @@
+.oauth-consent {
+  min-height: 100dvh;
+  padding: 24px 16px;
+  background: #f5f6f1;
+  color: #172b25;
+  display: grid;
+  place-items: center;
+  font-family: system-ui, sans-serif;
+  box-sizing: border-box;
+}
+.oauth-consent * {
+  box-sizing: border-box;
+}
+.oauth-consent section {
+  width: 100%;
+  max-width: 520px;
+  min-width: 0;
+  background: white;
+  border: 1px solid #dce3dc;
+  border-radius: 20px;
+  padding: clamp(20px, 5vw, 36px);
+}
+.oauth-consent h1 {
+  font-size: 28px;
+  margin: 12px 0 24px;
+}
+.oauth-consent p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.oauth-brand {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.oauth-consent label {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+.oauth-consent input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #84998b;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+}
+.oauth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 28px;
+}
+.oauth-consent button {
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid #183e2b;
+  border-radius: 10px;
+  background: #183e2b;
+  color: white;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.oauth-consent .oauth-deny {
+  color: #183e2b;
+  background: white;
+}
+.oauth-consent button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.oauth-destination {
+  font-size: 13px;
+  color: #516358;
+}
+.oauth-consent :focus-visible {
+  outline: 3px solid #bf7d22;
+  outline-offset: 3px;
+}

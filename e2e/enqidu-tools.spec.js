@@ -25,7 +25,13 @@ test("local Auth → canonical Health/baseline → Closed Loop → preview → e
     const before = await fixture.snapshot();
     const toolList = await mcp.client.listTools();
     expect(toolList.tools.map((tool) => tool.name).sort()).toEqual(listEnqiduTools({ includeWrites: false }).map((tool) => tool.id).sort());
-    const argsFor = (tool) => ["get_training_semantics_v1", "get_training_session", "get_closed_loop_assessment", "get_adaptation_proposal"].includes(tool) ? { session_id: identities.execution.id } : {};
+    const argsFor = (tool) => {
+      if (["get_training_semantics_v1", "get_training_session", "get_training_session_detail_v2", "get_closed_loop_assessment", "get_adaptation_proposal"].includes(tool)) return { session_id: identities.execution.id };
+      if (tool === "resolve_exercise_reference_v1") return { query: "RDL" };
+      if (tool === "get_exercise_progress_v1") return { canonical_code: "romanian_deadlift", period: "all" };
+      if (tool === "get_exercise_history_v1") return { canonical_code: "romanian_deadlift", from: date(-7), to: date() };
+      return {};
+    };
     for (const definition of listEnqiduTools().filter((tool) => tool.access === "read")) {
       const args = argsFor(definition.id);
       const appResult = await app.execute(definition.id, args);

@@ -90,6 +90,7 @@ jobs:
           npm run test:transactional-actions
           node scripts/test-reconciliation-postgres.mjs
           node scripts/test-semantics-postgres.mjs
+          node scripts/test-remote-auth-supabase.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Playwright E2E

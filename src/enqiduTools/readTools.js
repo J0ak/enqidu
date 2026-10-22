@@ -1,3 +1,4 @@
+import { createSemanticReadHandlers } from "../semanticRead/domain.js";
 import { loadProgress } from '../progress/loadProgress.js';
 import { buildDailyOperatingBrief } from "../dailyCoach/operatingBrief.js";
 import { projectDailyHistory } from "../dailyCoach/history.js";
@@ -113,6 +114,7 @@ export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() 
     });
   });
   const handlers = {
+    ...createSemanticReadHandlers({ db, userId, calendar }),
     async get_progress_performance_v1(args = {}) { return loadProgress(db, { userId, calendar, ...args }); },
     async get_athlete_context() {
       // This fixed canonical RPC already applies the athlete scope. Do not expose its arbitrary JSON.

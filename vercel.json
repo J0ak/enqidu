@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/mcp*.js": { "maxDuration": 60 }
+  },
   "headers": [
     {
       "source": "/labs/local-language-v0/(.*)",
@@ -13,7 +16,18 @@
   "git": {
     "deploymentEnabled": {
       "feat/101-progress-performance-v1": false,
-      "codex/103-semantic-materialization": false
+      "codex/103-semantic-materialization": false,
+      "codex/104-remote-mcp-semantic-read": false
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/.well-known/oauth-protected-resource/api/mcp",
+      "destination": "/api/mcp-metadata"
+    },
+    {
+      "source": "/oauth/consent",
+      "destination": "/index.html"
+    }
+  ]
 }

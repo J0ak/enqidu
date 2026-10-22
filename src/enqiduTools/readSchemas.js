@@ -1,3 +1,4 @@
+import { SEMANTIC_READ_SCHEMAS } from "../semanticRead/schemas.js";
 import { progressSchema } from '../progress/schema.js';
 // Public output schemas describe the existing canonical contracts, with finite transport bounds.
 // No unrestricted object or provider payload is part of the tool surface.
@@ -105,7 +106,8 @@ export const PLANNED_EXECUTED_SCHEMA = object({ schema_version: literal("planned
 }, ["schema_version", "planned_id", "executed_id", "status", "identity_match", "planned_rest", "duration_delta", "missing_evidence"]);
 assessment.properties.planned_vs_executed = PLANNED_EXECUTED_SCHEMA;
 const previewRequest = BASE_READ_OUTPUT_SCHEMAS.get_morning_coach_brief.properties.review_action;
-export const READ_OUTPUT_SCHEMAS = Object.freeze({ ...BASE_READ_OUTPUT_SCHEMAS,
+export const READ_OUTPUT_SCHEMAS = Object.freeze({
+  ...SEMANTIC_READ_SCHEMAS, ...BASE_READ_OUTPUT_SCHEMAS,
   get_progress_performance_v1: progressSchema,
   get_daily_coach_operating_brief: object({ schema_version: literal("daily_coach_operating_brief_v1"), date, timezone: str,
     response_mode: literal("deterministic"), llm_used: literal(false), usage: literal(null), applied: literal(false),
