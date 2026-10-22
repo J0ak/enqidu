@@ -1,3 +1,4 @@
+import { firstPartyEndpoint } from "../_shared/firstPartyEndpoint.ts";
 import { isSemanticCorrectionIntent } from "../../../src/training/semantics/parser.js";
 import { createDailyCoachRecorder } from "../../../src/dailyCoach/history.js";
 import { isMorningCoachRequest } from "../../../src/health/morningCoachV1.js";
@@ -60,7 +61,7 @@ async function loadTrainingPeriod(db: any, userId: string, from: string, to: str
   return result.data || null;
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(firstPartyEndpoint(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ error: "method_not_allowed" }, 405);
 
@@ -319,4 +320,4 @@ Deno.serve(async (req: Request) => {
     console.error("coach_reply_failed");
     return reply({ error: "coach_reply_failed" }, 500);
   }
-});
+}));

@@ -8,39 +8,6 @@ const invalid = () =>
   );
 const decode = (token) =>
   JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
-function publicKey(key) {
-  if (typeof key !== "string" || key.length > 4096) return false;
-  if (key.startsWith("sb_publishable_")) return true;
-  try {
-    return decode(key).role === "anon";
-  } catch {
-    return false;
-  }
-}
-export function remoteConfiguration(env = process.env) {
-  const resource = new URL(env.ENQIDU_MCP_RESOURCE_URL);
-  const supabase = new URL(env.SUPABASE_URL);
-  for (const url of [resource, supabase]) {
-    if (
-      url.protocol !== "https:" ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    )
-      throw Error("server_configuration_error");
-  }
-  if (resource.pathname !== "/api/mcp" || supabase.pathname !== "/")
-    throw Error("server_configuration_error");
-  const key = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY;
-  if (!publicKey(key)) throw Error("server_configuration_error");
-  return {
-    resource: resource.href,
-    supabaseUrl: supabase.origin,
-    key,
-    issuer: `${supabase.origin}/auth/v1`,
-  };
-}
 /** Claims are policy inputs ONLY AFTER Auth verifies this exact token through getUser. */
 export async function authenticateRemoteToken(
   token,
@@ -86,7 +53,8 @@ export async function authenticateRemoteToken(
     )
       throw invalid();
     return {
-      db,
+      authDb: db,
+      userId: data.user.id,
       authInfo: {
         token,
         clientId: claims.client_id,

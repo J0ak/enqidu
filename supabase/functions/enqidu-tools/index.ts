@@ -1,10 +1,11 @@
+import { firstPartyEndpoint } from "../_shared/firstPartyEndpoint.ts";
 import { createDailyCoachRecorder } from "../../../src/dailyCoach/history.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createEnqiduToolsHttpHandler } from "../../../src/enqiduTools/http.js";
 import { toolError } from "../../../src/enqiduTools/errors.js";
 
-Deno.serve(createEnqiduToolsHttpHandler({
+Deno.serve(firstPartyEndpoint(createEnqiduToolsHttpHandler({
   createClients({ authorization, needsWriter, needsHistory }: { authorization: string; needsWriter: boolean; needsHistory: boolean }) {
     const url = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -20,4 +21,4 @@ Deno.serve(createEnqiduToolsHttpHandler({
     return { db, semanticSigningKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), adminDb: needsWriter ? adminDb : null, recordEvent: adminDb ? createDailyCoachRecorder(adminDb) : null };
   },
   observe(event: Record<string, unknown>) { console.info("enqidu_tool", JSON.stringify(event)); },
-}));
+})));

@@ -58,7 +58,7 @@ try {
     .join(".");
   const token = `${encoded}.${createHmac("sha256", process.env.JWT_SECRET).update(encoded).digest("base64url")}`;
   const accepted = await authenticateRemoteToken(token, config);
-  assert.ok(accepted.db);
+  assert.ok(accepted.authDb);
   await assert.rejects(() =>
     authenticateRemoteToken(token.slice(0, -8) + "tampered", config),
   );

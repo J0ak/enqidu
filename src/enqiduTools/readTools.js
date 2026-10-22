@@ -43,7 +43,7 @@ function compactExecution(row) {
 /** Tools operate on an authenticated server context, never request-supplied ownership.
  * A fresh instance belongs to ONE request. Its memoized reads must never be reused for apply.
  */
-export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() } = {}) {
+export function createEnqiduReadDomain({ db, authDb = db, userId, calendar, now = new Date() } = {}) {
   if (!db?.from || !db?.rpc || typeof userId !== "string" || !userId.trim()) fail("authenticated_context_required");
   if (!isValidCalendarDate(calendar?.date) || !isValidTimeZone(calendar?.timezone)) fail("profile_calendar_required");
   const instant = now instanceof Date ? now : new Date(now);
@@ -108,6 +108,7 @@ export function createEnqiduReadDomain({ db, userId, calendar, now = new Date() 
       if (fromDate < shiftHealthCalendarDate(toDate, -31)) fail("canonical_state_limit");
     }
     return loadClosedLoopAssessments(db, {
+      authDb,
       userId, calendarDate: calendar.date, timezone: calendar.timezone, generatedAt,
       sessionId: session_id, fromDate, toDate, limit: 5,
       healthLoader: (_db, { calendarDate }) => health(calendarDate),

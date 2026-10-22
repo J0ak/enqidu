@@ -4,19 +4,15 @@ import {
   bearerAuthChallengeResponse,
   getOAuthProtectedResourceMetadataUrl,
   hostHeaderValidationResponse,
+  oauthMetadataResponse,
 } from "@modelcontextprotocol/server";
 import { createEnqiduMcpServer } from "./server.js";
 import { authenticateRemoteToken } from "./remoteAuth.js";
+import { createRemoteDataPlane } from "./dataPlane.js";
 
 export const MAX_REMOTE_BODY_BYTES = 32768;
 const json = (status, error, headers = {}) =>
   Response.json({ error }, { status, headers });
-export const protectedResourceMetadata = (config) => ({
-  resource: config.resource,
-  authorization_servers: [config.issuer],
-  bearer_methods_supported: ["header"],
-  resource_name: "ENQIDU READ + PREVIEW",
-});
 const secure = (response) => {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -26,6 +22,7 @@ const secure = (response) => {
 export function createRemoteMcpHandler({
   config,
   clientFactory,
+  dataClientFactory,
   now,
   observe = () => {},
 }) {
@@ -34,23 +31,28 @@ export function createRemoteMcpHandler({
   return async (request) => {
     const rejected = hostHeaderValidationResponse(request, [resource.hostname]);
     if (rejected) return secure(rejected);
-    // No cross-origin browser access in V1. Non-browser MCP clients omit Origin.
-    const origin = request.headers.get("origin");
-    if (origin && origin !== resource.origin)
-      return secure(json(403, "origin_not_allowed"));
     const path = new URL(request.url).pathname;
     if (
       path === new URL(metadataUrl).pathname ||
       path === "/api/mcp-metadata"
     ) {
+      // Public discovery uses the SDK's metadata CORS/preflight. Only this RFC 9728
+      // route is served: do not synthesize an AS discovery document on this host.
+      const discovery = new Request(metadataUrl, request);
       return secure(
-        request.method === "GET"
-          ? Response.json(protectedResourceMetadata(config))
-          : json(405, "method_not_allowed", { Allow: "GET" }),
+        oauthMetadataResponse(discovery, {
+          oauthMetadata: { issuer: config.issuer },
+          resourceServerUrl: resource,
+          resourceName: "ENQIDU READ + PREVIEW",
+        }),
       );
     }
+    // Data transport retains strict Origin and Host validation.
+    const origin = request.headers.get("origin");
+    if (origin && origin !== resource.origin)
+      return secure(json(403, "origin_not_allowed"));
     if (path !== resource.pathname) return secure(json(404, "not_found"));
-    let db;
+    let authDb, userId;
     try {
       await verifyBearerToken(request.headers.get("authorization"), {
         expectedResource: config.resource,
@@ -62,7 +64,8 @@ export function createRemoteMcpHandler({
               config,
               clientFactory,
             );
-            db = authenticated.db;
+            authDb = authenticated.authDb;
+            userId = authenticated.userId;
             return authenticated.authInfo;
           },
         },
@@ -76,11 +79,18 @@ export function createRemoteMcpHandler({
     }
     if (request.method !== "POST")
       return secure(json(405, "method_not_allowed", { Allow: "POST" }));
+    let db;
+    try {
+      db = createRemoteDataPlane(config, userId, dataClientFactory);
+    } catch {
+      return secure(json(500, "request_unavailable"));
+    }
     // The SDK owns parsing, content type, bounded body, protocol negotiation and lifecycle.
     const handler = createMcpHandler(
       () =>
         createEnqiduMcpServer({
           db,
+          authDb,
           writesEnabled: false,
           now,
           observe: ({

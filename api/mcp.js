@@ -1,5 +1,5 @@
 import { createRemoteMcpHandler } from "../src/mcp/remote.js";
-import { remoteConfiguration } from "../src/mcp/remoteAuth.js";
+import { remoteConfiguration } from "../server/mcpConfiguration.js";
 
 // Vercel Node.js Web handler; the SDK reads the original bounded stream.
 export async function POST(request) {

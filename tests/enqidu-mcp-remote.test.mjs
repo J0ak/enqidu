@@ -5,7 +5,7 @@ import { listEnqiduTools } from "../src/enqiduTools/registry.js";
 import { createEnqiduToolRuntime } from "../src/enqiduTools/runtime.js";
 import { connectEnqiduMcp } from "./support/enqiduMcp.mjs";
 import { TOOL_NOW, TOOL_USER_B, toolId } from "./support/enqiduToolsDb.mjs";
-import { remoteConfiguration } from "../src/mcp/remoteAuth.js";
+import { remoteConfiguration } from "../server/mcpConfiguration.js";
 const compare = ({ traceability, ...v }) => {
   // Inspection-only semantic previews intentionally use a per-server signing key.
   // Fingerprints cannot authorize cross-channel writes; compare the full sporting projection.
@@ -137,6 +137,10 @@ test("remote MCP parity for shared reads/previews across HTTP, local SDK, App an
     const remote = (await client.callTool({ name, arguments: args }))
       .structuredContent;
     assert.deepEqual(compare(remote), compare(expected), name);
+    assert.doesNotMatch(
+      JSON.stringify(compare(remote)),
+      /FOREIGN_SECRET|777|SYNTHETIC_REMOTE_DATA_PLANE_ONLY/,
+    );
     assert.deepEqual(
       compare(
         (await local.client.callTool({ name, arguments: args }))
@@ -152,6 +156,13 @@ test("remote MCP parity for shared reads/previews across HTTP, local SDK, App an
     );
   }
   assert.deepEqual(fixture.tables, before);
+  assert.ok(f.dataRequests.length > 0);
+  assert.ok(f.dataRequests.every((r) => r.privileged));
+  assert.ok(
+    f.dataRequests.every(
+      (r) => ["GET", "HEAD"].includes(r.method) || r.path.includes("/rpc/"),
+    ),
+  );
   assert.ok(
     events.every(
       (e) =>
@@ -349,7 +360,7 @@ test("remote MCP cannot enable writes or select another athlete/timezone through
   assert.equal(progress.data.observations, 1);
   assert.equal(history.data.observations.length, 1);
   assert.doesNotMatch(
-    JSON.stringify([progress, history]),
+    JSON.stringify([progress.data, history.data]),
     /FOREIGN_SECRET|777/,
   );
 });
@@ -358,6 +369,7 @@ test("remote configuration refuses insecure URLs and privileged keys", () => {
   const config = {
     SUPABASE_URL: "https://example.supabase.co",
     SUPABASE_PUBLISHABLE_KEY: "sb_publishable_public",
+    SUPABASE_SECRET_KEY: "sb_secret_fixture_server",
     ENQIDU_MCP_RESOURCE_URL: "https://enqidu.example/api/mcp",
   };
   assert.equal(
@@ -420,4 +432,123 @@ test("remote MCP sanitizes unexpected auth errors and treats stored instructions
       .structuredContent.error.code,
     "unknown_tool",
   );
+});
+
+test("public SDK RFC 9728 metadata supports cross-origin GET/OPTIONS without relaxing data Origin", async (t) => {
+  const f = await remoteFixture(t);
+  const url = f.config.resource.replace(
+    "/api/mcp",
+    "/.well-known/oauth-protected-resource/api/mcp",
+  );
+  for (const method of ["GET", "OPTIONS"]) {
+    const r = await fetch(url, {
+      method,
+      headers: {
+        Origin: "https://client.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.equal(r.status, method === "GET" ? 200 : 204);
+    assert.equal(r.headers.get("access-control-allow-origin"), "*");
+    assert.notEqual(r.headers.get("access-control-allow-credentials"), "true");
+    if (method === "GET") {
+      const metadata = await r.json();
+      assert.equal(metadata.resource, f.config.resource);
+      assert.deepEqual(metadata.authorization_servers, [f.config.issuer]);
+    }
+  }
+});
+
+test("server data-plane failures are sanitized and never expose its credential", async (t) => {
+  const f = await remoteFixture(t);
+  const { createRemoteMcpHandler } = await import("../src/mcp/remote.js");
+  const r = await createRemoteMcpHandler({
+    config: f.config,
+    dataClientFactory: () => {
+      throw Error(f.config.dataKey);
+    },
+  })(
+    new Request(f.config.resource, {
+      method: "POST",
+      headers: {
+        Host: new URL(f.config.resource).host,
+        Authorization: `Bearer ${f.token()}`,
+      },
+      body: "{}",
+    }),
+  );
+  assert.equal(r.status, 500);
+  assert.equal(await r.text(), '{"error":"request_unavailable"}');
+});
+
+test("all 27 tools ignore adversarial foreign parents and children with a data client bypassing RLS", async (t) => {
+  const pristine = semanticFixture(),
+    polluted = semanticFixture();
+  const remap = new Map();
+  let seq = 8000;
+  for (const rows of Object.values(pristine.tables))
+    for (const row of rows)
+      if (row.user_id && row.user_id !== TOOL_USER_B && row.id)
+        remap.set(row.id, toolId(seq++));
+  for (const table of [
+    "planned_session_blocks",
+    "session_blocks",
+    "session_exercises",
+    "session_metrics",
+    "block_items",
+    "item_exercises",
+    "performed_sets",
+  ])
+    for (const row of pristine.tables[table] || [])
+      if (row.id) remap.set(row.id, toolId(seq++));
+  const rewrite = (value) =>
+    Array.isArray(value)
+      ? value.map(rewrite)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.entries(value).map(([k, v]) => [
+              k,
+              k === "user_id" ? TOOL_USER_B : rewrite(v),
+            ]),
+          )
+        : remap.get(value) || value;
+  for (const [table, rows] of Object.entries(pristine.tables))
+    for (const row of rows) {
+      if (
+        (row.user_id && row.user_id !== TOOL_USER_B) ||
+        [
+          "planned_session_blocks",
+          "session_blocks",
+          "session_exercises",
+          "session_metrics",
+          "block_items",
+          "item_exercises",
+          "performed_sets",
+        ].includes(table)
+      ) {
+        const foreign = rewrite(row);
+        if ("title" in foreign) foreign.title = "FOREIGN_SECRET";
+        if ("notes" in foreign) foreign.notes = "FOREIGN_SECRET";
+        polluted.tables[table].push(foreign);
+      }
+    }
+  const f = await remoteFixture(t, { fixture: polluted }),
+    client = await f.connect();
+  const baseline = await createEnqiduToolRuntime({
+    db: pristine.db,
+    now: TOOL_NOW,
+    semanticSigningKey: "baseline-key".repeat(6),
+  });
+  for (const [name, args] of requests) {
+    const expected = await baseline.execute(name, args);
+    const actual = (await client.callTool({ name, arguments: args }))
+      .structuredContent;
+    assert.equal(actual.ok, true, `${name}: ${JSON.stringify(actual.error)}`);
+    assert.deepEqual(compare(actual), compare(expected), name);
+    assert.doesNotMatch(
+      JSON.stringify(actual),
+      /FOREIGN_SECRET|SYNTHETIC_REMOTE_DATA_PLANE_ONLY/,
+    );
+  }
+  assert.ok(f.dataRequests.every((r) => r.privileged));
 });

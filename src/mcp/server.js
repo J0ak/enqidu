@@ -70,6 +70,7 @@ function transportResult(result) {
  */
 export function createEnqiduMcpServer({
   db,
+  authDb = db,
   adminDb,
   writesEnabled = false,
   now,
@@ -82,6 +83,7 @@ export function createEnqiduMcpServer({
   const manifest = new Map(listEnqiduTools().map((tool) => [tool.id, tool]));
   const runtime = () => createEnqiduToolRuntime({
     db,
+    authDb,
     adminDb,
     source: "mcp",
     semanticSigningKey,

@@ -93,7 +93,9 @@ export async function remoteFixture(
     namedCurve: "P-256",
   });
   const revoked = new Set(),
-    authRequests = [];
+    authRequests = [],
+    dataRequests = [];
+  const dataKey = "sb_secret_SYNTHETIC_REMOTE_DATA_PLANE_ONLY";
   let config;
   function claimsFor(token) {
     try {
@@ -116,12 +118,16 @@ export async function remoteFixture(
   const supabaseServer = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     const token = req.headers.authorization?.replace(/^Bearer /, "");
-    const claims = claimsFor(token || "");
+    const privileged = token === dataKey;
+    const claims = privileged
+      ? { role: "service_role" }
+      : claimsFor(token || "");
     if (
       !claims ||
-      ![TOOL_USER_A, TOOL_USER_B].includes(claims.sub) ||
-      (Array.isArray(claims.aud) ? claims.aud[0] : claims.aud) !==
-        "authenticated"
+      (!privileged &&
+        (![TOOL_USER_A, TOOL_USER_B].includes(claims.sub) ||
+          (Array.isArray(claims.aud) ? claims.aud[0] : claims.aud) !==
+            "authenticated"))
     ) {
       res.writeHead(401);
       res.end('{"message":"invalid token"}');
@@ -129,19 +135,30 @@ export async function remoteFixture(
     }
     const url = new URL(req.url, "http://fixture");
     if (url.pathname === "/auth/v1/user") {
+      assert.equal(
+        privileged,
+        false,
+        "Auth must never receive the data credential",
+      );
       authRequests.push(claims.sub);
       res.end(JSON.stringify({ id: claims.sub, role: claims.role }));
       return;
     }
+    if (claims.client_id != null) {
+      res.writeHead(403);
+      res.end('{"message":"oauth_transport_forbidden"}');
+      return;
+    }
+    dataRequests.push({ privileged, path: url.pathname, method: req.method });
     try {
       const table = url.pathname.split("/").at(-1);
       if (req.method === "POST" && url.pathname.includes("/rpc/")) {
         let body = "";
         for await (const chunk of req) body += chunk;
         const args = JSON.parse(body);
-        if (table === "read_training_semantics_v1") {
+        if (table === "read_training_semantics_for_mcp_v1") {
           const session = fixture.tables.training_sessions.find(
-            (s) => s.id === args.p_session_id && s.user_id === claims.sub,
+            (s) => s.id === args.p_session_id && s.user_id === args.p_user_id,
           );
           if (!session) {
             res.writeHead(400);
@@ -161,7 +178,10 @@ export async function remoteFixture(
       const query = fixture.db
         .from(table)
         .select(url.searchParams.get("select"));
-      if (fixture.tables[table]?.some((r) => Object.hasOwn(r, "user_id")))
+      if (
+        !privileged &&
+        fixture.tables[table]?.some((r) => Object.hasOwn(r, "user_id"))
+      )
         query.eq("user_id", claims.sub);
       for (const [field, condition] of url.searchParams) {
         if (["select", "order", "limit", "offset"].includes(field)) continue;
@@ -234,6 +254,7 @@ export async function remoteFixture(
     supabaseUrl,
     issuer: `${supabaseUrl}/auth/v1`,
     key: "sb_publishable_fixture",
+    dataKey,
   };
   function token(patch = {}) {
     const claims = {
@@ -276,6 +297,7 @@ export async function remoteFixture(
     connect,
     revoked,
     authRequests,
+    dataRequests,
     get remoteRequests() {
       return remoteRequests;
     },

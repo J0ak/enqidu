@@ -1,3 +1,4 @@
+import { firstPartyEndpoint } from "../_shared/firstPartyEndpoint.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -165,7 +166,7 @@ function buildPreview(extracted: Record<string, unknown>) {
   };
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(firstPartyEndpoint(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ ok: false, error: "method_not_allowed" }, 405);
 
@@ -342,4 +343,4 @@ Deno.serve(async (req: Request) => {
     console.error(error);
     return reply({ ok: false, error: "coach_context_memory_failed" }, 500);
   }
-});
+}));

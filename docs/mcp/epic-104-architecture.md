@@ -1,6 +1,6 @@
 # #104 — ENQIDU Remote MCP & Semantic Read API V1
 
-Base: `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`. One registry, one runtime, two transports. No migration, production write, OAuth configuration change, deployment or paid service is part of this PR.
+Base: `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`. One registry, one runtime, two transports. A reviewed security migration is included but unapplied in production. No production write, OAuth configuration change, deployment or paid service is part of this PR. See the [auth/data-plane decision, inventory and coverage](oauth-data-plane-boundary.md).
 
 See [validation and captured product evidence](validation-104.md), [the exact tool manifest](remote-mcp.md#exact-remote-discovery), and [manual rollout prerequisites](oauth-production-runbook.md).
 
@@ -20,9 +20,9 @@ App / internal Coach ─────────────── ENQIDU_TOOLS 
                                               │
                          Progress / catalog / normalization domains
                                               │
-                          request-scoped user bearer Supabase client
+                          server-only read facade / scoped data client
                                               │
-                                     Supabase + RLS
+                                     Supabase (privileged data client; explicit tenant filters)
 
 OAuth client ── Supabase Auth authorization code + PKCE
                            │
@@ -47,7 +47,9 @@ Supabase's documented default OAuth audience is `authenticated`, which alone is 
 
 `session_id` is mandatory so Auth can check the backing session. Revocation is delegated to online Auth checks, with no local positive authentication cache. The real local Supabase Auth test verifies audience-array acceptance and rejection after session revocation. Actual production OAuth grant/session revocation must be verified during rollout; a fixture returning 401 is not evidence of a live issuer's revocation latency.
 
-Remote writes are hardcoded false. Neither an environment variable nor a client declaration can enable them. No `adminDb`, service credential or audit writer is passed. Every guessed apply is denied by the runtime. RLS remains an additional defense; this boundary does **not** change database policies or claim that OAuth tokens cannot access other Supabase APIs under existing RLS.
+Remote writes are hardcoded false. Neither an environment variable nor a client declaration can enable them. No `adminDb` or audit writer is passed. OAuth `authDb` validates identity only; server `db` uses the existing secret/service-role credential through a read-only capability facade. The user explicitly authorized this architectural revision after identifying direct Data API/Edge bypasses. App/Coach/local keep `authDb === db`. The privileged data client requires explicit tenant isolation independent of RLS; all 27 tools are tested with foreign rows and no RLS.
+
+The pending security migration denies OAuth tokens on public tables using restrictive RLS and on the entire Data API using a pre-request hook. The authenticated mutating consent RPC has an internal guard. All ten first-party Edge handlers reject verified OAuth claims before body handling or privileged mutation setup. These protections must be rolled out before enabling OAuth clients; production has not been changed. Full inventory and trust limits are in [the boundary review](oauth-data-plane-boundary.md).
 
 ## Semantic read API
 
@@ -61,14 +63,14 @@ App, Coach, local MCP and remote MCP share tools, schemas and domain. Sporting o
 
 | Threat | Boundary / evidence |
 |---|---|
-| Cross-athlete session/history/progress | Verified bearer; owned parent queries before children; explicit ownership filters; RLS; two-athlete tests |
+| Cross-athlete session/history/progress | Verified bearer; owned parent queries before children; explicit ownership filters; owned-parent RPC adapters; privileged-client two-athlete tests |
 | Frontend token reused as MCP credential | Mandatory signed OAuth `client_id`, session and MCP audience; frontend tokens rejected |
 | Forged claim / expired / revoked bearer | Online `getUser`, signature-verifying HTTP Auth fixture, claim tampering and per-request revocation tests |
-| Escalation to writes | Literal `writesEnabled: false`, no privileged dependency, discovery excludes every apply; guessed applies denied |
+| Escalation to writes | Literal `writesEnabled: false`, server read facade, direct Data API/RPC/Edge guards; all applies absent/denied |
 | SQL or arbitrary RPC | Closed registry and additionalProperties=false; fixed domain queries; no database tool |
 | Stored prompt injection | Notes/titles/reported names remain structured data; never descriptions, instructions, schemas or query code |
 | Resource abuse | 32 KiB HTTP body, 8 KiB tool arguments, 128 KiB result envelope, domain row/cardinality bounds, 60s function limit |
-| DNS rebinding / browser origin | SDK Host validation against configured resource hostname; exact same-origin browser policy; no wildcard CORS or credentials |
+| DNS rebinding / browser origin | SDK Host validation against configured resource hostname; exact same-origin data policy; public metadata uses SDK wildcard CORS without credentials |
 | Secret leakage | Sanitized auth/domain errors; server-owned URLs; no incoming bearer/args/results/identity in logs |
 | OAuth redirect tampering | Only official Supabase API response redirect; reject credentials and unsafe schemes; ignore query redirect_uri |
 

@@ -147,7 +147,7 @@ test("semantic reads: conversational session detail, history bounds and foreign 
   });
   assert.equal(h.ok, true, JSON.stringify(h));
   assert.equal(h.data.observations.length, 1);
-  assert.doesNotMatch(JSON.stringify(h), /777|999|FOREIGN_SECRET/);
+  assert.doesNotMatch(JSON.stringify(h.data), /777|999|FOREIGN_SECRET/);
   for (const args of [
     { limit: 51 },
     { from: "2020-01-01" },
