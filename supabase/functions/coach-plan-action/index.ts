@@ -1,4 +1,3 @@
-import { firstPartyEndpoint } from "../_shared/firstPartyEndpoint.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { prepareEnqiduAction, executePreparedEnqiduAction } from "../../../src/enqiduTools/actions.js";
@@ -38,7 +37,7 @@ async function loadUserTimezone(db: any, userId: string) {
 
 // Compatibility transport. Existing-plan mutations require the same preview
 // receipt as ENQIDU Tools; this endpoint is not a way around confirmation.
-Deno.serve(firstPartyEndpoint(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ ok: false, error: "method_not_allowed" }, 405);
   const requestId = crypto.randomUUID();
@@ -88,4 +87,4 @@ Deno.serve(firstPartyEndpoint(async (req: Request) => {
     console.error(JSON.stringify({ request_id: requestId, status: "error", error_code: "coach_plan_action_failed" }));
     return reply({ ok: false, error: "coach_plan_action_failed", message: "No se ha podido validar el cambio. Vuelve a consultar el plan." }, 500);
   }
-}));
+});

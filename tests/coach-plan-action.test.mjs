@@ -149,7 +149,7 @@ test("service-role secret is never referenced by frontend runtime source", async
   const violations = [];
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    if (/SUPABASE_(SERVICE_ROLE_KEY|SECRET_KEY)/.test(source)) violations.push(file);
+    if (/SUPABASE_(SERVICE_ROLE_KEY|SECRET_KEY)|ENQIDU_OAUTH_DATABASE_URL/.test(source)) violations.push(file);
   }
   assert.deepEqual(violations, []);
 });

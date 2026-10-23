@@ -1,3 +1,4 @@
+import OAuthConnections from "./oauth/OAuthConnections.jsx";
 import OAuthConsent from "./oauth/OAuthConsent.jsx";
 import { loadExerciseCatalog, withCatalogIdentity } from "./training/catalogResolver.js";
 import SemanticCorrection from "./training/semantics/SemanticCorrection.jsx";
@@ -8332,4 +8333,4 @@ function compact(value) {
   return `${number}`;
 }
 
-createRoot(document.getElementById("root")).render(window.location.pathname === "/oauth/consent" ? <OAuthConsent db={supabase} /> : <App />);
+createRoot(document.getElementById("root")).render(window.location.pathname === "/oauth/consent" ? <OAuthConsent db={supabase} /> : window.location.pathname === "/oauth/connections" ? <OAuthConnections db={supabase} /> : <App />);

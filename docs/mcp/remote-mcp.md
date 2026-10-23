@@ -1,21 +1,21 @@
 # Remote MCP V1
 
-**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
-
-**Transport code ready is not security approval or production enablement.** Resolve the Auth account gate before merge, then complete the separately authorized [OAuth production runbook](oauth-production-runbook.md) before connecting real athletes. No deployment or production configuration was performed by #104.
+ENQIDU OAuth issues opaque credentials for MCP. The rejected Supabase-issuer design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). PR #104 remains DRAFT; no production deployment/configuration.
 
 ## Endpoints and configuration
 
-- Resource: `https://<existing-ENQIDU-host>/api/mcp`.
-- RFC 9728 metadata: `https://<existing-ENQIDU-host>/.well-known/oauth-protected-resource/api/mcp` (path-aware URL generated with the SDK helper).
-- Metadata `authorization_servers`: `https://<project-ref>.supabase.co/auth/v1` (issuer, not its discovery URL).
-- Supabase RFC 8414 discovery: `https://<project-ref>.supabase.co/.well-known/oauth-authorization-server/auth/v1`.
-- Supabase OIDC discovery: `https://<project-ref>.supabase.co/auth/v1/.well-known/openid-configuration`.
-- Consent: `https://<existing-ENQIDU-host>/oauth/consent`.
+- MCP: `https://enqidu.vercel.app/api/mcp` (Streamable HTTP POST).
+- RFC 9728: `/.well-known/oauth-protected-resource/api/mcp` with authorization_servers containing **the ENQIDU issuer**, plus `enqidu.read`, `enqidu.preview`, `offline_access`.
+- RFC 8414: `/.well-known/oauth-authorization-server`.
+- Authorization / token / revocation: `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`.
+- Human consent / connections: `/oauth/consent`, `/oauth/connections`.
+- First-party APIs: `/api/oauth/details`, `/api/oauth/decision`, `/api/oauth/connections`, `/api/oauth/revoke`.
 
-Server-only environment: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (or legacy public `SUPABASE_ANON_KEY`), `ENQIDU_MCP_RESOURCE_URL`, and existing backend `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`). Frontend uses its existing public Supabase environment. No athlete access token or OAuth client secret is configured. The backend data credential is never prefixed `VITE_` or sent to the browser; [the security revision](oauth-data-plane-boundary.md) documents the explicitly authorized service-role fallback. Production configuration requires HTTPS and a root Supabase URL. Host and metadata derive from trusted configuration, never forwarded headers.
+Server-only configuration: `ENQIDU_OAUTH_ISSUER`, `ENQIDU_MCP_RESOURCE_URL`, `ENQIDU_OAUTH_DATABASE_URL` (dedicated private-function role via existing Supavisor), `SUPABASE_URL`, public `SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_ANON_KEY`, and existing server `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` for the read facade. Never VITE-prefix a server credential. No client secret, JWT signing key, Supabase OAuth setting or Auth hook is needed.
 
-Every MCP request requires `Authorization: Bearer <OAuth access token>`. Discovery metadata is public GET/OPTIONS with official SDK CORS, independent of the strict Origin policy on `/api/mcp`. Authentication failures return 401 with the SDK's Bearer challenge including `resource_metadata`; no user-facing token-pasting workflow is supported. The issuer must supply OAuth client identity, a backing session, and an MCP-specific audience. Custom scopes such as `enqidu:read` are neither defined nor advertised. The closed read/preview registry and verified user identity authorize server-side domain access. OAuth direct Data API access is denied by the pending migration; first-party Edge transport access is also denied.
+Each request carries `Authorization: Bearer enq_mcp_at_<256-bit random>`. Tokens are resolved online from private hashes/grants with exact resource/client/scope/expiry/revocation/user checks. No positive auth cache. The runtime reloads the profile timezone. The bearer is never forwarded to Supabase Auth or REST. Standard frontend Supabase JWTs are rejected by MCP.
+
+`enqidu.read` permits reads; preview additionally requires `enqidu.preview`. All 27 descriptors remain discoverable and declare their OAuth scopes. Remote writes are unconditionally disabled. RFC 9728 metadata uses the SDK helper with public noncredentialed CORS; `/api/mcp` keeps strict Origin/Host validation. Authentication failures receive sanitized SDK Bearer challenges.
 
 ## SDK and protocol compatibility
 
@@ -69,33 +69,25 @@ Real SDK tests cover modern **2026-07-28** via explicit version negotiation and 
 
 The seven existing writes `apply_move_session`, `apply_adapt_duration`, `apply_adapt_environment`, `apply_cancel_session`, `apply_adapt_remaining_week`, `apply_closed_loop_proposal`, `apply_training_semantics_v1` are absent and denied even if guessed. `ENQIDU_MCP_WRITES_ENABLED=true` has no effect remotely. Local stdio retains its existing configuration gate and does not gain any new writes.
 
-## Local acceptance and golden
+## Local acceptance
+
+`npm run test:mcp:oauth` covers protocol validation, official CIMD snapshot, SSRF/size/time guards, metadata, errors and request binding. `npm run test:mcp:remote` uses the real MCP SDK over HTTP, fixture private token resolution and privileged REST data; it covers all-27 parity/isolation and both protocol lifecycles.
+
+The principal real acceptance is:
 
 ```sh
-npm ci
-npm run test:mcp:remote
-npm run test:semantic-read
-npm run test:mcp
-npm run test:tools
+ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local.env \
+  node scripts/test-mcp-oauth-supabase.mjs
 ```
 
-`tests/support/remoteMcp.mjs` starts loopback HTTP servers for the real SDK transport and a fixture Supabase API. It signs ES256 access tokens and verifies signatures/expiry/revocation at the Auth fixture. The production `@supabase/supabase-js` request-scoped client performs actual HTTP Auth and REST calls. Each HTTP invocation constructs a fresh ENQIDU server. This is not a mock MCP protocol and requires no credentials, hosted resources or LLM.
+It performs real first-party login, ENQIDU authorization/decision/code exchange, private PostgreSQL token operations, then real SDK `high_pull_up` progress. The **same opaque token** is rejected by real local Supabase Auth GET/PUT, REST, RPC and first-party Edge writers. Account metadata is re-read to verify no change. Codes/refresh races, replay revocation, grant ownership, expiry, deletion/ban, scopes and secret absence are tested. Supabase OAuth is disabled and the compensating migration is absent. CIMD uses the bounded official snapshot in deterministic CI; hosted OpenAI connectivity remains a rollout check.
 
-Golden: SDK Client → HTTP `/api/mcp` → signed OAuth-like bearer → online fixture Auth → Streamable HTTP → shared registry/runtime → canonical Progress → fixture REST → `high_pull_up` / “Dominada alta” / skill / actual observations / available reps / missing metrics / evidence / Europe/Madrid. Foreign-user reps and skipped reps never enter the result. The same test verifies a second independent client/request and modern/legacy lifecycles. The opt-in `scripts/test-remote-auth-supabase.mjs` additionally verifies the required audience array against real local Supabase Auth, including signature rejection, normal frontend-token rejection, and rejection after backing-session revocation. It uses a disposable local user and a synthetic local signature for OAuth-shaped claims, not an authorization-code exchange. Run it with `ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local-supabase.env node scripts/test-remote-auth-supabase.mjs`. These tests are not a production OAuth authorization-code rollout test.
+## Current official references (2026-10-23)
 
-## Official sources checked
-
-Reviewed 2026-10-21/22 together with the installed package declarations/source (2.3.1):
-
-- [TypeScript SDK v2 HTTP serving](https://ts.sdk.modelcontextprotocol.io/v2/serving/http)
-- [MCP transports](https://modelcontextprotocol.io/specification/latest/basic/transports)
+- [OpenAI MCP authentication / CIMD / tool schemes](https://developers.openai.com/plugins/build/auth)
+- [Published ChatGPT CIMD](https://chatgpt.com/oauth/client.json)
 - [MCP authorization](https://modelcontextprotocol.io/specification/latest/basic/authorization)
-- [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728.html)
-- [Supabase OAuth setup](https://supabase.com/docs/guides/auth/oauth-server/getting-started)
-- [OAuth flows](https://supabase.com/docs/guides/auth/oauth-server/oauth-flows)
-- [Supabase MCP authentication](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication)
-- [OAuth token security](https://supabase.com/docs/guides/auth/oauth-server/token-security)
-- [Supabase Auth UserGet](https://github.com/supabase/auth/blob/master/internal/api/user.go) and [session validation](https://github.com/supabase/auth/blob/master/internal/api/auth.go)
-- [Vercel Node runtime / Web handlers](https://vercel.com/docs/functions/runtimes/node-js)
-- [Vercel function duration](https://vercel.com/docs/functions/configuring-functions/duration): the Node API routes use the `vercel.json` functions configuration for the 60-second limit.
-- [Supabase changelog](https://supabase.com/changelog): relevant announced TLS cipher retirement on 2026-11-10; retain normal TLS verification and supported Node 22.
+- [SDK v2 HTTP](https://ts.sdk.modelcontextprotocol.io/v2/serving/http)
+- [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414.html), [PKCE RFC 7636](https://www.rfc-editor.org/rfc/rfc7636.html), [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728.html), [issuer identification RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html), [revocation RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html), [resource indicators RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html).
+- [Supabase connection pooling](https://supabase.com/docs/guides/database/connecting-to-postgres), [functions/security](https://supabase.com/docs/guides/database/functions), [changelog](https://supabase.com/changelog).
+- [Vercel Node runtime](https://vercel.com/docs/functions/runtimes/node-js).

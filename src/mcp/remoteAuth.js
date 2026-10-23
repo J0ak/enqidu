@@ -1,66 +1,56 @@
-import { createClient } from "@supabase/supabase-js";
 import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
-
+import { CLIENT_ID, hash, validOpaque } from "../../server/oauth/protocol.js";
 const invalid = () =>
   new OAuthError(
     OAuthErrorCode.InvalidToken,
     "ENQIDU authentication required.",
   );
-const decode = (token) =>
-  JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
-/** Claims are policy inputs ONLY AFTER Auth verifies this exact token through getUser. */
-export async function authenticateRemoteToken(
-  token,
-  config,
-  clientFactory = createClient,
-) {
+/** ENQIDU credentials never enter Supabase Auth. Only the private grant resolver
+ * can supply identity; the runtime revalidates it through this narrow adapter. */
+export async function authenticateRemoteToken(token, config, store) {
   try {
-    if (
-      typeof token !== "string" ||
-      token.length > 16384 ||
-      token.split(".").length !== 3
-    )
-      throw invalid();
-    const db = clientFactory(config.supabaseUrl, config.key, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
-    const { data, error } = await db.auth.getUser();
-    if (error || !data?.user?.id) throw invalid();
-    const claims = decode(token);
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        claims.session_id || "",
-      ) ||
-      claims.session_id === "00000000-0000-0000-0000-000000000000" ||
-      claims.sub !== data.user.id ||
-      claims.role !== "authenticated" ||
-      claims.iss !== config.issuer ||
-      typeof claims.client_id !== "string" ||
-      !claims.client_id.trim() ||
-      claims.client_id.length > 200 ||
-      !Number.isFinite(claims.exp) ||
-      claims.exp <= Date.now() / 1000 ||
-      (claims.nbf != null &&
-        (!Number.isFinite(claims.nbf) || claims.nbf > Date.now() / 1000)) ||
-      !(Array.isArray(claims.aud) ? claims.aud : [claims.aud]).includes(
-        config.resource,
+    if (!validOpaque(token, "at")) throw invalid();
+    const resolve = async () => {
+      const r = await store.call("resolve_access_token_v1", {
+        token_hash: hash(token),
+        resource: config.resource,
+        client_id: CLIENT_ID,
+      });
+      if (
+        !r ||
+        !r.user_id ||
+        r.resource !== config.resource ||
+        r.client_id !== CLIENT_ID ||
+        !Array.isArray(r.scopes) ||
+        !r.scopes.includes("enqidu.read") ||
+        !(Number(r.expires_at) > Date.now() / 1000)
       )
-    )
-      throw invalid();
+        throw invalid();
+      return r;
+    };
+    const record = await resolve();
+    const authDb = Object.freeze({
+      auth: Object.freeze({
+        async getUser() {
+          try {
+            const r = await resolve();
+            if (r.user_id !== record.user_id) throw invalid();
+            return { data: { user: { id: r.user_id } }, error: null };
+          } catch {
+            return { data: { user: null }, error: { code: "auth_required" } };
+          }
+        },
+      }),
+    });
     return {
-      authDb: db,
-      userId: data.user.id,
+      authDb,
+      userId: record.user_id,
       authInfo: {
         token,
-        clientId: claims.client_id,
-        scopes: [],
-        expiresAt: claims.exp,
-        resource: config.resource,
+        clientId: record.client_id,
+        scopes: record.scopes,
+        expiresAt: Number(record.expires_at),
+        resource: record.resource,
       },
     };
   } catch {

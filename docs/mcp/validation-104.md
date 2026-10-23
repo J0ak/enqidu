@@ -1,55 +1,61 @@
-# #104 validation
+# #104 validation — ENQIDU opaque OAuth
 
-**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
+Validated locally on 2026-10-23, on the existing PR branch based on `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`, with Node 22.23.3 and pinned MCP SDK 2.3.1. The PR remains **DRAFT for independent review**. No production migration, deployment, OAuth enablement, client registration, hook, signing change or grant was performed.
 
-Validated locally on 2026-10-23 against base `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`, using Node 22.23.3 and the locked dependencies. Auth security follow-up to `3601d0e89088646ee0395398708bec8c83435a5c`. No SDK upgrade, production write, deployment or production OAuth configuration change. OAuth/UserInfo is enabled only in the disposable local test configuration. The reviewed boundary migration was applied only to the disposable local stack.
+The rejected Supabase OAuth design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). Its account-mutation bypass is addressed by replacing the credential delivered to ChatGPT with an opaque ENQIDU token. Supabase remains the first-party identity provider only. The global client_id policies, PostgREST pre-request hook and ten Edge compensation guards have been removed; Edge entrypoints match the base branch.
+
+## Completed local checks
 
 | Command | Result |
 |---|---|
-| `npm test` | 885 passed, 0 failed/skipped |
-| `npm run test:mcp` | 44 passed, including actual stdio executable and remote SDK transport |
-| `npm run test:mcp:remote` | 11 passed |
+| `npm test` | 890 passed |
+| `npm run test:mcp` | 45 passed |
+| `npm run test:mcp:remote` | 12 passed |
+| `npm run test:mcp:oauth` | 8 passed |
 | `npm run test:semantic-read` | 5 passed |
 | `npm run test:tools` | 100 passed |
 | `npm run test:coach-evals` | 30 passed |
-| `npm run test:transactional-actions` | 37 passed against disposable local Supabase/PostgreSQL |
-| `node scripts/test-reconciliation-postgres.mjs` | 43 passed against real PostgreSQL |
-| `node scripts/test-semantics-postgres.mjs` | 9 passed against real PostgreSQL |
-| `node scripts/test-remote-auth-supabase.mjs` | Passed against real local Supabase Auth |
-| `node scripts/test-oauth-boundary-postgres.mjs` | Passed: all exposed local relations audited; negative future-coverage tests; first-party CRUD / OAuth denial |
-| `node scripts/test-oauth-boundary-supabase.mjs` | Passed: real REST/RPC/Edge rejection + real SDK MCP golden, no RLS reliance for server client |
-| `node scripts/test-auth-account-boundary-supabase.mjs` | Reproduction passed; security gate BLOCKED (both audiences mutate accounts) |
-| `ENQIDU_REQUIRE_AUTH_ACCOUNT_ISOLATION=1 ... node scripts/test-auth-account-boundary-supabase.mjs` | Expected nonzero: unresolved account isolation blocker |
-| `npm run test:e2e -- --workers=1` | 45 passed, 0 failed (2.8 minutes), including #102/#103 goldens |
-| `npm run build` | Passed; existing large-chunk warning (608 kB JS) |
+| `npm run test:transactional-actions` | 37 passed |
+| `node scripts/test-reconciliation-postgres.mjs` | 43 passed |
+| `node scripts/test-semantics-postgres.mjs` | 9 passed |
+| `node scripts/test-mcp-oauth-supabase.mjs` | 14 real local acceptance groups passed |
+| `npm run test:e2e -- --workers=1` | 46 passed, including consent at 390 px and connection revocation |
+| `npm run build` | Passed; existing large-chunk warning, approximately 610 kB JS |
 | `git diff --check` | Passed |
+| `supabase --workdir e2e-local db advisors --local --type security --level warn` | No issues found |
 
-The PostgreSQL/Auth commands use the repository's explicit `ENQIDU_TRANSACTION_LOCAL=1` guard and a local-only environment file. No hosted credentials are used. Browser tests use the existing disposable `e2e-local` Supabase project, the repository bootstraps, Chromium, and `OPENAI_COACH_ENABLED=false`. The managed environment required the existing local Edge dependency bundler/proxy helper and a flattened filesystem of the verified official PostgreSQL image to fit the Docker storage driver. These are local test setup details, not deployed changes or paid resources.
+The obsolete Supabase OAuth acceptance scripts are replaced by the opaque-token acceptance suite. Their historical reproduction remains linked from the rejected-design report. Tests use disposable local Supabase Auth v2.197.0, PostgreSQL 17, PostgREST 16.4 and Edge runtime 1.77.1. PostgreSQL/HTTP acceptance requires the explicit `ENQIDU_TRANSACTION_LOCAL=1` guard and a local-only environment file. No hosted credentials or paid services are used. The existing managed-environment dependency bundler/proxy is local test setup only.
 
-The browser runs found the existing all-tools test needed valid inputs for the five new reads; that test now includes every read. The weekly A→B→A browser test also navigated/reloaded before login finished; it now waits for the existing login-success message before navigating. Its isolation assertions remain intact. During this Auth follow-up, the first browser run had two Daily Coach brief 400 failures while other acceptance suites were running. Both affected cases passed twice in a focused serial rerun (4/4), then the full serial suite passed 45/45. The cause of the transient failures is unproven; no assertion was relaxed and no product code was changed to ignore them. The final whole-suite result is recorded above.
+## Critical same-token golden
 
-## Transport and security acceptance
+The real acceptance script:
 
-- Actual SDK client/server 2.3.1 over loopback HTTP, with modern 2026-07-28 and legacy 2025-11-25 negotiation, discovery and calls. Fresh server and user client per HTTP request; two independent clients have identical sporting results.
-- All 27 shared READ/PREVIEW tools succeed and match App runtime, Coach runtime and local MCP. The only exclusions are channel traceability and the existing per-server semantic-preview fingerprint. Fixture tables remain unchanged.
-- Missing/invalid/expired/forged/revoked tokens, invalid users, frontend tokens, missing OAuth client/session, wrong issuer/audience/role and future nbf fail with sanitized 401 challenges. Metadata is path-aware RFC 9728 using the official SDK helper; cross-origin public GET/OPTIONS succeeds without credentialed CORS, while data Origin validation remains strict.
-- Actual local Auth authenticates signed OAuth-shaped tokens with both audience formats and rejects a revoked backing session; it does not enforce account read-only access. The local test synthesizes OAuth-shaped claims with its disposable issuer key; it does **not** claim to test Supabase authorization-code/PKCE issuance.
-- All seven existing apply tools are absent from discovery and denied when guessed, even with the write environment flag and malicious metadata. Invented apply/SQL/RPC names are unknown. Client identity, timezone, JWT and capability arguments are rejected.
-- Two athletes cannot cross-read sessions, exercise observations or history. All 27 tools match clean A-only results with adversarial foreign parents/children and a privileged fixture that applies no automatic RLS. Real service-role REST-backed semantic/Health/Closed Loop reads also pass, while direct OAuth table and Edge access fails. The first-party JWT/RLS browser tests remain green.
-- Wrong methods, media type, malformed JSON, oversized bodies, hostile Host/Origin, unexpected Auth failures, stored prompt injection and allowlisted telemetry are covered.
+1. Creates disposable users A/B and logs A in through first-party Supabase Auth.
+2. Runs the ENQIDU authorize endpoint against a snapshot of the official ChatGPT CIMD, approves with A's first-party session, and exchanges the single-use code with PKCE S256 and the exact MCP resource.
+3. Receives an `enq_mcp_at_...` token, connects the actual MCP SDK over HTTP and calls `get_exercise_progress_v1(high_pull_up)` through the real Supabase canonical read plane. The result identifies “Dominada alta”, classification `skill`, one observation, available reps and canonical timezone Europe/Madrid. Discovery contains exactly 27 tools.
+4. Sends **that exact same opaque token** to local Supabase Auth GET/PUT, REST, RPC and the existing enqidu-tools, coach-plan-action and manual-health-import Edge endpoints. Every probe is rejected with 400/401/403. A subsequent first-party user read confirms the metadata probe did not persist. Normal first-party Auth and REST still return 200.
+5. Revokes the grant: MCP rejects subsequent access and refresh returns `invalid_grant`. All disposable users and temporary database-login credentials are removed afterwards.
 
-The security regression also preserves the frontend secret-source guard (now checking both secret-key environment names); environment access lives under `server/`. An existing isolation assertion was corrected to inspect sporting data instead of matching `999` in a random request UUID. Numeric foreign/skipped evidence assertions remain enforced.
+These are real HTTP/PostgreSQL acceptance checks, not protocol mocks. The official public CIMD was also fetched read-only and checked against the fixture. Local acceptance deliberately does not depend on a live third-party document or register a real OAuth client.
 
-## Product evidence
+## OAuth and storage invariants
 
-[Golden HTTP result](evidence/golden-high-pull-up.json) was captured from an actual SDK HTTP call through the request bearer boundary and fixture Supabase REST/Auth. It contains synthetic data only: `high_pull_up`, “Dominada alta”, skill, one recorded observation, three reps, null load, complete reps quality, insufficient trend evidence and Europe/Madrid. Skipped and other-athlete observations are excluded.
+The 14 acceptance groups additionally cover private ACLs (four tables, eleven private functions, only nine executable by the runtime role), wrong/missing PKCE, plain rejection, exact redirects/resources, unknown clients/scopes, code expiry and single use, concurrent exchanges, deny with state/iss, decision ownership and single use, request expiry, access expiry, refresh rotation, expired refresh, offline_access gating, concurrent refresh and committed family revocation after replay. First-party revocation checks ownership; RFC 7009 invalidates the whole grant. Account bans reject access/refresh and account deletion cascades grants. Stored values are hashes, never codes/tokens or first-party sessions.
 
-[Consent at 390 px](evidence/oauth-consent-390.png) was inspected after the browser test. The deliberately hostile client name renders as inert text. Login continuation, previous consent, approve/deny, official-response-only redirects, errors and mobile overflow are tested.
+Unit tests exercise bounded CIMD metadata, exact allowlisting, SSRF/DNS and redirect rejection, malformed/oversized bodies, duplicate parameters, public metadata and sanitized errors. Metadata advertises ENQIDU and no DCR/OIDC endpoints. All success/error callback redirects include the exact issuer. Token responses are no-store/no-cache. Scope metadata is present at the tool root and in `_meta` on the actual HTTP wire; SDK 2.3.1's client parser preserves `_meta` but strips the additional root property. Read-only grants discover all 27 tools but cannot execute previews without `enqidu.preview`.
 
-Conversational sequences cover exact RDL/Spanish-name equivalence, HSPU and high pull-up skills, separate pike identities, ambiguous/Unknown references, canonical exercise progress/history, a session with bench 40 kg `[10,10,9]` and RDL 45 kg `[8,8,8]`, overview, missing metrics, zero values and skipped execution. No SQL tool or LLM is involved.
+## Shared domain, isolation and browser evidence
 
-## Limits of this evidence
+Actual MCP SDK 2.3.1 transport tests negotiate 2026-07-28 and legacy 2025-11-25, construct a fresh server per request and exercise independent requests. App, Coach, local MCP and remote MCP share the registry/runtime/domain; all 27 results match apart from channel traceability and the existing semantic-preview fingerprint. Every apply name is absent/denied, even with write environment flags and malicious arguments. Generic SQL/RPC tools do not exist.
 
-Production OAuth discovery was 404 in the read-only audit. Public JWKS advertised ES256, but active signing configuration was not changed or proven. Real OAuth issuance, the resource-audience mapping/hook if needed, refresh, grant/session revocation, Vercel routing and eligible ChatGPT connection remain the manual rollout checks in the [runbook](oauth-production-runbook.md). The reviewed restrictive-RLS/Data API migration and all ten Edge guards must be applied/deployed and verified before enabling OAuth. The underlying server data credential bypasses RLS; ownership filters and the closed facade remain mandatory. See the [complete boundary audit](oauth-data-plane-boundary.md). Local success does not authorize deployment.
+The adversarial data fixture applies **no automatic RLS** and sees both athletes. Every one of the 27 tools matches A-only data with foreign parents/children present. Foreign session IDs fail closed. The real privileged REST-backed golden also exercises semantic, Health and Closed Loop reads. The first-party tenant/RLS/browser regressions remain green. Opaque credentials, Supabase sessions, server data secrets, SQL connection strings and hashes do not appear in tool output, errors or allowlisted telemetry.
 
-Incremental spend: **€0.00**.
+[Consent at 390 px](evidence/oauth-consent-390.png) was captured from the updated browser suite. Tests cover login continuation, approve/deny, stored redirect authority, error states, inert hostile text, no horizontal overflow and first-party connection revocation. The semantic conversation fixtures retain RDL/Spanish exact resolution, HSPU/high pull-up skills, separate pike identities, unresolved Unknown, structured sets/reps/load, missing versus zero, skipped execution and bounded overview. No SQL tool or LLM is used.
+
+## Read-only production audit and limits
+
+SELECT-only metadata inspection confirmed the expected Auth id/deleted_at/banned_until columns, absence of the new private schema/role, and **zero Storage buckets**. No production rows were changed. The previous audit recorded no pre-request hook. Ordinary existing RLS still protects application access, including RLS-mediated Realtime paths; the removed OAuth-specific policies are unnecessary because ENQIDU MCP credentials are not Supabase JWTs.
+
+Storage and Realtime were not running in the local acceptance stack, so this report does not claim live HTTP/WebSocket acceptance for those services. Their deployed configuration, future buckets/policies and public exposure must be audited before rollout. Vercel rewrites/TLS/pooler connectivity and an eligible real ChatGPT connection also remain manual acceptance gates. The service data credential bypasses RLS: the closed read facade and explicit ownership filters remain mandatory. Refresh replay revokes the whole family, including a concurrently successful response, and may require reconnecting. The durable authorize cap is not comprehensive DoS protection. See the [runbook](oauth-production-runbook.md) for review, free-quota checks and manual rollout prerequisites.
+
+Incremental spend: **€0.00**. Local success does not authorize merge, deploy or production configuration.

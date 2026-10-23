@@ -4,37 +4,75 @@ import {
   authorizationId,
   officialRedirect,
   decideConsent,
+  consentApi,
 } from "../src/oauth/consent.js";
-test("consent rejects malformed IDs, arbitrary redirects and changed identity before API approval", async () => {
-  for (const query of [
+const id = "enq_mcp_req_" + "a".repeat(43);
+test("ENQIDU consent handle, server-only redirect and identity change", async () => {
+  for (const q of [
     "",
-    "?authorization_id=../../foo",
-    "?authorization_id=a&authorization_id=b",
+    "?request_id=../../foo",
+    `?request_id=${id}&request_id=${id}`,
+    "?authorization_id=legacy",
   ])
-    assert.equal(authorizationId(query), null);
+    assert.equal(authorizationId(q), null);
   assert.equal(
-    authorizationId("?authorization_id=safe-id&redirect_uri=https://evil.test"),
-    "safe-id",
+    authorizationId(`?request_id=${id}&redirect_uri=https://evil.test`),
+    id,
   );
-  for (const url of [
+  for (const u of [
     "javascript:alert(1)",
-    "data:text/html,test",
     "http://evil.test",
-    "https://user:pass@client.example",
+    "https://user:pass@chatgpt.com/connector_platform_oauth_redirect?iss=https://enqidu.test",
+    "https://chatgpt.com/evil?iss=x",
   ])
-    assert.throws(() => officialRedirect({ redirect_url: url }));
+    assert.throws(() => officialRedirect({ redirect_url: u }));
+  await assert.rejects(
+    () =>
+      decideConsent(
+        {
+          auth: { getUser: async () => ({ data: { user: { id: "other" } } }) },
+        },
+        id,
+        "approve",
+        "owner",
+      ),
+    /authentication_required/,
+  );
+  let captured;
   const db = {
     auth: {
-      getUser: async () => ({ data: { user: { id: "other" } } }),
-      oauth: {
-        approveAuthorization() {
-          throw Error("must not be called");
-        },
-      },
+      getUser: async () => ({ data: { user: { id: "owner" } } }),
+      getSession: async () => ({
+        data: { session: { access_token: "FIRST_PARTY_BROWSER_ONLY" } },
+      }),
     },
   };
+  const url =
+    "https://chatgpt.com/connector_platform_oauth_redirect?code=opaque&iss=https%3A%2F%2Fenqidu.test";
+  assert.equal(
+    await decideConsent(db, id, "approve", "owner", async (path, options) => {
+      captured = { path, options };
+      return Response.json({ redirect_url: url });
+    }),
+    url,
+  );
+  assert.equal(captured.path, "/api/oauth/decision");
+  assert.deepEqual(JSON.parse(captured.options.body), {
+    authorization_request_id: id,
+    decision: "approve",
+  });
+  assert.equal(
+    captured.options.headers.Authorization,
+    "Bearer FIRST_PARTY_BROWSER_ONLY",
+  );
   await assert.rejects(
-    () => decideConsent(db, "id", "approve", "owner"),
-    /authentication_required/,
+    () =>
+      consentApi(
+        db,
+        "/api/oauth/details",
+        {},
+        async () => new Response("", { status: 401 }),
+      ),
+    /consent_unavailable/,
   );
 });

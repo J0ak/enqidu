@@ -1,27 +1,43 @@
 export function authorizationId(search) {
-  const params = new URLSearchParams(search);
-  const id = params.get("authorization_id");
-  return params.getAll("authorization_id").length === 1 &&
-    /^[a-zA-Z0-9_-]{1,200}$/.test(id || "")
+  const p = new URLSearchParams(search),
+    id = p.get("request_id");
+  return p.getAll("request_id").length === 1 &&
+    /^enq_mcp_req_[A-Za-z0-9_-]{43}$/.test(id || "")
     ? id
     : null;
 }
 export function officialRedirect(data) {
-  // This function only receives API responses, never search parameters or client metadata.
-  const url = new URL(data?.redirect_url);
+  // Defense in depth. Only ENQIDU API output enters here, never query/client metadata.
+  const u = new URL(data?.redirect_url);
   if (
-    url.username ||
-    url.password ||
-    !(
-      url.protocol === "https:" ||
-      (url.protocol === "http:" &&
-        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
-    )
+    u.origin !== "https://chatgpt.com" ||
+    u.pathname !== "/connector_platform_oauth_redirect" ||
+    u.username ||
+    u.password ||
+    u.hash ||
+    !u.searchParams.get("iss")
   )
     throw Error("invalid_redirect");
   return data.redirect_url;
 }
-export async function decideConsent(db, id, decision, expectedUserId) {
+export async function consentApi(db, path, body, fetcher = fetch) {
+  const { data, error } = await db.auth.getSession();
+  if (error || !data?.session?.access_token)
+    throw Error("authentication_required");
+  const r = await fetcher(path, {
+    method: body ? "POST" : "GET",
+    headers: {
+      Authorization: `Bearer ${data.session.access_token}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    cache: "no-store",
+    redirect: "error",
+  });
+  if (!r.ok) throw Error("consent_unavailable");
+  return r.json();
+}
+export async function decideConsent(db, id, decision, expectedUserId, fetcher) {
   if (!id || !["approve", "deny"].includes(decision))
     throw Error("invalid_request");
   const auth = await db.auth.getUser();
@@ -31,9 +47,12 @@ export async function decideConsent(db, id, decision, expectedUserId) {
     auth.data.user.id !== expectedUserId
   )
     throw Error("authentication_required");
-  const result = await db.auth.oauth[
-    decision === "approve" ? "approveAuthorization" : "denyAuthorization"
-  ](id, { skipBrowserRedirect: true });
-  if (result.error) throw Error("consent_unavailable");
-  return officialRedirect(result.data);
+  return officialRedirect(
+    await consentApi(
+      db,
+      "/api/oauth/decision",
+      { authorization_request_id: id, decision },
+      fetcher,
+    ),
+  );
 }

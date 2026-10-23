@@ -1,4 +1,5 @@
 import { createRemoteMcpHandler } from "../src/mcp/remote.js";
+import { oauthStore } from "../server/oauth/configuration.js";
 import { remoteConfiguration } from "../server/mcpConfiguration.js";
 
 // Vercel Node.js Web handler; the SDK reads the original bounded stream.
@@ -27,6 +28,7 @@ async function serve(request) {
   try {
     return await createRemoteMcpHandler({
       config: remoteConfiguration(),
+      tokenStore: oauthStore(),
       observe: (event) => console.info(JSON.stringify(event)),
     })(request);
   } catch {

@@ -14,10 +14,3 @@ verify_jwt = false
 
 [functions.manual-health-import]
 verify_jwt = true
-
-# Disposable acceptance only: UserInfo/account-mutation security probes.
-# This does not enable OAuth or DCR on any hosted project.
-[auth.oauth_server]
-enabled = true
-authorization_url_path = "/oauth/consent"
-allow_dynamic_registration = false

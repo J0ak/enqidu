@@ -196,6 +196,7 @@ test("package scripts exist and dependencies remain an audited allowlist", async
     "node scripts/coach-context/plan-supabase-seed.mjs",
   );
 
+  assert.equal(packageJson.dependencies.pg, "8.16.3");
   assert.deepEqual(Object.keys(packageJson.dependencies).sort(), [
     "@modelcontextprotocol/server",
     "@supabase/supabase-js",
@@ -203,6 +204,7 @@ test("package scripts exist and dependencies remain an audited allowlist", async
     "fit-file-parser",
     "jszip",
     "lucide-react",
+    "pg",
     "react",
     "react-dom",
     "vite",

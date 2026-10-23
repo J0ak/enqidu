@@ -13,54 +13,42 @@ window.renderConsent = (scenario = "ready") => {
       getUser: async () => ({
         data: { user: loggedIn ? { id: "athlete-a" } : null },
       }),
+      getSession: async () => ({
+        data: {
+          session: loggedIn ? { access_token: "browser-only-fixture" } : null,
+        },
+      }),
       signInWithPassword: async () => {
         loggedIn = true;
         return { error: null };
       },
-      oauth: {
-        getAuthorizationDetails: async (id) => {
-          window.consentCalls.push(["details", id]);
-          return scenario === "error"
-            ? { error: {} }
-            : scenario === "previous"
-              ? { data: { redirect_url: "https://client.example/previous" } }
-              : {
-                  data: {
-                    client: { name: "Entrenador <script>NO_EJECUTAR</script>" },
-                    scope: "openid email",
-                    redirect_uri: "https://client.example/callback",
-                    user: { id: "athlete-a" },
-                  },
-                };
-        },
-        approveAuthorization: async (id, options) => {
-          window.consentCalls.push(["approve", id, options]);
-          return {
-            data: {
-              redirect_url: "https://client.example/callback?code=official",
-            },
-          };
-        },
-        denyAuthorization: async (id, options) => {
-          window.consentCalls.push(["deny", id, options]);
-          return {
-            data: {
-              redirect_url:
-                "https://client.example/callback?error=access_denied",
-            },
-          };
-        },
-      },
     },
+  };
+  const fetcher = async (path, options) => {
+    const body = JSON.parse(options.body);
+    window.consentCalls.push([path, body]);
+    if (scenario === "error") return new Response("", { status: 400 });
+    return path.endsWith("details")
+      ? Response.json({
+          client: { name: "ChatGPT <script>NO_EJECUTAR</script>" },
+          scope: "enqidu.read enqidu.preview offline_access",
+          redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect",
+        })
+      : Response.json({
+          redirect_url: `https://chatgpt.com/connector_platform_oauth_redirect?${body.decision === "approve" ? "code=opaque" : "error=access_denied"}&iss=https%3A%2F%2Fenqidu.example`,
+        });
   };
   root.render(
     <OAuthConsent
       key={scenario}
       db={db}
+      fetcher={fetcher}
       search={
         scenario === "missing"
           ? ""
-          : "?authorization_id=request-104&redirect_uri=https://evil.example"
+          : "?request_id=enq_mcp_req_" +
+            "a".repeat(43) +
+            "&redirect_uri=https://evil.example"
       }
       redirect={(url) => {
         window.consentRedirect = url;
@@ -69,3 +57,19 @@ window.renderConsent = (scenario = "ready") => {
   );
 };
 window.renderConsent();
+window.renderConnections = async () => {
+  const { default: OAuthConnections } = await import(
+    "../src/oauth/OAuthConnections.jsx"
+  );
+  root.render(
+    <OAuthConnections
+      db={{
+        auth: {
+          getSession: async () => ({
+            data: { session: { access_token: "browser-only-fixture" } },
+          }),
+        },
+      }}
+    />,
+  );
+};

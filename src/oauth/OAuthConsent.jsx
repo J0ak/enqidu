@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { authorizationId, decideConsent, officialRedirect } from "./consent.js";
+import { authorizationId, decideConsent, consentApi } from "./consent.js";
 import "./OAuthConsent.css";
 
 export default function OAuthConsent({
   db,
+  fetcher = fetch,
   search = window.location.search,
   redirect = (url) => window.location.assign(url),
 }) {
@@ -22,13 +23,14 @@ export default function OAuthConsent({
           if (alive) setState({ status: "login" });
           return;
         }
-        const { data, error } = await db.auth.oauth.getAuthorizationDetails(id);
-        if (error || !data) throw Error();
+        const data = await consentApi(
+          db,
+          "/api/oauth/details",
+          { authorization_request_id: id },
+          fetcher,
+        );
+        if (!data) throw Error();
         if (!alive) return;
-        if (data.redirect_url) {
-          redirect(officialRedirect(data));
-          return;
-        }
         if (!data.client?.name || typeof data.scope !== "string") throw Error();
         setState({ status: "ready", details: data, userId: auth.data.user.id });
       } catch {
@@ -65,7 +67,7 @@ export default function OAuthConsent({
     locked.current = true;
     setBusy(true);
     try {
-      redirect(await decideConsent(db, id, decision, state.userId));
+      redirect(await decideConsent(db, id, decision, state.userId, fetcher));
     } catch {
       setState({ status: "error" });
       locked.current = false;
@@ -126,13 +128,22 @@ export default function OAuthConsent({
             </p>
             <p>
               Podrá consultar entrenamientos, progreso, planes y datos de salud
-              disponibles, y preparar vistas previas. No podrá guardar cambios
-              mediante ENQIDU MCP.
+              disponibles.{" "}
+              {state.details.scope.includes("enqidu.preview") &&
+                "Podrá preparar vistas previas. "}
+              No podrá guardar cambios ni modificar tu cuenta.
             </p>
             <p>
-              Permisos de identidad solicitados:{" "}
+              Permisos solicitados:{" "}
               <span>{state.details.scope || "Sin permisos adicionales"}</span>
             </p>
+            {state.details.scope.includes("offline_access") && (
+              <p>
+                La conexión seguirá activa hasta que revoques el acceso o
+                caduque. Puedes revocarla en{" "}
+                <a href="/oauth/connections">Conexiones</a>.
+              </p>
+            )}
             <p className="oauth-destination">
               Destino registrado: {state.details.redirect_uri}
             </p>

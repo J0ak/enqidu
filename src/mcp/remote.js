@@ -21,7 +21,7 @@ const secure = (response) => {
 /** No cross-request server, bearer client, identity, MCP session or subscription state. */
 export function createRemoteMcpHandler({
   config,
-  clientFactory,
+  tokenStore,
   dataClientFactory,
   now,
   observe = () => {},
@@ -37,11 +37,19 @@ export function createRemoteMcpHandler({
       path === "/api/mcp-metadata"
     ) {
       // Public discovery uses the SDK's metadata CORS/preflight. Only this RFC 9728
-      // route is served: do not synthesize an AS discovery document on this host.
+      // route; the separate ENQIDU authorization server owns RFC 8414 discovery.
       const discovery = new Request(metadataUrl, request);
       return secure(
         oauthMetadataResponse(discovery, {
-          oauthMetadata: { issuer: config.issuer },
+          oauthMetadata: {
+            issuer: config.issuer,
+            scopes_supported: [
+              "enqidu.read",
+              "enqidu.preview",
+              "offline_access",
+            ],
+          },
+          scopesSupported: ["enqidu.read", "enqidu.preview", "offline_access"],
           resourceServerUrl: resource,
           resourceName: "ENQIDU READ + PREVIEW",
         }),
@@ -52,7 +60,7 @@ export function createRemoteMcpHandler({
     if (origin && origin !== resource.origin)
       return secure(json(403, "origin_not_allowed"));
     if (path !== resource.pathname) return secure(json(404, "not_found"));
-    let authDb, userId;
+    let authDb, userId, oauthScopes;
     try {
       await verifyBearerToken(request.headers.get("authorization"), {
         expectedResource: config.resource,
@@ -62,10 +70,11 @@ export function createRemoteMcpHandler({
             const authenticated = await authenticateRemoteToken(
               token,
               config,
-              clientFactory,
+              tokenStore,
             );
             authDb = authenticated.authDb;
             userId = authenticated.userId;
+            oauthScopes = authenticated.authInfo.scopes;
             return authenticated.authInfo;
           },
         },
@@ -92,6 +101,7 @@ export function createRemoteMcpHandler({
           db,
           authDb,
           writesEnabled: false,
+          oauthScopes,
           now,
           observe: ({
             request_id,

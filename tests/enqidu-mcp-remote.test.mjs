@@ -185,11 +185,11 @@ test("remote MCP authentication, OAuth provenance, audience, revocation and sani
     f.token({ exp: 1 }),
     f.token({ sub: "missing" }),
     f.token({ client_id: null }),
-    f.token({ session_id: null }),
-    f.token({ aud: "authenticated" }),
-    f.token({ role: "service_role" }),
-    f.token({ iss: "https://wrong.test" }),
-    f.token({ nbf: Date.now() / 1000 + 1000 }),
+    f.token({ resource: "https://another.example/api/mcp" }),
+    f.token({ scopes: ["offline_access"] }),
+    f.token({ revoked: true }),
+    f.token({ banned: true }),
+    "eyJhbGciOiJIUzI1NiJ9.frontend.signature",
   ]) {
     const res = await fetch(f.config.resource, {
       method: "POST",
@@ -206,11 +206,6 @@ test("remote MCP authentication, OAuth provenance, audience, revocation and sani
       /stack|service_role|invalid token|eyJ|supabase|SQL/,
     );
   }
-  // Real Auth accepts a resource-only audience too; it is not an account-write guard.
-  const resourceOnly = await f.connect({
-    accessToken: f.token({ aud: f.config.resource }),
-  });
-  assert.equal((await resourceOnly.listTools()).tools.length, 27);
   const token = f.token(),
     client = await f.connect({ accessToken: token });
   await client.listTools();
@@ -374,12 +369,10 @@ test("remote configuration refuses insecure URLs and privileged keys", () => {
     SUPABASE_URL: "https://example.supabase.co",
     SUPABASE_PUBLISHABLE_KEY: "sb_publishable_public",
     SUPABASE_SECRET_KEY: "sb_secret_fixture_server",
+    ENQIDU_OAUTH_ISSUER: "https://enqidu.example",
     ENQIDU_MCP_RESOURCE_URL: "https://enqidu.example/api/mcp",
   };
-  assert.equal(
-    remoteConfiguration(config).issuer,
-    "https://example.supabase.co/auth/v1",
-  );
+  assert.equal(remoteConfiguration(config).issuer, "https://enqidu.example");
   for (const patch of [
     { SUPABASE_URL: "http://localhost" },
     { SUPABASE_PUBLISHABLE_KEY: "sb_secret_private" },
@@ -394,8 +387,10 @@ test("remote MCP sanitizes unexpected auth errors and treats stored instructions
   const { createRemoteMcpHandler } = await import("../src/mcp/remote.js");
   const failure = await createRemoteMcpHandler({
     config: f.config,
-    clientFactory: () => {
-      throw Error("Authorization JWT service_role SELECT stack PRIVATE");
+    tokenStore: {
+      call: async () => {
+        throw Error("Authorization JWT service_role SELECT stack PRIVATE");
+      },
     },
   })(
     new Request(f.config.resource, {
@@ -468,6 +463,7 @@ test("server data-plane failures are sanitized and never expose its credential",
   const { createRemoteMcpHandler } = await import("../src/mcp/remote.js");
   const r = await createRemoteMcpHandler({
     config: f.config,
+    tokenStore: f.tokenStore,
     dataClientFactory: () => {
       throw Error(f.config.dataKey);
     },
@@ -555,4 +551,24 @@ test("all 27 tools ignore adversarial foreign parents and children with a data c
     );
   }
   assert.ok(f.dataRequests.every((r) => r.privileged));
+});
+
+test("preview scopes are enforced with OAuth tool metadata and all 27 discoverable", async (t) => {
+  const f = await remoteFixture(t);
+  const c = await f.connect({
+    accessToken: f.token({ scopes: ["enqidu.read"] }),
+  });
+  const tools = (await c.listTools()).tools;
+  assert.equal(tools.length, 27);
+  assert.deepEqual(
+    tools.find((t) => t.name === "preview_cancel_session")._meta
+      .securitySchemes,
+    [{ type: "oauth2", scopes: ["enqidu.read", "enqidu.preview"] }],
+  );
+  const r = await c.callTool({
+    name: "preview_cancel_session",
+    arguments: { source_date: "2026-10-05" },
+  });
+  assert.equal(r.structuredContent.error.code, "insufficient_scope");
+  assert.match(r._meta["mcp/www_authenticate"][0], /enqidu.preview/);
 });

@@ -1,6 +1,6 @@
-# Auth account mutation — BLOCKER for #104
+# Rejected architecture: Supabase OAuth issuer
 
-**Not ready to merge or enable remote OAuth.** The existing Data API/RPC/Edge protections remain valid, but a Supabase OAuth-shaped user bearer can modify the account through Auth. A READ/PREVIEW tool registry is not a global read-only boundary for that credential. No broker, alternative issuer, production setting or runtime authentication workaround is implemented here.
+**Rejected by architectural decision.** Supabase Auth remains the first-party identity provider, but is not the issuer of client MCP credentials. The replacement is [ENQIDU opaque OAuth](epic-104-architecture.md). The following is historical evidence from commit `1ab07cd45ff8a532ff24935f62787588019b630b`, not the current transport or rollout plan.
 
 ## Real local evidence (2026-10-23)
 
@@ -22,22 +22,7 @@ Tested Supabase Auth **v2.197.0**, also the latest official release returned by 
 
 The metadata request is exactly `{"data":{"mcp_forbidden_probe":"must-not-change"}}`. Email/password probes affect only disposable local users; every user is deleted in `finally` and absence is checked. SMTP remains the local test sink. Phone was not tested; the demonstrated metadata/password writes already fail the required boundary. Response bodies are inspected in memory, never logged. The [sanitized evidence](evidence/auth-account-gate.json) contains statuses and booleans, no identities, addresses, tokens, hashes or secrets.
 
-Reproduce with the same local-only environment guard as other acceptance scripts:
-
-```sh
-ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local.env \
-  node scripts/test-auth-account-boundary-supabase.mjs
-```
-
-The default CI invocation **asserts the observed vulnerable behavior** and prints `BLOCKED_AUTH_ACCOUNT_MUTATION`. A green reproduction means the evidence is reproducible, not that account isolation passes. The explicit release gate exits nonzero:
-
-```sh
-ENQIDU_REQUIRE_AUTH_ACCOUNT_ISOLATION=1 \
-ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local.env \
-  node scripts/test-auth-account-boundary-supabase.mjs
-```
-
-If a future Auth release changes this behavior, the reproduction assertions must be reviewed and replaced with rejection-and-unchanged-state acceptance before lifting the blocker. No known security failure is silently skipped.
+Historical reproduction: [the exact script at the rejected-design commit](https://github.com/J0ak/enqidu/blob/1ab07cd45ff8a532ff24935f62787588019b630b/scripts/test-auth-account-boundary-supabase.mjs). It required enabling OAuth only in that disposable checkout. It is intentionally removed from current CI and local configuration: the replacement neither requires nor enables Supabase OAuth. The sanitized historical JSON is retained.
 
 ## Technical cause and official API review
 
@@ -55,21 +40,10 @@ The tested release's source explains the results:
 
 This corrects the earlier #104 inference that putting `authenticated` first was necessary for UserGet: real local Auth accepts the resource-only token too. The HTTP fixture has been corrected accordingly. ENQIDU's exact MCP resource-audience validation is unchanged; no default-audience fallback was added.
 
-## Decision, options and impact
+## Decision
 
-| Option | Assessment |
-|---|---|
-| Switch to UserInfo + resource-only audience | **Rejected as a fix:** identity and MCP work, but metadata/email/password writes still succeed. No production auth refactor justified. |
-| Supabase-supported Auth authorization separating OAuth clients from account mutation | Preferred direction if the provider supplies a documented, tested guarantee for **all** account mutation routes. No such supported project configuration was verified in this release. Re-test exact hosted behavior under an approved rollout before lifting the gate. |
-| Separately reviewed standard OAuth issuer/broker that never gives clients a Supabase user bearer | Potential architectural option, requiring identity binding, token issuance/verification, audience, refresh/revocation, consent, persistence and threat-model review. Not implemented or selected here; cost/operations must be demonstrated within €0 before approval. |
-| Keep remote OAuth disabled | **Current recommendation.** Preserve the completed transport/read/data-plane work, keep #104 blocked for merge/rollout, and obtain a reviewed Auth isolation solution. App/Coach/local MCP remain unchanged. |
+Supabase-issued client tokens were rejected, including the UserInfo/resource-only alternative. More RLS, Edge guards or audience hooks cannot prohibit direct Auth account mutations. The prior compensating public-table policies/pre-request/Edge guards are removed from #104. The privileged read facade and its ownership protections remain.
 
-Changing ENQIDU's proxy, RLS, Edge guards or metadata cannot authorize/deny requests sent directly to Supabase Auth. No unsupported token manipulation, custom account claim, DIY OAuth server or secret pasted into ChatGPT is proposed as a fix.
+The authorized replacement is an ENQIDU OAuth server using private persistent grants, PKCE and opaque tokens. The critical new acceptance sends the same opaque token successfully to MCP and unsuccessfully to real local Supabase Auth/REST/Edge, then confirms account metadata unchanged. No Supabase access token is given to ChatGPT.
 
-## Storage and Realtime
-
-The independent production audit reports **0 Storage buckets**; the earlier SELECT-only policy audit found no Storage policies. No Storage infrastructure was created. The automated catalog audit now conservatively flags **any new bucket** or Storage policy applying to `authenticated`/`public` for explicit OAuth isolation review, even if a bucket is marked private. Negative tests create only transaction-local metadata/policies and roll back. This prevents assuming that new Storage exposure inherits public-table protection.
-
-Public-table restrictive RLS requiring `client_id IS NULL` is evaluated for RLS-based reads outside PostgREST, including Realtime table authorization. `pgrst.db_pre_request` is an additional Data API-only defense, not the sole protection. No new Realtime channels/configuration or claimed Realtime end-to-end acceptance is introduced.
-
-Incremental cost: **€0.00**. No production writes, migration apply, OAuth enablement, hook installation, signing rotation, real client registration, deployment or merge.
+Production audit at the time reported 0 Storage buckets. No production OAuth configuration, hook, signing rotation, client registration, write, deployment or merge was performed. Incremental spend: €0.00.

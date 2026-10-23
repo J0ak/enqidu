@@ -35,7 +35,8 @@
     "test:garmin-ingestion": "node --test tests/garmin-daily-ingestion*.test.mjs",
     "test:morning-coach": "node --test tests/morning-coach*.test.mjs",
     "test:mcp:remote": "node --test tests/enqidu-mcp-remote.test.mjs",
-    "test:semantic-read": "node --test tests/enqidu-tools-semantic-read.test.mjs"
+    "test:semantic-read": "node --test tests/enqidu-tools-semantic-read.test.mjs",
+    "test:mcp:oauth": "node --test tests/mcp-oauth*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
@@ -46,13 +47,13 @@
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "pg": "8.16.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@modelcontextprotocol/client": "2.3.1",
     "@modelcontextprotocol/core": "2.3.1",
-    "@playwright/test": "1.63.0",
-    "pg": "8.16.3"
+    "@playwright/test": "1.63.0"
   }
 }

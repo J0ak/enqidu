@@ -11,6 +11,9 @@ function publicKey(key) {
   }
 }
 export function remoteConfiguration(env = process.env) {
+  const issuer = new URL(env.ENQIDU_OAUTH_ISSUER);
+  if (issuer.protocol !== "https:" || issuer.origin !== env.ENQIDU_OAUTH_ISSUER)
+    throw Error("server_configuration_error");
   const resource = new URL(env.ENQIDU_MCP_RESOURCE_URL);
   const supabase = new URL(env.SUPABASE_URL);
   for (const url of [resource, supabase]) {
@@ -23,7 +26,12 @@ export function remoteConfiguration(env = process.env) {
     )
       throw Error("server_configuration_error");
   }
-  if (resource.pathname !== "/api/mcp" || supabase.pathname !== "/")
+  if (
+    resource.pathname !== "/api/mcp" ||
+    resource.href !== env.ENQIDU_MCP_RESOURCE_URL ||
+    resource.origin !== issuer.origin ||
+    supabase.pathname !== "/"
+  )
     throw Error("server_configuration_error");
   const key = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY;
   if (!publicKey(key)) throw Error("server_configuration_error");
@@ -41,6 +49,6 @@ export function remoteConfiguration(env = process.env) {
     resource: resource.href,
     supabaseUrl: supabase.origin,
     key,
-    issuer: `${supabase.origin}/auth/v1`,
+    issuer: issuer.origin,
   };
 }

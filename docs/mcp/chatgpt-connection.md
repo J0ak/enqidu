@@ -1,22 +1,15 @@
 # Connecting ChatGPT to ENQIDU
 
-**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
+PR #104 is DRAFT and not deployed. After review and the separately authorized [production runbook](oauth-production-runbook.md), the endpoint is `https://enqidu.vercel.app/api/mcp`, using ENQIDU OAuth authorization code + PKCE. Availability depends on the ChatGPT product/plan/workspace; this PR buys nothing and registers no real client.
 
-This is a standard remote MCP server, independent of any particular ChatGPT UI. Connection is available only when the account/product/plan and workspace policy permit custom MCP servers. #104 neither purchases a plan nor connects a production account.
+Follow the [official custom MCP connection guide](https://developers.openai.com/apps-sdk/deploy/connect-chatgpt) for the account's current interface: add a custom MCP server/plugin, enter the HTTPS resource URL, select OAuth, then review/install its discovered tools. Labels and eligibility can change. If unavailable, the workspace administrator must establish eligibility; do not use a paid workaround.
 
-Before connection, an operator must complete the [production runbook](oauth-production-runbook.md). Use the existing ENQIDU host's **HTTPS** endpoint `https://<host>/api/mcp` with **OAuth**. Never paste a JWT, API key, refresh token or Supabase service credential into ChatGPT or a tool argument.
+[OpenAI's current auth documentation](https://developers.openai.com/plugins/build/auth) supports stable `https://chatgpt.com/oauth/client.json` when RFC 9207 issuer identification is implemented. ENQIDU advertises CIMD and `none`; no client secret, DCR registration or pasted token is needed. The server fetches that exact approved document and validates the published callback. Other arbitrary CIMD URLs are rejected.
 
-The [current official OpenAI connection guide](https://developers.openai.com/apps-sdk/deploy/connect-chatgpt), reviewed 2026-10-21/22, describes ChatGPT Plugins → plus button → **Add custom MCP server**, a name/description, the public endpoint under Connection, authentication configuration, then **Create as a plugin** and review discovered tools. Install/select the resulting plugin in a new conversation (the guide currently uses `@`). Labels and eligibility can change; follow the equivalent account/workspace flow shown in the current product. If the option is unavailable, the workspace administrator must establish eligibility; this PR does not change that policy. No paid tunnel or additional hosting is required.
+The browser visits ENQIDU's consent page. Sign in using your existing ENQIDU account, review `enqidu.read`, optional `enqidu.preview` and `offline_access`, then approve or deny. ENQIDU issues the opaque code/token; ChatGPT never receives your Supabase session. No OIDC identity scopes, UserInfo or ID token are involved. The connection permits sporting reads and requested previews, never writes or account changes.
 
-OAuth redirects to Supabase and ENQIDU `/oauth/consent`. Sign in to ENQIDU and review the client and identity scopes. The screen says that MCP can read sporting/health data and prepare previews, and cannot persist changes. Approve or deny there; Supabase creates the code and returns the redirect. ChatGPT owns the resulting OAuth tokens, not ENQIDU's consent component.
+Verify the [exact 27 tools](remote-mcp.md#exact-remote-discovery): no `apply_*`, SQL or generic RPC. Resolve “Dominada alta”, then get `high_pull_up` progress; use recent activities plus session detail for a recorded workout; use overview for broad questions. Missing data must remain missing.
 
-Verify discovery against the [exact 27-tool manifest](remote-mcp.md#exact-remote-discovery). All annotations should be read-only; no `apply_*`, SQL, table or RPC tool should appear. Useful checks without requiring a paid LLM in development:
+To revoke server-side access, while logged into ENQIDU open `/oauth/connections` and choose **Revocar acceso** for ChatGPT. This invalidates access and refresh credentials. Also remove/disconnect the custom server in ChatGPT as desired; client-side removal alone is not proof of revocation. A connection expires after 90 days at most and then needs fresh consent.
 
-1. Resolve “Dominada alta”, then read `get_exercise_progress_v1` for `high_pull_up`.
-2. Read recent activities for a date, then `get_training_session_detail_v2` for the returned ID.
-3. Read `get_training_overview_v1` with `period="4"`.
-4. Resolve HSPU and inspect `missing_metrics`; unavailable reps must not appear as zero.
-
-If discovery fails, check the RFC 9728 response and 401 challenge, issuer discovery, resource audience, consent configuration, and account policy. Do not bypass authentication by sending a frontend session token. Debug with MCP Inspector/SDK locally before a production smoke test; never share raw authenticated traffic containing health data or credentials.
-
-To revoke, disconnect/remove the custom server in ChatGPT, then revoke its grant in Supabase using the athlete's OAuth grant management APIs (`auth.oauth.listGrants()` / `auth.oauth.revokeGrant({ clientId })`) or the operator's supported OAuth administration workflow. Verify that a new MCP request is rejected and that refresh cannot regain access. Client-side removal alone is not proof of server-side token revocation. Follow the runbook's live revocation check and issuer expiry semantics.
+If linking fails, check discovery, exact issuer/resource, CIMD availability, `iss` callbacks, PKCE and workspace eligibility. Never paste Supabase JWTs, access/refresh tokens or service keys into ChatGPT. Use the SDK/local acceptance for diagnostics without logging authenticated traffic.

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 // Restore the audited production RLS baseline missing from the slim local fixture.
-// This is ONLY a disposable-stack fixture; the production migration refuses missing RLS.
+// This is ONLY a disposable-stack fixture; no application RLS is changed by the new migration.
 let sql = "BEGIN;";
 for (const table of [
   "session_blocks",
@@ -36,7 +36,7 @@ sql = sql.replace(
 );
 sql += readFileSync(
   new URL(
-    "../supabase/migrations/20261022133734_oauth_mcp_boundary_v1.sql",
+    "../supabase/migrations/20261023150630_mcp_private_oauth_v1.sql",
     import.meta.url,
   ),
   "utf8",
@@ -48,7 +48,7 @@ for (const file of readdirSync(migrations)
   .filter(
     (name) =>
       /^\d{14}_.+\.sql$/.test(name) &&
-      name > "20261022133734_oauth_mcp_boundary_v1.sql",
+      name > "20261023150630_mcp_private_oauth_v1.sql",
   )
   .sort())
   sql += "\n" + readFileSync(new URL(file, migrations), "utf8");
@@ -80,5 +80,5 @@ const r = spawnSync(
 );
 if (r.status !== 0) throw Error(r.stderr);
 console.log(
-  "OAuth boundary installed ONLY in disposable local database; missing-RLS production guard retained.",
+  "Private OAuth schema installed ONLY in disposable local database.",
 );

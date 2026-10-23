@@ -2,7 +2,7 @@ import { semanticState } from "./semanticRemoteState.mjs";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { generateKeyPairSync, sign, verify } from "node:crypto";
+import { opaque, hash, CLIENT_ID } from "../../server/oauth/protocol.js";
 import {
   Client,
   StreamableHTTPClientTransport,
@@ -89,63 +89,49 @@ export async function remoteFixture(
   t,
   { fixture = semanticFixture(), observe, now = TOOL_NOW } = {},
 ) {
-  const { privateKey, publicKey } = generateKeyPairSync("ec", {
-    namedCurve: "P-256",
-  });
   const revoked = new Set(),
     authRequests = [],
-    dataRequests = [];
+    dataRequests = [],
+    records = new Map();
   const dataKey = "sb_secret_SYNTHETIC_REMOTE_DATA_PLANE_ONLY";
   let config;
-  function claimsFor(token) {
-    try {
-      const [h, p, s] = token.split(".");
+  const tokenStore = {
+    async call(op, p) {
+      assert.equal(op, "resolve_access_token_v1");
+      authRequests.push(p.token_hash);
+      const r = records.get(p.token_hash);
       if (
-        !verify(
-          "sha256",
-          Buffer.from(`${h}.${p}`),
-          { key: publicKey, dsaEncoding: "ieee-p1363" },
-          Buffer.from(s, "base64url"),
-        )
+        !r ||
+        revoked.has(r.token) ||
+        r.exp <= Date.now() / 1000 ||
+        ![TOOL_USER_A, TOOL_USER_B].includes(r.sub) ||
+        r.client_id !== CLIENT_ID ||
+        r.resource !== p.resource ||
+        r.revoked ||
+        r.banned
       )
         return null;
-      const c = JSON.parse(Buffer.from(p, "base64url"));
-      return c.exp > Date.now() / 1000 && !revoked.has(token) ? c : null;
-    } catch {
-      return null;
-    }
-  }
+      return {
+        user_id: r.sub,
+        client_id: r.client_id,
+        resource: r.resource,
+        scopes: r.scopes,
+        expires_at: r.exp,
+      };
+    },
+  };
   const supabaseServer = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     const token = req.headers.authorization?.replace(/^Bearer /, "");
     const privileged = token === dataKey;
-    const claims = privileged
-      ? { role: "service_role" }
-      : claimsFor(token || "");
-    if (
-      !claims ||
-      (!privileged && ![TOOL_USER_A, TOOL_USER_B].includes(claims.sub))
-    ) {
+    if (!privileged) {
       res.writeHead(401);
       res.end('{"message":"invalid token"}');
       return;
     }
     const url = new URL(req.url, "http://fixture");
-    if (url.pathname === "/auth/v1/user") {
-      assert.equal(
-        privileged,
-        false,
-        "Auth must never receive the data credential",
-      );
-      authRequests.push(claims.sub);
-      res.end(JSON.stringify({ id: claims.sub, role: claims.role }));
-      return;
-    }
-    if (claims.client_id != null) {
-      res.writeHead(403);
-      res.end('{"message":"oauth_transport_forbidden"}');
-      return;
-    }
+    if (url.pathname.startsWith("/auth/"))
+      throw Error("MCP must never send a token to Auth");
     dataRequests.push({ privileged, path: url.pathname, method: req.method });
     try {
       const table = url.pathname.split("/").at(-1);
@@ -175,11 +161,6 @@ export async function remoteFixture(
       const query = fixture.db
         .from(table)
         .select(url.searchParams.get("select"));
-      if (
-        !privileged &&
-        fixture.tables[table]?.some((r) => Object.hasOwn(r, "user_id"))
-      )
-        query.eq("user_id", claims.sub);
       for (const [field, condition] of url.searchParams) {
         if (["select", "order", "limit", "offset"].includes(field)) continue;
         const dot = condition.indexOf("."),
@@ -237,9 +218,12 @@ export async function remoteFixture(
         ? {}
         : { body: req, duplex: "half" }),
     });
-    const response = await createRemoteMcpHandler({ config, now, observe })(
-      request,
-    );
+    const response = await createRemoteMcpHandler({
+      config,
+      tokenStore,
+      now,
+      observe,
+    })(request);
     res.writeHead(response.status, Object.fromEntries(response.headers));
     res.end(Buffer.from(await response.arrayBuffer()));
   });
@@ -249,25 +233,22 @@ export async function remoteFixture(
   config = {
     resource,
     supabaseUrl,
-    issuer: `${supabaseUrl}/auth/v1`,
+    issuer: new URL(resource).origin,
     key: "sb_publishable_fixture",
     dataKey,
   };
   function token(patch = {}) {
-    const claims = {
+    const value = opaque("at");
+    records.set(hash(value), {
+      token: value,
       sub: TOOL_USER_A,
-      role: "authenticated",
-      client_id: "mcp-client",
-      session_id: toolId(999),
-      aud: ["authenticated", resource],
-      iss: config.issuer,
-      exp: Math.floor(Date.now() / 1000) + 3600,
+      client_id: CLIENT_ID,
+      resource,
+      scopes: ["enqidu.read", "enqidu.preview", "offline_access"],
+      exp: Date.now() / 1000 + 3600,
       ...patch,
-    };
-    const encoded = [{ alg: "ES256", typ: "JWT" }, claims]
-      .map((v) => Buffer.from(JSON.stringify(v)).toString("base64url"))
-      .join(".");
-    return `${encoded}.${sign("sha256", Buffer.from(encoded), { key: privateKey, dsaEncoding: "ieee-p1363" }).toString("base64url")}`;
+    });
+    return value;
   }
   async function connect({ accessToken = token(), mode = "legacy" } = {}) {
     const client = new Client(
@@ -290,6 +271,7 @@ export async function remoteFixture(
   return {
     ...fixture,
     config,
+    tokenStore,
     token,
     connect,
     revoked,
