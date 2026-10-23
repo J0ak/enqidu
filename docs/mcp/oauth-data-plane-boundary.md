@@ -1,5 +1,7 @@
 # OAuth data-plane boundary — #104 security follow-up
 
+**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
+
 ## Decision and security contract
 
 The prior shared OAuth/data bearer was a general `authenticated` credential. A closed MCP registry could not stop its holder from calling REST, RPC or first-party Edge writers. This follow-up explicitly supersedes the original “no service-role remotely” design, as authorized in the security review.
@@ -39,7 +41,7 @@ The runtime accepts `authDb = db` by default. App/Coach/local retain their exist
 - `set_garmin_sync_consent` invokes the same guard inside its SECURITY DEFINER body, before any write; all other existing behavior is retained.
 - `read_training_semantics_for_mcp_v1(uuid,uuid)` is SECURITY INVOKER, STABLE, service-role-only. It exposes no new calculation or write.
 
-OAuth access to Auth lifecycle remains intact. Exact MCP audience checks remain mandatory. This is **code ready**: the deployed system retains its previous behavior until operators apply the reviewed migration and deploy the Edge boundary. No global read-only claim applies to production before that coordinated rollout.
+OAuth access to Auth lifecycle remains intact, but account mutation is also possible: this is an unresolved security blocker, not an allowed capability. Exact MCP audience checks remain mandatory. The data-plane implementation is ready for review, but rollout remains blocked by Auth account mutation. The deployed system retains its previous behavior. Applying the migration and deploying the Edge boundary alone would still not establish global read-only access.
 
 ## SELECT-only production inventory, 2026-10-22
 

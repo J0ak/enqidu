@@ -1,6 +1,8 @@
 # Remote MCP V1
 
-**Code ready is not production enabled.** Complete the [OAuth production runbook](oauth-production-runbook.md) after review/merge and before connecting real athletes. No deployment or production configuration was performed by #104.
+**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
+
+**Transport code ready is not security approval or production enablement.** Resolve the Auth account gate before merge, then complete the separately authorized [OAuth production runbook](oauth-production-runbook.md) before connecting real athletes. No deployment or production configuration was performed by #104.
 
 ## Endpoints and configuration
 

@@ -186,7 +186,6 @@ test("remote MCP authentication, OAuth provenance, audience, revocation and sani
     f.token({ sub: "missing" }),
     f.token({ client_id: null }),
     f.token({ session_id: null }),
-    f.token({ aud: f.config.resource }),
     f.token({ aud: "authenticated" }),
     f.token({ role: "service_role" }),
     f.token({ iss: "https://wrong.test" }),
@@ -207,6 +206,11 @@ test("remote MCP authentication, OAuth provenance, audience, revocation and sani
       /stack|service_role|invalid token|eyJ|supabase|SQL/,
     );
   }
+  // Real Auth accepts a resource-only audience too; it is not an account-write guard.
+  const resourceOnly = await f.connect({
+    accessToken: f.token({ aud: f.config.resource }),
+  });
+  assert.equal((await resourceOnly.listTools()).tools.length, 27);
   const token = f.token(),
     client = await f.connect({ accessToken: token });
   await client.listTools();

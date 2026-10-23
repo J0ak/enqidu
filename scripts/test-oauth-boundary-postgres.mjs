@@ -33,6 +33,33 @@ try {
       await db.query("rollback");
     }
   }
+  // Storage drift must block review, including a private bucket without a policy.
+  await db.query("begin");
+  try {
+    assert.equal(
+      result.storage.present,
+      true,
+      "local Supabase Storage schema required",
+    );
+    await db.query(
+      "insert into storage.buckets(id,name) values('oauth-boundary-probe','oauth-boundary-probe')",
+    );
+    assert.ok(
+      (await auditOAuthBoundary(db)).errors.some((e) =>
+        e.startsWith("Storage buckets"),
+      ),
+    );
+    await db.query(
+      "create policy oauth_future_probe on storage.objects for select to authenticated using(true)",
+    );
+    assert.ok(
+      (await auditOAuthBoundary(db)).errors.some((e) =>
+        e.startsWith("Storage client policies"),
+      ),
+    );
+  } finally {
+    await db.query("rollback");
+  }
   // Direct PostgreSQL acceptance bypasses the HTTP guard: proves restrictive RLS itself.
   await db.query("begin");
   try {

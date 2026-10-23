@@ -124,10 +124,7 @@ export async function remoteFixture(
       : claimsFor(token || "");
     if (
       !claims ||
-      (!privileged &&
-        (![TOOL_USER_A, TOOL_USER_B].includes(claims.sub) ||
-          (Array.isArray(claims.aud) ? claims.aud[0] : claims.aud) !==
-            "authenticated"))
+      (!privileged && ![TOOL_USER_A, TOOL_USER_B].includes(claims.sub))
     ) {
       res.writeHead(401);
       res.end('{"message":"invalid token"}');

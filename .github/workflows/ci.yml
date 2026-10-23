@@ -94,6 +94,8 @@ jobs:
           node scripts/test-remote-auth-supabase.mjs
           node scripts/test-oauth-boundary-postgres.mjs
           node scripts/test-oauth-boundary-supabase.mjs
+          # Reproduces the known Auth blocker; green CI does NOT authorize rollout.
+          node scripts/test-auth-account-boundary-supabase.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Playwright E2E

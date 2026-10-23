@@ -54,8 +54,35 @@ export async function auditOAuthBoundary(db) {
     `select has_function_privilege('authenticated','public.read_training_semantics_for_mcp_v1(uuid,uuid)','EXECUTE') or has_function_privilege('anon','public.read_training_semantics_for_mcp_v1(uuid,uuid)','EXECUTE') as exposed`,
   );
   if (adapter.exposed) errors.push("service semantic adapter exposed");
+  // V1 has no Storage surface. Any new bucket or client-facing policy needs an
+  // explicit OAuth isolation review; do not infer safety from a private bucket flag.
+  const {
+    rows: [storage],
+  } = await db.query(
+    "select to_regclass('storage.buckets') is not null as present",
+  );
+  const bucketCount = storage.present
+    ? Number(
+        (await db.query("select count(*) as count from storage.buckets"))
+          .rows[0].count,
+      )
+    : 0;
+  const { rows: storagePolicies } = await db.query(
+    "select policyname from pg_policies where schemaname='storage' and ('authenticated'=any(roles) or 'public'=any(roles))",
+  );
+  if (bucketCount)
+    errors.push("Storage buckets require explicit OAuth isolation review");
+  if (storagePolicies.length)
+    errors.push(
+      "Storage client policies require explicit OAuth isolation review",
+    );
   return {
     errors,
+    storage: {
+      present: storage.present,
+      buckets: bucketCount,
+      clientPolicies: storagePolicies.length,
+    },
     relations: relations.map((r) => r.relname),
     functions: functions.map((f) => f.signature),
   };

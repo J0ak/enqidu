@@ -1,5 +1,7 @@
 # Connecting ChatGPT to ENQIDU
 
+**SECURITY BLOCKER — not ready to merge or enable OAuth:** real Supabase Auth accepts account mutations with both the current and resource-only bearer. See [Auth account gate and evidence](auth-account-security-gate.md). Existing Data API/Edge isolation does not solve this.
+
 This is a standard remote MCP server, independent of any particular ChatGPT UI. Connection is available only when the account/product/plan and workspace policy permit custom MCP servers. #104 neither purchases a plan nor connects a production account.
 
 Before connection, an operator must complete the [production runbook](oauth-production-runbook.md). Use the existing ENQIDU host's **HTTPS** endpoint `https://<host>/api/mcp` with **OAuth**. Never paste a JWT, API key, refresh token or Supabase service credential into ChatGPT or a tool argument.
