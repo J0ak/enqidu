@@ -1,5 +1,7 @@
 # ENQIDU MCP V1
 
+Remote Streamable HTTP and the five shared semantic reads added by #104 are documented in [Remote MCP V1](mcp/remote-mcp.md). The stdio workflow below remains supported.
+
 MCP is a transport over ENQIDU Tools V1. It has no SQL, provider access, training
 algorithm, planning rule or mutation implementation of its own. The MCP tool
 name is the domain registry ID; `tools/call` creates an authenticated runtime

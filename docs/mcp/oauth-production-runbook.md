@@ -1,0 +1,36 @@
+# ENQIDU OAuth — CODE READY versus MANUAL PRODUCTION CONFIGURATION
+
+#104 remains **DRAFT**. This runbook is not approval to merge, deploy or change production. Supabase OAuth Server is **not the issuer** and must not be enabled for this integration. No Auth hook, signing rotation, real client registration, real grant or production env change was performed.
+
+## Code supplied for review
+
+ENQIDU public-client OAuth authorization code + PKCE S256 + stable ChatGPT CIMD; issuer identification; private request/grant/code/token persistence; opaque credentials; rotating refresh; grant revocation; online deletion/ban checks; reused consent UI and connections UI; shared stateless MCP read facade and 27 tools. See [architecture](epic-104-architecture.md), [validation](validation-104.md), and [rejected design evidence](rejected-supabase-oauth.md).
+
+The only pending migration is `20261023150630_mcp_private_oauth_v1.sql`. It creates `mcp_private` and a dedicated NOLOGIN role, plus the two small canonical read adapters required by the existing read facade. The previous global OAuth RLS/Edge/pre-request compensation is removed from the PR and must not be installed. If it was independently installed after the recorded no-apply audit, stop and review drift; this PR provides no destructive production rollback.
+
+## Manual rollout, only after independent review and explicit authorization
+
+1. Confirm €0 budget and existing Vercel/Supabase free quotas. Do not purchase resources, upgrades, a paid branch, IPv4 add-on or proxy. Review request/concurrency limits; 120 authorize requests/minute is not complete DoS protection.
+2. Run the fresh disposable local bootstrap and all acceptance suites. Review atomic SQL locks, SECURITY DEFINER ACLs, user deletion/ban behavior, replay revocation and credential separation. Keep DRAFT until review approves the implementation. A local green test is not a hosted ChatGPT test.
+3. Audit production read-only for schema drift, `auth.users` id/deleted_at/banned_until, existing private-schema/role names, exposed schemas, role/function grants, current RLS, Storage buckets/policies and Realtime public/policy exposure. The SELECT-only audit on 2026-10-23 reconfirmed 0 Storage buckets, the required Auth columns, and absence of the new schema/role. New public data surfaces require explicit review. `mcp_private` must never be in PostgREST's exposed schemas or granted to anon/authenticated/service_role.
+4. Under separate authorization, apply the reviewed migration transactionally. Verify four private tables, RLS, empty function search_path and nine runtime-executable functions; helper functions remain inaccessible. The role must not be a member of postgres/service_role/authenticated or have table access. The production migration intentionally does not set a password or enable login.
+5. Provision a strong random password and enable LOGIN **only** for `enqidu_mcp_oauth` through the operator's secret workflow. Use the existing Supavisor transaction endpoint, username `enqidu_mcp_oauth.<project-ref>`, database `postgres`, and port supplied by the project (normally 6543). No new DB/role with broad application privileges. Store the URL only as `ENQIDU_OAUTH_DATABASE_URL`. No URL query parameters; the server enables verified TLS itself. Verify the deployed Node runtime trusts the pooler certificate; do not disable verification. Test connectivity and the private ACLs with that exact role before deployment.
+6. Configure trusted values in the existing backend after authorization:
+   - `ENQIDU_OAUTH_ISSUER=https://enqidu.vercel.app` (exact canonical origin, no trailing slash/query/fragment).
+   - `ENQIDU_MCP_RESOURCE_URL=https://enqidu.vercel.app/api/mcp`.
+   - Existing Supabase URL/public key and server data credential (never VITE-prefixed).
+   - Dedicated private-function DB URL from step 5.
+   First-party frontend login configuration remains unchanged. No Supabase OAuth enablement, DCR, custom token hook, OAuth signing prerequisite or new client registration.
+7. Deploy only after separate authorization. The PR branch's Git deployments remain disabled. Verify all Vercel rewrites, Node/pg bundling, HTTPS, no-store/no-cache, consent anti-framing/referrer headers, exact issuer and public GET/OPTIONS discovery. RFC 8414 must omit registration_endpoint and OIDC fields. RFC 9728 must name ENQIDU, not Supabase. `/api/mcp` without a token must return the advertised 401 challenge.
+8. Fetch the live approved ChatGPT CIMD and verify the stable client id, exact callback, grant/response types and plural `none` compatibility. The Node fetch intentionally rejects redirects and private/reserved DNS answers. Test DNS/TLS from Vercel; no alternate arbitrary CIMD/callback or silent fallback is allowed if OpenAI changes its document.
+9. With an eligible test account/workspace and explicitly approved test user, exercise ChatGPT's OAuth flow. Confirm scopes, login continuation, explicit approve/deny, `iss` on success/error callbacks, resource parameter on token/refresh, exact PKCE, and discovery of 27 tools. No token pasting. Inspect safely that only an ENQIDU opaque credential reaches the client; do not capture token bodies in logs.
+10. Repeat the **same-token** negative probes against Supabase Auth GET/PUT, REST and Edge; verify metadata unchanged. Audit Storage/Realtime rejection with the actual deployment configuration before broad access. Test normal first-party reads/writes, grant revocation, refresh rotation/replay, account ban/delete and tool tenant isolation. Revoke/delete the approved test grant afterwards.
+11. Confirm account/workspace eligibility and ongoing free quotas. Publish athlete instructions for `/oauth/connections` → Revocar acceso. Client disconnect alone is not server revocation. Monitor only allowlisted status/error/duration fields.
+
+## Lifecycle and recovery
+
+Access lasts at most 60 minutes; refresh lasts at most 30 days and rotates; grants have an absolute 90-day lifetime. `offline_access` is required for refresh. Explicit first-party revocation and RFC 7009 revocation invalidate the whole grant immediately for subsequent resolution/refresh. Deletion cascades; bans are checked directly in the private SQL resolver. First-party browser logout is deliberately not MCP grant revocation: persistent authorized connections survive normal web logout until their own expiry/revocation.
+
+A repeated/concurrent refresh invalidates the grant after one exchange wins. This conservative policy can require reconnecting after a lost response; no grace/reuse window exists in V1. Never retry a consumed refresh blindly. Expired requests/grants are cleaned in bounded batches during authorize. Review storage growth and local tests before adjusting retention; keep consumed refresh hashes until grant expiry for replay detection.
+
+If rollout fails, disable the remote endpoints/issuance through the existing deployment controls and revoke affected grants. Do not reintroduce Supabase OAuth bearer passthrough, weaken resource validation, grant table access, or turn on writes. Any architectural fallback requires review.

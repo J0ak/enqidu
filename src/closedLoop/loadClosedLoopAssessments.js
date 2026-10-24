@@ -58,9 +58,9 @@ async function readPerformedSetHierarchy(db, blocks, missing) {
 }
 
 /** JWT-scoped canonical reads only. Every child scope originates in an authenticated owned parent. */
-export async function loadClosedLoopAssessments(db, { userId, calendarDate, timezone, generatedAt = null, sessionId = null, plannedSessionId = null, fromDate = null, toDate = null, limit = 5, healthLoader = loadHealthIntelligence } = {}) {
-  if (!db?.from || !db?.auth?.getUser || !userId) throw new Error("closed_loop_authenticated_client_required");
-  const auth = await db.auth.getUser();
+export async function loadClosedLoopAssessments(db, { authDb = db, userId, calendarDate, timezone, generatedAt = null, sessionId = null, plannedSessionId = null, fromDate = null, toDate = null, limit = 5, healthLoader = loadHealthIntelligence } = {}) {
+  if (!db?.from || !authDb?.auth?.getUser || !userId) throw new Error("closed_loop_authenticated_client_required");
+  const auth = await authDb.auth.getUser();
   if (auth.error || auth.data?.user?.id !== userId) throw new Error("closed_loop_user_scope_mismatch");
   if (!isValidCalendarDate(calendarDate) || !isValidTimeZone(timezone)) throw new Error("closed_loop_profile_calendar_required");
   if (generatedAt != null && (typeof generatedAt !== "string" || !Number.isFinite(Date.parse(generatedAt)))) throw new Error("closed_loop_invalid_generated_at");

@@ -1,0 +1,41 @@
+{
+  "security_gate": "BLOCKED_AUTH_ACCOUNT_MUTATION",
+  "results": [
+    {
+      "audience": "current-array",
+      "get_user": 200,
+      "userinfo": 200,
+      "put_metadata": 200,
+      "metadata_changed": true,
+      "put_email": 200,
+      "email_change_recorded": true,
+      "email_confirmation_required": true,
+      "put_password": 200,
+      "password_hash_changed": true,
+      "mcp_read": "ok",
+      "direct_data_api": 403,
+      "revoked_userinfo": 403,
+      "revoked_user_get": 403,
+      "revoked_user_put": 403,
+      "revoked_mcp": 401
+    },
+    {
+      "audience": "resource-only",
+      "get_user": 200,
+      "userinfo": 200,
+      "put_metadata": 200,
+      "metadata_changed": true,
+      "put_email": 200,
+      "email_change_recorded": true,
+      "email_confirmation_required": true,
+      "put_password": 200,
+      "password_hash_changed": true,
+      "mcp_read": "ok",
+      "direct_data_api": 403,
+      "revoked_userinfo": 403,
+      "revoked_user_get": 403,
+      "revoked_user_put": 403,
+      "revoked_mcp": 401
+    }
+  ]
+}

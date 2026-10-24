@@ -1,4 +1,12 @@
 {
+  "functions": {
+    "api/mcp*.js": {
+      "maxDuration": 60
+    },
+    "api/oauth/*.js": {
+      "maxDuration": 15
+    }
+  },
   "headers": [
     {
       "source": "/labs/local-language-v0/(.*)",
@@ -8,12 +16,60 @@
           "value": "no-store, max-age=0"
         }
       ]
+    },
+    {
+      "source": "/oauth/(.*)",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
     }
   ],
   "git": {
     "deploymentEnabled": {
       "feat/101-progress-performance-v1": false,
-      "codex/103-semantic-materialization": false
+      "codex/103-semantic-materialization": false,
+      "codex/104-remote-mcp-semantic-read": false
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/.well-known/oauth-protected-resource/api/mcp",
+      "destination": "/api/mcp-metadata"
+    },
+    {
+      "source": "/oauth/consent",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "/api/oauth/metadata"
+    },
+    {
+      "source": "/oauth/authorize",
+      "destination": "/api/oauth/authorize"
+    },
+    {
+      "source": "/oauth/token",
+      "destination": "/api/oauth/token"
+    },
+    {
+      "source": "/oauth/revoke",
+      "destination": "/api/oauth/revocation"
+    },
+    {
+      "source": "/oauth/connections",
+      "destination": "/index.html"
+    }
+  ]
 }

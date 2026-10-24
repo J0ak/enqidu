@@ -58,6 +58,7 @@ jobs:
           node e2e-local/bootstrap-transactional-actions.mjs
           node e2e-local/bootstrap-training-reconciliation.mjs
           node e2e-local/bootstrap-training-semantics.mjs
+          node e2e-local/bootstrap-mcp-oauth.mjs
           supabase --workdir e2e-local status -o env > /tmp/supabase.env
           cat > e2e-local/supabase/.env.e2e <<'EOF'
           OPENAI_COACH_ENABLED=false
@@ -90,6 +91,8 @@ jobs:
           npm run test:transactional-actions
           node scripts/test-reconciliation-postgres.mjs
           node scripts/test-semantics-postgres.mjs
+          npm run test:mcp:oauth
+          node scripts/test-mcp-oauth-supabase.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Playwright E2E

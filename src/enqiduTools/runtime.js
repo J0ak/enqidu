@@ -18,9 +18,9 @@ const instant = (now) => {
 };
 
 /** The only identity constructor: authentication + persisted profile, never tool args. */
-export async function createToolExecutionContext({ db, source = "app", now, capabilities = {} } = {}) {
-  if (!db?.auth?.getUser) throw toolError("auth_required");
-  const auth = await db.auth.getUser();
+export async function createToolExecutionContext({ db, authDb = db, source = "app", now, capabilities = {} } = {}) {
+  if (!authDb?.auth?.getUser) throw toolError("auth_required");
+  const auth = await authDb.auth.getUser();
   const userId = auth?.data?.user?.id;
   if (auth?.error || typeof userId !== "string" || !userId) throw toolError("invalid_user");
   const profile = await db.from("profiles").select("timezone").eq("id", userId).limit(1);
@@ -39,12 +39,12 @@ export async function createToolExecutionContext({ db, source = "app", now, capa
 }
 
 /** One authenticated runtime, closed registry; no generic query/RPC/mutation interface. */
-export async function createEnqiduToolRuntime({ db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {}, recordEvent = null, semanticSigningKey = null } = {}) {
-  let context = await createToolExecutionContext({ db, source, now, capabilities });
+export async function createEnqiduToolRuntime({ db, authDb = db, adminDb = null, source = "app", now, capabilities = {}, observe = () => {}, recordEvent = null, semanticSigningKey = null } = {}) {
+  let context = await createToolExecutionContext({ db, authDb, source, now, capabilities });
   const originalUserId = context.authenticated_user_id;
   let domain;
   const calendarFor = (scope) => ({ date: scope.request_calendar_date, timezone: scope.profile_timezone });
-  const newDomain = (scope) => createEnqiduReadDomain({ db, userId: scope.authenticated_user_id, calendar: calendarFor(scope), now: new Date(scope.generated_at) });
+  const newDomain = (scope) => createEnqiduReadDomain({ db, authDb, userId: scope.authenticated_user_id, calendar: calendarFor(scope), now: new Date(scope.generated_at) });
   domain = newDomain(context);
   let firstInvocation = true;
 
@@ -52,7 +52,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
     // Runtime instances may be retained by a local consumer. Never retain an
     // old calendar, revoked identity or a cached preview state across requests.
     if (!firstInvocation) {
-      context = await createToolExecutionContext({ db, source, now, capabilities });
+      context = await createToolExecutionContext({ db, authDb, source, now, capabilities });
       if (context.authenticated_user_id !== originalUserId) throw toolError("identity_changed");
       domain = newDomain(context);
     }
@@ -81,7 +81,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
         else if (definition.access === 'preview') result.data = await previewSemanticCorrection({db,userId:scope.authenticated_user_id,args,now:scope.generated_at,signingKey:semanticSigningKey});
         else {
           if (scope.source === 'mcp') throw toolError('mcp_writes_disabled');
-          const rechecked = await createToolExecutionContext({db,source,now,capabilities});
+          const rechecked = await createToolExecutionContext({db,authDb,source,now,capabilities});
           if (rechecked.authenticated_user_id !== scope.authenticated_user_id) throw toolError('identity_changed');
           if (!adminDb?.rpc) throw toolError('mutation_unavailable');
           result.data = await applySemanticCorrection({db,adminDb,userId:scope.authenticated_user_id,args,source:scope.source,now:rechecked.generated_at,signingKey:semanticSigningKey});
@@ -100,7 +100,7 @@ export async function createEnqiduToolRuntime({ db, adminDb = null, source = "ap
         // Every apply reauthenticates, even the first invocation, then rereads
         // all relevant state. No preview object or client changes are accepted.
         if (isApply) {
-          const rechecked = await createToolExecutionContext({ db, source, now, capabilities });
+          const rechecked = await createToolExecutionContext({ db, authDb, source, now, capabilities });
           if (rechecked.authenticated_user_id !== scope.authenticated_user_id) throw toolError("identity_changed");
           if (rechecked.request_calendar_date !== scope.request_calendar_date || rechecked.profile_timezone !== scope.profile_timezone) throw toolError("preview_stale");
           if (!adminDb?.rpc) throw toolError("mutation_unavailable");

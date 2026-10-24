@@ -37,16 +37,9 @@ export async function readPages(
 /** Runs only in the authenticated tool backend. Fixed queries; RLS plus explicit ownership.
  * All pages are aggregated before transport. A resource ceiling fails explicitly, never truncates.
  */
-export async function loadProgress(
+export async function loadProgressDomain(
   db,
-  {
-    userId,
-    calendar,
-    period = "4",
-    modality = "all",
-    exercise_page = 0,
-    skills_only = false,
-  },
+  { userId, calendar, period = "4", modality = "all" },
 ) {
   if (!userId || !["4", "12", "all", "week"].includes(period))
     throw new Error("invalid_arguments");
@@ -210,6 +203,18 @@ export async function loadProgress(
     filter: modality,
     firstDate: first.data?.[0]?.local_date || null,
   });
+  return { result, sessions: owned, plans: ownedPlans, exercises, blocks };
+}
+
+export async function loadProgress(db, options) {
+  const {
+    result,
+    sessions: owned,
+    plans: ownedPlans,
+    exercises,
+    blocks,
+  } = await loadProgressDomain(db, options);
+  const { period = "4", skills_only = false, exercise_page = 0 } = options;
   // Aggregate all evidence on the server; transport only the requested card page and recent evidence.
   const cards = result.strength.filter((e) => !skills_only || e.skill);
   const compact = (value) => ({

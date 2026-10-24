@@ -1,0 +1,100 @@
+{
+  "tool": "get_exercise_progress_v1",
+  "tool_version": "1.0.0",
+  "ok": true,
+  "data": {
+    "schema_version": "get_exercise_progress_v1",
+    "calendar_date": "2026-10-05",
+    "timezone": "Europe/Madrid",
+    "exercise": {
+      "canonical_code": "high_pull_up",
+      "display_name": "Dominada alta",
+      "classification": "skill",
+      "metric_requirements": [
+        "reps"
+      ]
+    },
+    "period": "all",
+    "from": "2026-10-03",
+    "to": "2026-10-05",
+    "observations": 1,
+    "sessions": 1,
+    "best_load": null,
+    "best_reps": 3,
+    "best_reps_at_load": 3,
+    "known_volume": null,
+    "records": [],
+    "trend": "insufficient_data",
+    "last_practice": "2026-10-03",
+    "data_quality": "complete",
+    "applicable_metrics": [
+      "reps"
+    ],
+    "available_metrics": [
+      "reps"
+    ],
+    "missing_metrics": [],
+    "missing_data": [],
+    "explanation": "Metrics and comparisons use the canonical Progress domain; volume and frequency do not establish improvement.",
+    "variants": [
+      {
+        "key": "[[\"catalog\",\"high_pull_up\"],\"performed\",null,null,\"bodyweight\"]",
+        "name": "Dominada alta",
+        "metric_requirements": [
+          "reps"
+        ],
+        "unit": "bodyweight",
+        "variant": "performed",
+        "exposures": 1,
+        "best_load": null,
+        "records": [],
+        "record_count": 0,
+        "best_reps": 3,
+        "best_reps_at_load": 3,
+        "known_volume": null,
+        "best_session_volume": null,
+        "volume_known": 0,
+        "observations": 1,
+        "trend": "insufficient_data",
+        "last_practice": "2026-10-03",
+        "skill": true,
+        "points": [
+          {
+            "exercise_id": "20000000-0000-4000-8000-000000000062",
+            "session_id": "20000000-0000-4000-8000-000000000020",
+            "date": "2026-10-03",
+            "load": null,
+            "max_reps": 3,
+            "volume": null
+          }
+        ]
+      }
+    ],
+    "evidence": [
+      {
+        "exercise_id": "20000000-0000-4000-8000-000000000062",
+        "session_id": "20000000-0000-4000-8000-000000000020",
+        "date": "2026-10-03",
+        "load": null,
+        "max_reps": 3,
+        "volume": null
+      }
+    ]
+  },
+  "warnings": [],
+  "evidence": [
+    {
+      "kind": "canonical_domain",
+      "schema_version": "get_exercise_progress_v1"
+    }
+  ],
+  "traceability": {
+    "request_id": "f2ccc474-49b4-4276-b8e8-224c5dbd77ea",
+    "source": "mcp",
+    "registry_version": "enqidu_tools_v1",
+    "domain_handler": "read.get_exercise_progress_v1"
+  },
+  "generated_at": "2026-10-05T10:00:00.000Z",
+  "calendar_date": "2026-10-05",
+  "timezone": "Europe/Madrid"
+}

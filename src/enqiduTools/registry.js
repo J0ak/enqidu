@@ -1,3 +1,4 @@
+import { SEMANTIC_READ_DEFINITIONS } from "../semanticRead/schemas.js";
 import { INTERPRET_SCHEMA, INTERPRET_RESULT_SCHEMA, COMMAND_SCHEMA, APPLY_SCHEMA, STATE_SCHEMA, PREVIEW_SCHEMA, RECEIPT_SCHEMA } from "../training/semantics/contract.js";
 import { READ_OUTPUT_SCHEMAS } from "./readSchemas.js";
 import { objectSchema as object, textSchema as text, nullable, listSchema as list, DATE_SCHEMA as date, ID_SCHEMA as id } from "./schema.js";
@@ -46,6 +47,7 @@ function resultSchema(data) {
   }, ["tool", "tool_version", "ok", "data", "warnings", "evidence", "traceability", "generated_at", "calendar_date", "timezone"]);
 }
 const reads = [
+  ...SEMANTIC_READ_DEFINITIONS,
   ["get_progress_performance_v1", "Read deterministic canonical progress; completed weeks, observed exercise records and persisted plan links only. No writes.", object({ period: {enum:["4","12","all","week"]}, modality: text(80), exercise_page: {type:"integer",minimum:0,maximum:10000}, skills_only: {type:"boolean"} }, [])],
   ["get_daily_coach_operating_brief", "Read Daily Coach OS V1: canonical morning policy, seven-day trend, planned/executed comparison and recorded history. Never applies or syncs.", noArgs],
   ["get_morning_coach_brief", "Read the deterministic morning brief, current persisted plan and optional review-only proposal. Never syncs or applies changes.", noArgs],

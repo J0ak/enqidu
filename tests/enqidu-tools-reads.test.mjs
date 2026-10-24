@@ -1,3 +1,4 @@
+import { catalogSeed } from "../src/training/catalogSeed.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createEnqiduReadDomain, resolveClosedLoopAction } from "../src/enqiduTools/readTools.js";
@@ -6,6 +7,14 @@ import { matchesSchema } from "../src/enqiduTools/schema.js";
 import { createEnqiduToolRuntime } from "../src/enqiduTools/runtime.js";
 import { createToolsDb, TOOL_USER_A, TOOL_USER_B, TOOL_NOW, TOOL_CALENDAR, toolId } from "./support/enqiduToolsDb.mjs";
 
+const semanticArgs = {
+  resolve_exercise_reference_v1: {query:"RDL"},
+  get_exercise_progress_v1: {canonical_code:"romanian_deadlift"},
+  get_exercise_history_v1: {canonical_code:"romanian_deadlift",from:"2026-10-01",to:"2026-10-05"},
+  get_training_session_detail_v2: {session_id:toolId(20)},
+  get_training_overview_v1: {period:"4"},
+};
+const seedCatalog = (state) => { state.tables.exercise_catalog = catalogSeed.map((e,i)=>({...e,id:toolId(1000+i)})); return state; };
 const domainFor = (state, patch = {}) => createEnqiduReadDomain({ db: state.db, userId: TOOL_USER_A, calendar: TOOL_CALENDAR, now: TOOL_NOW, ...patch });
 
 function schemaErrors(value, schema, path = "data") {
@@ -17,11 +26,11 @@ function schemaErrors(value, schema, path = "data") {
 }
 
 for (const empty of [false, true]) test(`TOOLS READ: all eleven canonical outputs match schemas (${empty ? "empty" : "full evidence"})`, async () => {
-  const state = createToolsDb({ empty });
+  const state = seedCatalog(createToolsDb({ empty }));
   const domain = domainFor(state);
   for (const [name, schema] of Object.entries(READ_OUTPUT_SCHEMAS)) {
-    if (empty && name === "get_training_session") continue;
-    const args = name === "get_training_session" ? { session_id: toolId(20) } : name.includes("closed_loop") || name === "get_adaptation_proposal" ? { date: "2026-10-03" } : {};
+    if (empty && ["get_training_session", "get_training_session_detail_v2"].includes(name)) continue;
+    const args = semanticArgs[name] || (name === "get_training_session" ? { session_id: toolId(20) } : name.includes("closed_loop") || name === "get_adaptation_proposal" ? { date: "2026-10-03" } : {});
     const result = await domain.read(name, args);
     assert.ok(matchesSchema(result, schema), `${name}: ${schemaErrors(result, schema).join("\n")}`);
     assert.doesNotMatch(JSON.stringify(result), /RAW_SECRET|FOREIGN_SECRET|raw_payload|raw_provider_payload|user_id|private_notes/);
@@ -130,9 +139,9 @@ test("TOOLS READ: historical health uses requested profile calendar date; curren
 });
 
 test("TOOLS READ: runtime validates every full evidence output and batch memoizes health", async () => {
-  const state = createToolsDb();
+  const state = seedCatalog(createToolsDb());
   const runtime = await createEnqiduToolRuntime({ db: state.db, source: "coach", now: TOOL_NOW });
-  const requests = Object.keys(READ_OUTPUT_SCHEMAS).map((tool) => ({ tool, arguments: tool === "get_training_session" ? { session_id: toolId(20) } : tool.includes("closed_loop") || tool === "get_adaptation_proposal" ? { session_id: toolId(20) } : {} }));
+  const requests = Object.keys(READ_OUTPUT_SCHEMAS).map((tool) => ({ tool, arguments: semanticArgs[tool] || (tool === "get_training_session" ? { session_id: toolId(20) } : tool.includes("closed_loop") || tool === "get_adaptation_proposal" ? { session_id: toolId(20) } : {}) }));
   const results = [...await runtime.executeMany(requests.slice(0,12)), ...await runtime.executeMany(requests.slice(12))];
   for (const result of results) assert.equal(result.ok, true, JSON.stringify(result));
 });
