@@ -1,3 +1,4 @@
+import { focusFromMessages } from "./coachConversation/referenceContext.js";
 import OAuthConnections from "./oauth/OAuthConnections.jsx";
 import OAuthConsent from "./oauth/OAuthConsent.jsx";
 import { loadExerciseCatalog, withCatalogIdentity } from "./training/catalogResolver.js";
@@ -3862,11 +3863,16 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
       const result = await requestCoachReply({
         message: text,
         mode: "today_coach",
+        conversationFocus: focusFromMessages(messages),
       });
       const content = result.ok && result.answer
         ? result.answer
         : buildCoachFallbackReply(text, discipline, sessions, result.error, result.cards);
-      setMessages((current) => replaceLastAssistantMessage(current, content, result.ok ? result.cards : []));
+      setMessages((current) => {
+        const updated = replaceLastAssistantMessage(current, content, result.ok ? result.cards : []);
+        updated[updated.length - 1].conversation_focus = result.conversationFocus || null;
+        return updated;
+      });
     } catch (error) {
       setMessages((current) => replaceLastAssistantMessage(
         current,

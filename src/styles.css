@@ -4723,7 +4723,7 @@ button:disabled {
 .coachMessage { display: grid; gap: 8px; }
 .coachMessage.assistant { justify-self: start; max-width: min(92%, 720px); }
 .coachMessage.user { justify-self: end; }
-.coachMessage .bubble { max-width: 100%; }
+.coachMessage .bubble { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .coachInlineCards { display: grid; gap: 8px; }
 .coachInlineCard { border: 1px solid rgba(35, 230, 193, .25); border-radius: 16px; padding: 14px; background: #0d1820; }
 .coachInlineCardHeading { display: flex; justify-content: space-between; gap: 16px; color: var(--discipline); }

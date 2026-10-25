@@ -1,0 +1,81 @@
+{
+  "source": "synthetic canonical fixture; fresh runtime per turn",
+  "turns": [
+    {
+      "message": "¿Cómo voy con dominada alta?",
+      "answer": "Dominada alta: 1 sesión y 1 observación en 2 ago–24 oct 2026. La última práctica registrada fue el 3 oct 2026. Tengo repeticiones conocidas en 1 observación. Todavía no hay evidencia comparable suficiente para afirmar progresión de repeticiones; la frecuencia por sí sola no la demuestra.",
+      "intent": "exercise_progress",
+      "period": {
+        "from": "2026-08-02",
+        "to": "2026-10-24"
+      },
+      "exercise_reference": "high_pull_up",
+      "tools": [
+        "resolve_exercise_reference_v1",
+        "get_exercise_progress_v1"
+      ],
+      "response_mode": "deterministic",
+      "llm_used": false,
+      "usage": null,
+      "request_date": "2026-10-24",
+      "calendar_timezone": "Europe/Madrid"
+    },
+    {
+      "message": "¿Y desde julio?",
+      "answer": "Dominada alta: 1 sesión y 1 observación en 1 jul–24 oct 2026. La última práctica registrada fue el 3 oct 2026. Tengo repeticiones conocidas en 1 observación. Todavía no hay evidencia comparable suficiente para afirmar progresión de repeticiones; la frecuencia por sí sola no la demuestra.",
+      "intent": "exercise_progress",
+      "period": {
+        "from": "2026-07-01",
+        "to": "2026-10-24"
+      },
+      "exercise_reference": "high_pull_up",
+      "tools": [
+        "resolve_exercise_reference_v1",
+        "get_exercise_progress_v1"
+      ],
+      "response_mode": "deterministic",
+      "llm_used": false,
+      "usage": null,
+      "request_date": "2026-10-24",
+      "calendar_timezone": "Europe/Madrid"
+    },
+    {
+      "message": "¿Y HSPU?",
+      "answer": "HSPU: 1 sesión y 1 observación en 1 jul–24 oct 2026. La última práctica registrada fue el 3 oct 2026. Tengo repeticiones conocidas en 0 observaciones; faltan en 1. Todavía no hay evidencia comparable suficiente para afirmar progresión de repeticiones; la frecuencia por sí sola no la demuestra. Sé que lo practicaste, pero faltan repeticiones registradas para comparar.",
+      "intent": "exercise_progress",
+      "period": {
+        "from": "2026-07-01",
+        "to": "2026-10-24"
+      },
+      "exercise_reference": "handstand_push_up",
+      "tools": [
+        "resolve_exercise_reference_v1",
+        "get_exercise_progress_v1"
+      ],
+      "response_mode": "deterministic",
+      "llm_used": false,
+      "usage": null,
+      "request_date": "2026-10-24",
+      "calendar_timezone": "Europe/Madrid"
+    },
+    {
+      "message": "¿Qué datos te faltan?",
+      "answer": "HSPU: Sé que lo practicaste, pero faltan repeticiones registradas para comparar. HSPU: 1 sesión y 1 observación en 1 jul–24 oct 2026. Puedes completar las repeticiones y, cuando corresponda, la carga con su unidad en el detalle de la actividad.",
+      "intent": "exercise_missing_data",
+      "period": {
+        "from": "2026-07-01",
+        "to": "2026-10-24"
+      },
+      "exercise_reference": "handstand_push_up",
+      "tools": [
+        "resolve_exercise_reference_v1",
+        "get_exercise_progress_v1"
+      ],
+      "response_mode": "deterministic",
+      "llm_used": false,
+      "usage": null,
+      "request_date": "2026-10-24",
+      "calendar_timezone": "Europe/Madrid"
+    }
+  ]
+}

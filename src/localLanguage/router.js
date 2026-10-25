@@ -50,3 +50,6 @@ export async function routeLocalLanguage({
     };
   }
 }
+
+// Conversational V2 is always deterministic. The optional model router above is unchanged.
+export { parseConversationLanguage, parseConversationPeriod } from "./conversationParser.js";

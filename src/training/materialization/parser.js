@@ -9,6 +9,9 @@ function clauseFacts(raw, index) {
   let input = raw.trim(),
     prefix = input.match(/^(?:hoy|ayer)\s+/i);
   if (prefix) input = input.slice(prefix[0].length);
+  // Factual named observation: retain #103 compilation/preview authority.
+  input = input.replace(/^hice (.+?) (\d{1,3}\s*x\s*\d{1,4})(?: (?:a|con) (\d{1,4}(?:[.,]\d{1,2})?) (kg|lb))?$/i,
+    (_, name, reps, load, unit) => `${name} ${reps}${load ? ` con ${load} ${unit}` : ""}`);
   let reason;
   const omitted = input.match(/^no hice (.+?) porque (.{1,500})$/i);
   if (omitted) {

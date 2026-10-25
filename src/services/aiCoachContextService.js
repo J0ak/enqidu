@@ -15,7 +15,7 @@ export function getClientCalendarTimezone() {
   }
 }
 
-export async function requestCoachReply({ message, mode = "today_coach", date, sessionId } = {}) {
+export async function requestCoachReply({ message, mode = "today_coach", date, sessionId, conversationFocus } = {}) {
   if (!supabase) {
     return { ok: false, error: "supabase_unavailable" };
   }
@@ -27,6 +27,7 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
     date_source: date ? "explicit" : "profile_timezone",
     client_timezone: getClientCalendarTimezone(),
     session_id: sessionId || null,
+    conversation_focus: conversationFocus || null,
   };
 
   const { data, error } = await supabase.functions.invoke("coach-reply", {
@@ -47,6 +48,8 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
     cards: Array.isArray(data.cards) ? data.cards : [],
     usage: data.usage || null,
     contextVersion: data.context_version,
+    conversationFocus: data.conversation_focus || null,
+    conversationVersion: data.conversation_version || null,
     degraded: Boolean(data.degraded),
     error: data.error || null,
     responseMode: data.response_mode || null,

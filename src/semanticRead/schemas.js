@@ -90,11 +90,13 @@ export const SEMANTIC_READ_SCHEMAS = {
   }),
   get_exercise_progress_v1: base("get_exercise_progress_v1", {
     exercise: presentation,
-    period,
+    period: { enum: ["week", "4", "12", "all", "range"] },
     from: n(date),
     to: date,
     observations: num,
     sessions: num,
+    metric_coverage: o({ reps_known: num, load_known: num, comparable: num }),
+    best_observations: l(o({ session_id: id, date, load: nullableNum, reps: num, unit: text }), 20),
     best_load: nullableNum,
     best_reps: nullableNum,
     best_reps_at_load: nullableNum,
@@ -121,6 +123,7 @@ export const SEMANTIC_READ_SCHEMAS = {
     from: date,
     to: date,
     observations: l(observation, 50),
+    has_more: bool,
   }),
   get_training_session_detail_v2: base("get_training_session_detail_v2", {
     session: o({ id, title: text, date, status: str }),
@@ -153,7 +156,7 @@ export const SEMANTIC_READ_SCHEMAS = {
     source_summary: l(o({ type: n(t(80)) }), 1),
   }),
   get_training_overview_v1: base("get_training_overview_v1", {
-    period: { enum: ["week", "4", "12"] },
+    period: { enum: ["week", "4", "12", "range"] },
     from: n(date),
     to: date,
     status: p.properties.status,
@@ -186,7 +189,7 @@ export const SEMANTIC_READ_DEFINITIONS = [
   [
     "get_exercise_progress_v1",
     "Use when asking how a specific canonical exercise or skill is progressing. Compares only compatible metrics.",
-    o({ canonical_code: code, period }, ["canonical_code"]),
+    o({ canonical_code: code, period, from: date, to: date }, ["canonical_code"]),
   ],
   [
     "get_exercise_history_v1",
@@ -197,6 +200,7 @@ export const SEMANTIC_READ_DEFINITIONS = [
         from: date,
         to: date,
         limit: { type: "integer", minimum: 1, maximum: 50 },
+        order: { enum: ["asc", "desc"] },
       },
       ["canonical_code", "from", "to"],
     ),
@@ -209,6 +213,6 @@ export const SEMANTIC_READ_DEFINITIONS = [
   [
     "get_training_overview_v1",
     "Use for broad questions about recent training or overall progress. Returns a compact overview to choose the next specific tool.",
-    o({ period: { enum: ["week", "4", "12"] } }, []),
+    o({ period: { enum: ["week", "4", "12"] }, from: date, to: date }, []),
   ],
 ];
