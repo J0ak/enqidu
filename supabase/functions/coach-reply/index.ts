@@ -1,3 +1,4 @@
+import { executeCoachConversation } from "../../../src/coachConversation/execute.js";
 import { isSemanticCorrectionIntent } from "../../../src/training/semantics/parser.js";
 import { createDailyCoachRecorder } from "../../../src/dailyCoach/history.js";
 import { isMorningCoachRequest } from "../../../src/health/morningCoachV1.js";
@@ -99,8 +100,13 @@ Deno.serve(async (req: Request) => {
     if (isSemanticCorrectionIntent(message)) {
       const semanticRuntime = await createEnqiduToolRuntime({db,source:"coach",capabilities:{writes:false},semanticSigningKey:Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")});
       const correction = await semanticRuntime.execute("interpret_training_correction_v1", {text:message});
-      return reply({ok:correction.ok,answer:correction.ok?correction.data.message:correction.error.safe_message,response_mode:"deterministic",llm_used:false,usage:null,cards:[],semantic_correction:correction.data});
+      return reply({ok:correction.ok,answer:correction.ok?correction.data.message:correction.error.safe_message,response_mode:"deterministic",llm_used:false,usage:null,cards:[],request_date:calendar.date,calendar_timezone:calendar.timezone,date_source:calendar.source,semantic_correction:correction.data});
     }
+
+    const conversationRuntime = await createEnqiduToolRuntime({ db, source: "coach", capabilities: { writes: false } });
+    const conversation = await executeCoachConversation({ runtime: conversationRuntime, message, focus: body.conversation_focus,
+      observe: (event: unknown) => console.info("coach_conversation", JSON.stringify(event)) });
+    if (conversation) return reply(conversation);
 
     const requestDate = calendar.date;
     const intents = detectCoachIntents(message);

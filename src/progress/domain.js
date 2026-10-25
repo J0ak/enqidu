@@ -1,3 +1,4 @@
+import { isValidCalendarDate } from "../time/userCalendar.js";
 import { progressInsights } from "./insights.js";
 import { comparePlannedVsExecuted } from "../closedLoop/plannedVsExecuted.js";
 import { shiftHealthCalendarDate as shift } from "../health/healthEvidence.js";
@@ -52,6 +53,15 @@ export function periodBounds(today, period) {
     previousFrom: shift(to, 1 - days * 2),
     days,
   };
+}
+/** Explicit calendar ranges share every aggregation/identity rule with Progress.
+ * No historical record claim outside the selected, bounded evidence window. */
+export function explicitProgressBounds(today, from, to) {
+  if (!isValidCalendarDate(from) || !isValidCalendarDate(to) || from > to || to > today)
+    throw new Error("invalid_date");
+  const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
+  if (days > 366) throw new Error("invalid_date");
+  return { from, to, days, previousFrom: shift(from, -days) };
 }
 export function observedReps(value) {
   return Array.isArray(value) &&
@@ -235,6 +245,13 @@ export function classifyProgressPlan(p, owned, plans, today) {
           : "unknown",
   };
 }
+/** Best observed compatible set, never an estimated 1RM or an all-time claim.
+ * Call separately for each identity variant (unit/side/tempo/execution). */
+export function bestCompatibleObservation(points, unit) {
+  const compatible = points.filter(p => numeric(p.max_reps) && (unit === "bodyweight" || units.has(unit) && numeric(p.load)));
+  return [...compatible].sort((a, b) =>
+    (unit === "bodyweight" ? 0 : b.load - a.load) || b.max_reps - a.max_reps || b.date.localeCompare(a.date) || a.exercise_id.localeCompare(b.exercise_id))[0] || null;
+}
 export function buildProgress({
   sessions,
   exercises,
@@ -246,8 +263,9 @@ export function buildProgress({
   firstDate = null,
   comparisonFrom = null,
   baselineExercises = [],
+  range = null,
 }) {
-  const bounds = periodBounds(today, period);
+  const bounds = range ? explicitProgressBounds(today, range.from, range.to) : periodBounds(today, period);
   const owned = [
     ...new Map(
       sessions

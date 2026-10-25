@@ -22,8 +22,11 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const password = "LocalE2E-Only-57!";
 const headers = () => ({ apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" });
 const madridDate = (offset = 0) => {
-  const date = new Date(Date.now() + offset * 86400000);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  // Calendar days, not elapsed 24-hour intervals across a DST transition.
+  const date = new Date(`${today}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
 };
 
 const weekdayIndex = Object.freeze({

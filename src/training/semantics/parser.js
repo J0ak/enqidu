@@ -3,7 +3,11 @@ import { normalizeExactName } from "./domain.js";
 export function isSemanticCorrectionIntent(text) {
   if (typeof text !== "string") return false;
   const normalized = normalizeExactName(text);
+  // Questions and summaries are not factual metric clauses, even when they
+  // mention numbers (e.g. «resúmeme las últimas 12 semanas»).
+  if (/^(?:[¿?]\s*)?(?:que|como|cuando|cual|cuanto|cuantas|comparame|compara|resumeme|resumen)\b/.test(normalized)) return false;
   if (normalized === "por lado") return true;
+  if (/^(?:ayer|hoy) hice\s+/.test(normalized)) return true;
   // A number after arbitrary words is not enough: planning commands also contain
   // numbers ("Hazlo de 30 minutos"). Require a complete supported metric clause.
   const first = normalizeExactName(

@@ -4,6 +4,7 @@ import {
   buildProgress,
   exerciseIdentity,
   periodBounds,
+  explicitProgressBounds,
   monday,
   modality as observedModality,
 } from "./domain.js";
@@ -39,13 +40,16 @@ export async function readPages(
  */
 export async function loadProgressDomain(
   db,
-  { userId, calendar, period = "4", modality = "all" },
+  { userId, calendar, period = "4", modality = "all", from: rangeFrom, to: rangeTo },
 ) {
   if (!userId || !["4", "12", "all", "week"].includes(period))
     throw new Error("invalid_arguments");
-  const bounds = periodBounds(calendar.date, period);
+  const range = rangeFrom !== undefined || rangeTo !== undefined
+    ? explicitProgressBounds(calendar.date, rangeFrom, rangeTo) : null;
+  if (range) period = "range";
+  const bounds = range || periodBounds(calendar.date, period);
   const from =
-    period === "all"
+    range || period === "all"
       ? bounds.from
       : [bounds.previousFrom, shift(monday(calendar.date), -77)].sort()[0];
   const ownSessions = () =>
@@ -56,7 +60,7 @@ export async function loadProgressDomain(
       .in("session_status", ["completed", "recorded"]);
   const [sessions, plans, first, codes, catalog] = await Promise.all([
     readPages(() =>
-      ownSessions().gte("local_date", from).lte("local_date", calendar.date),
+      ownSessions().gte("local_date", from).lte("local_date", range ? bounds.to : calendar.date),
     ),
     readPages(() =>
       db
@@ -66,9 +70,9 @@ export async function loadProgressDomain(
         )
         .eq("user_id", userId)
         .gte("planned_date", bounds.from)
-        .lte("planned_date", period === "week" ? bounds.to : calendar.date),
+        .lte("planned_date", range ? bounds.to : period === "week" ? bounds.to : calendar.date),
     ),
-    db
+    range ? Promise.resolve({ data: [], error: null }) : db
       .from("training_sessions")
       .select("local_date")
       .eq("user_id", userId)
@@ -200,6 +204,7 @@ export async function loadProgressDomain(
     today: calendar.date,
     timezone: calendar.timezone,
     period,
+    range,
     filter: modality,
     firstDate: first.data?.[0]?.local_date || null,
   });

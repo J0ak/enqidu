@@ -12,6 +12,43 @@ import {
 const run = async (f = semanticFixture()) =>
   createEnqiduToolRuntime({ db: f.db, now: TOOL_NOW });
 
+test("semantic reads: history accepts exactly 366 inclusive calendar days", async () => {
+  const f = semanticFixture();
+  const runtime = await createEnqiduToolRuntime({
+    db: f.db,
+    now: "2026-10-24T12:00:00Z",
+  });
+  f.calls.length = 0;
+  const result = await runtime.execute("get_exercise_history_v1", {
+    canonical_code: "high_pull_up",
+    from: "2025-10-24",
+    to: "2026-10-24",
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.data.from, "2025-10-24");
+  assert.equal(result.data.to, "2026-10-24");
+  assert.equal(result.data.observations.length, 1);
+  assert.ok(f.calls.some((call) => call.table === "training_sessions"));
+});
+
+test("semantic reads: history rejects 367 inclusive days before any historical read", async () => {
+  const f = semanticFixture();
+  const runtime = await createEnqiduToolRuntime({
+    db: f.db,
+    now: "2026-10-24T12:00:00Z",
+  });
+  f.calls.length = 0;
+  const result = await runtime.execute("get_exercise_history_v1", {
+    canonical_code: "high_pull_up",
+    from: "2025-10-23",
+    to: "2026-10-24",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "invalid_date");
+  assert.equal(result.data, null);
+  assert.deepEqual(f.calls, []);
+});
+
 test("semantic reads: exact catalog resolution, ambiguity, skills and distinct pike identities", async () => {
   const f = semanticFixture(),
     runtime = await run(f);

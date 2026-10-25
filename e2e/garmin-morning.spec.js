@@ -21,6 +21,9 @@ test("live-shaped transport → actual RPC → Health → Readiness → Morning 
         : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, rebase(entry)])) : value;
     let payload = rebase(raw), retrieved = new Date(now).toISOString();
     payload.data.sleep.duration_hours = 4; payload.data.sleep.sleep_score = 35;
+    // This fixture needs an observed current battery point even before 00:30
+    // in Madrid. Rebasing the original 22:30Z sample can put it in the future.
+    payload.series_meta.body_battery.basis.t0_utc = retrieved;
     const source = new FitnessAiGarminSource({ clock: () => new Date(retrieved), transport: { getHealthSummary: async (input) => input.from_date === date() ? structuredClone(payload) : { data_status: "no_data" } } });
     const consent = await db.rpc('set_garmin_sync_consent', { p_action: 'enable', p_consent_version: 'garmin_daily_v1' });
     expect(consent.error).toBeNull();

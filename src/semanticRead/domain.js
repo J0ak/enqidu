@@ -1,6 +1,7 @@
 import { loadProgressDomain } from "../progress/loadProgress.js";
 import {
   exerciseIdentity,
+  bestCompatibleObservation,
   isSkillExercise,
   observedReps,
   numeric,
@@ -91,12 +92,12 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
     if (!row || isUnknownName(row.name)) throw toolError("invalid_arguments");
     return { catalog, row };
   };
-  const progress = async (period) => {
+  const progress = async (period, from, to) => {
     try {
-      return await loadProgressDomain(db, { userId, calendar, period });
+      return await loadProgressDomain(db, { userId, calendar, period, from, to });
     } catch (e) {
       throw toolError(
-        e.message === "progress_scope_too_large"
+        e.message === "invalid_date" ? "invalid_date" : e.message === "progress_scope_too_large"
           ? "output_limit_exceeded"
           : "canonical_read_unavailable",
       );
@@ -144,9 +145,9 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
           "Only exact code, name or explicit alias resolves identity. Search candidates are not resolved identity.",
       };
     },
-    async get_exercise_progress_v1({ canonical_code, period = "4" }) {
+    async get_exercise_progress_v1({ canonical_code, period = "4", from, to }) {
       const { row } = await canonical(canonical_code);
-      const { result, exercises } = await progress(period);
+      const { result, exercises } = await progress(period, from, to);
       const selected = exercises.filter(
         (e) =>
           e.canonical_exercise_code === canonical_code && exerciseIdentity(e),
@@ -177,11 +178,20 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
         schema_version: "get_exercise_progress_v1",
         ...scope,
         exercise: exercisePresentation(row),
-        period,
+        period: result.period,
         from: result.from,
         to: result.to,
         observations: selected.length,
         sessions: new Set(selected.map((e) => e.session_id)).size,
+        metric_coverage: {
+          reps_known: evidence.filter((e) => e.max_reps !== null).length,
+          load_known: evidence.filter((e) => e.load !== null).length,
+          comparable: evidence.filter((e) => e.max_reps !== null && (e.load !== null || selected.find((r) => r.id === e.exercise_id)?.load_unit === "bodyweight")).length,
+        },
+        best_observations: variants.flatMap(v => {
+          const best = bestCompatibleObservation(v.points, v.unit);
+          return best ? [{ session_id: best.session_id, date: best.date, load: best.load, reps: best.max_reps, unit: v.unit }] : [];
+        }),
         best_load: single?.best_load ?? null,
         best_reps: single?.best_reps ?? null,
         best_reps_at_load: single?.best_reps_at_load ?? null,
@@ -214,13 +224,13 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
         evidence,
       };
     },
-    async get_exercise_history_v1({ canonical_code, from, to, limit = 20 }) {
+    async get_exercise_history_v1({ canonical_code, from, to, limit = 20, order }) {
       if (
         !isValidCalendarDate(from) ||
         !isValidCalendarDate(to) ||
         from > to ||
         to > calendar.date ||
-        (Date.parse(to) - Date.parse(from)) / 86400000 > 366
+        (Date.parse(to) - Date.parse(from)) / 86400000 >= 366
       )
         throw toolError("invalid_date");
       const { catalog, row } = await canonical(canonical_code);
@@ -233,12 +243,13 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
             .in("session_status", ["completed", "recorded"])
             .gte("local_date", from)
             .lte("local_date", to)
-            .order("id"),
+            .order("local_date", { ascending: order !== "desc" }).order("id"),
           1000,
         )
       ).filter((s) => s.user_id === userId);
       const identify = withCatalogIdentity(catalog);
       const observations = [];
+      let readCount = 0;
       for (let i = 0; i < sessions.length; i += 100) {
         const subset = sessions.slice(i, i + 100);
         const rows = await bounded(
@@ -252,6 +263,8 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
             .order("id"),
           5000,
         );
+        readCount += rows.length;
+        if (readCount > 5000) throw toolError("output_limit_exceeded");
         for (const e of rows) {
           const session = subset.find((s) => s.id === e.session_id),
             identified = identify(e);
@@ -261,20 +274,20 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
             exerciseIdentity(identified)
           )
             observations.push(observation(e, session, identify));
-          if (observations.length > limit)
+          if (!order && observations.length > limit)
             throw toolError("output_limit_exceeded");
         }
+        if (order && observations.length > limit) break;
       }
-      observations.sort(
-        (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
-      );
+      observations.sort((a, b) => (order === "desc" ? -1 : 1) * a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
       return {
         schema_version: "get_exercise_history_v1",
         ...scope,
         exercise: exercisePresentation(row),
         from,
         to,
-        observations,
+        observations: observations.slice(0, limit),
+        has_more: observations.length > limit,
       };
     },
     async get_training_session_detail_v2({ session_id }) {
@@ -400,8 +413,8 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
           .map((s) => ({ type: text(s.source_type, 80) })),
       };
     },
-    async get_training_overview_v1({ period = "4" }) {
-      const { result } = await progress(period);
+    async get_training_overview_v1({ period = "4", from, to }) {
+      const { result } = await progress(period, from, to);
       const compact = (v) => ({ ...v, session_ids: v.session_ids.slice(-12) });
       const highlight = (e) => ({
         display_name: e.name,
@@ -415,7 +428,7 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
       return {
         schema_version: "get_training_overview_v1",
         ...scope,
-        period,
+        period: result.period,
         from: result.from,
         to: result.to,
         status: result.status,

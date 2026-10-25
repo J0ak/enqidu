@@ -216,3 +216,5 @@ export const localLanguageEvalCoverage = Object.freeze({
   languages: ["es", "en"],
   slices: ["core", "challenge"],
 });
+
+export { CONVERSATION_EVAL_DATASET } from "./conversationEvalDataset.js";
