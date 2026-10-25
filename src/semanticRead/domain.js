@@ -230,7 +230,7 @@ export function createSemanticReadHandlers({ db, userId, calendar }) {
         !isValidCalendarDate(to) ||
         from > to ||
         to > calendar.date ||
-        (Date.parse(to) - Date.parse(from)) / 86400000 > 366
+        (Date.parse(to) - Date.parse(from)) / 86400000 >= 366
       )
         throw toolError("invalid_date");
       const { catalog, row } = await canonical(canonical_code);
