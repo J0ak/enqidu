@@ -3799,6 +3799,10 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
       if (isPlanPreviewCommand(fastPath)) {
         const reference = findLatestPlannedTrainingContext(messages);
         const canonical = await requestEnqiduTool({ tool: "get_week_plan", arguments: {} });
+        if (!canonical.ok) {
+          setMessages((current) => replaceLastAssistantMessage(current, canonical.error.safe_message, []));
+          return;
+        }
         const referenceDate = reference?.date || canonical.data?.calendar_date;
         const candidates = canonical.ok ? canonical.data.sessions.filter((session) => session.planned_date === referenceDate && session.status !== "cancelled") : [];
         let plannedContext = candidates.length === 1 ? { date: candidates[0].planned_date, title: candidates[0].title } : null;
