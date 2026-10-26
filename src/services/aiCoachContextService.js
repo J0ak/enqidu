@@ -49,6 +49,7 @@ export async function requestCoachReply({ message, mode = "today_coach", date, s
     usage: data.usage || null,
     contextVersion: data.context_version,
     conversationFocus: data.conversation_focus || null,
+    adaptiveAssessment: data.adaptive_assessment || null,
     conversationVersion: data.conversation_version || null,
     degraded: Boolean(data.degraded),
     error: data.error || null,

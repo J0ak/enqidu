@@ -5,7 +5,7 @@ export const OTHER_USER = "10000000-0000-4000-8000-000000000002";
 export const ACTION_PLAN = "20000000-0000-4000-8000-000000000001";
 export const ACTION_BLOCK = "30000000-0000-4000-8000-000000000001";
 
-export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER, empty = false } = {}) {
+export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER, empty = false, detailed = false } = {}) {
   const calls = [];
   const state = {
     profiles: [{ id: ACTION_USER, timezone: "Europe/Madrid" }, { id: OTHER_USER, timezone: "America/Los_Angeles" }],
@@ -33,6 +33,9 @@ export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER,
     wearable_health_daily: [], wearable_sleep_sessions: [], wearable_hrv_nightly_summaries: [], wearable_health_imports: [],
     wearable_body_battery_samples: [], wearable_hrv_nightly_samples: [],
   };
+  if (!detailed && state.planned_session_blocks.length) Object.assign(state.planned_session_blocks[0], {
+    block_type: "aerobic", objective: null, planned_rounds: null, planned_exercises: [], constraints: [], notes: null,
+  });
   const context = {
     athlete_context: {
       athlete: { display_name: "Local athlete" }, goals: [{ name: "Improve strength", active: true }],

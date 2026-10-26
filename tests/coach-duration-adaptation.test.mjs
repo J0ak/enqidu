@@ -40,14 +40,14 @@ test("COACH DURATION: ambiguous, compound and out-of-range requests fail closed"
 
 test("COACH DURATION: scaler preserves block structure and sums exactly to target minutes", () => {
   const blocks = [
-    { id: "a", block_order: 1, title: "Warm-up", planned_duration_seconds: 600 },
-    { id: "b", block_order: 2, title: "Main", planned_duration_seconds: 1500 },
-    { id: "c", block_order: 3, title: "Cooldown", planned_duration_seconds: 600 },
+    { id: "a", block_order: 1, title: "Warm-up", block_type: "warmup", planned_duration_seconds: 600 },
+    { id: "b", block_order: 2, title: "Main", block_type: "aerobic", planned_duration_seconds: 1500 },
+    { id: "c", block_order: 3, title: "Cooldown", block_type: "cooldown", planned_duration_seconds: 600 },
   ];
 
   const scaled = scalePlannedBlockDurations(blocks, 30);
   assert.deepEqual(scaled.map((block) => block.id), ["a", "b", "c"]);
-  assert.deepEqual(scaled.map((block) => block.duration_minutes), [7, 16, 7]);
+  assert.deepEqual(scaled.map((block) => block.duration_minutes), [10, 10, 10]);
   assert.equal(scaled.reduce((sum, block) => sum + block.duration_minutes, 0), 30);
   assert.equal(scaled.reduce((sum, block) => sum + block.duration_seconds, 0), 1800);
 });

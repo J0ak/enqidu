@@ -1,3 +1,5 @@
+import { detectAdaptiveRequest } from "../adaptivePlanning/interpreter.js";
+import { renderAdaptiveAssessment } from "../adaptivePlanning/presentation.js";
 import { interpretConversation } from "./interpreter.js";
 import { planConversation, validateConversationPlan } from "./planner.js";
 import {
@@ -40,6 +42,16 @@ export async function executeCoachConversation({
 }) {
   const started = performance.now();
   const requestDate = runtime.context.request_calendar_date;
+  const adaptive = detectAdaptiveRequest(message);
+  if (adaptive) {
+    const response = await runtime.execute("get_adaptive_assessment_v2", adaptive);
+    const rendered = response.ok ? renderAdaptiveAssessment(response.data) : { answer: response.error.safe_message, cards: [] };
+    return { ok: true, ...rendered, response_mode: "deterministic", llm_used: false, usage: null,
+      request_date: response.calendar_date, calendar_timezone: response.timezone, date_source: "profile_timezone",
+      conversation_version: CONVERSATION_VERSION, conversation_focus: emptyFocus(),
+      conversation_status: response.ok ? response.data.status : "unavailable", intent_id: "adaptive_planning",
+      adaptive_assessment: response.ok ? response.data : null };
+  }
   const { intent, language, focus } = interpretConversation({
     message,
     requestDate,

@@ -160,7 +160,10 @@ test("COACH UNAVAILABILITY: shared domain derives profile date and preserves the
   const source = await readFile(new URL("../src/enqiduTools/actions.js", import.meta.url), "utf8");
   assert.match(source, /args\.date_reference === "today"/);
   assert.match(source, /shiftPlanCalendarDate\(calendar\.date, 1\)/);
-  assert.match(source, /adminDb\.rpc\("set_coach_training_unavailability"/);
+  assert.match(source, /adminDb\.rpc\("apply_enqidu_action_v1"/);
+  const transaction = await readFile(new URL("../supabase/migrations/20261025193006_adaptive_planning_v2.sql", import.meta.url), "utf8");
+  assert.match(transaction, /public\.set_coach_training_unavailability\(p_user_id,v_source_date\)/);
+  assert.doesNotMatch(source, /adminDb\.rpc\("set_coach_training_unavailability"/);
   assert.match(source, /planned_conflict: active\(plans\)\.length > 0/);
   const start = source.indexOf('if (action === "set_training_unavailability")');
   const end = source.indexOf('if (action === "adapt_remaining_week")', start);

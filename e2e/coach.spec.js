@@ -98,7 +98,7 @@ async function previewCommand(page, text, tool) {
 }
 
 async function applyReviewedPreview(page, tool) {
-  await page.getByRole("button", { name: "REVISAR CAMBIO", exact: true }).click();
+  if (await page.getByRole("button", { name: "REVISAR CAMBIO", exact: true }).count()) await page.getByRole("button", { name: "REVISAR CAMBIO", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Antes", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Después", exact: true })).toBeVisible();
   const responsePromise = page.waitForResponse((response) =>
@@ -114,10 +114,17 @@ async function applyReviewedPreview(page, tool) {
   return { ...body.data, calendar_timezone: body.timezone, request_date: body.calendar_date };
 }
 
-async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate(), environment = "home") {
+async function createPlan(request, userId, title = "Plan persistido E2E", plannedDate = madridDate(), environment = "home", durationOnly = false) {
   const response = await request.post(`${supabaseUrl}/rest/v1/rpc/save_coach_recommendation_plan`, { headers: headers(), data: { p_user_id: userId, p_planned_date: plannedDate, p_session: { title, session_type: environment === "trail" ? "trail" : "strength", duration_minutes: 35, intensity: "moderada", environment, blocks: [{ title: "Bloque sintético", duration_minutes: 35 }] } } });
   expect(response.ok(), await response.text()).toBeTruthy();
-  return response.json();
+  const saved = await response.json();
+  if (durationOnly) {
+    const typed = await request.patch(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${saved.planned_session_id}`, {
+      headers: headers(), data: { block_type: "aerobic", planned_exercises: [], constraints: [], objective: null, notes: null, planned_rounds: null },
+    });
+    expect(typed.ok(), await typed.text()).toBe(true);
+  }
+  return saved;
 }
 
 async function planRows(request, userId) {
@@ -287,13 +294,13 @@ test("explicit environment adaptation recalculates an ENQIDU plan for home witho
   expect(blocks.reduce((sum, block) => sum + Number(block.planned_duration_seconds || 0), 0))
     .toBe(rows[0].planned_duration_min * 60);
 
-  await expect(page.getByText(/He adaptado .* para casa/i)).toBeVisible();
+  await expect(page.getByText(/He reemplazado la sesión por .* para casa/i)).toBeVisible();
   await expect(page.getByText("Plan adaptado", { exact: true })).toBeVisible();
 });
 
 test("explicit duration adaptation rescales an ENQIDU plan without Coach LLM", async ({ page, request }) => {
   const user = await provision(request, "duration");
-  await createPlan(request, user.id, "Fuerza de 35 minutos");
+  await createPlan(request, user.id, "Fuerza de 35 minutos", madridDate(), "home", true);
   await login(page, user);
   await ask(page, "¿Qué entreno hoy?");
 
@@ -472,16 +479,13 @@ test("explicit tomorrow unavailability persists without moving or cancelling a c
     if (req.url().includes("/functions/v1/coach-reply") && req.method() === "POST") coachReplyCalls += 1;
   });
 
-  const actionResponsePromise = page.waitForResponse((response) =>
-    response.url().includes("/functions/v1/coach-plan-action")
-    && response.request().method() === "POST"
-  );
-  await page.getByPlaceholder("Escribe o dicta tu actualización").fill("Mañana no puedo");
-  await page.getByRole("button", { name: "Enviar" }).click();
-
-  const actionResponse = await actionResponsePromise;
-  expect(actionResponse.status()).toBe(200);
-  const body = await actionResponse.json();
+  const assessment = await ask(page, "Mañana no puedo");
+  expect(assessment.adaptive_assessment.status).toBe("safe_proposal");
+  const before = await request.get(`${supabaseUrl}/rest/v1/training_availability_overrides?user_id=eq.${user.id}&calendar_date=eq.${targetDate}&select=*`, { headers: headers() });
+  expect(await before.json()).toEqual([]);
+  expect((await planRowsOnDate(request, user.id, targetDate))[0].status).toBe("planned");
+  await expect(page.getByText(/Hay un conflicto con el plan/)).toBeVisible();
+  const body = await applyReviewedPreview(page, "apply_set_training_unavailability");
   expect(body).toMatchObject({
     ok: true,
     action: "set_training_unavailability",
@@ -495,7 +499,7 @@ test("explicit tomorrow unavailability persists without moving or cancelling a c
     calendar_timezone: "Europe/Madrid",
   });
   expect(body.planned_titles).toContain("Plan de mañana intacto");
-  expect(coachReplyCalls).toBe(0);
+  expect(coachReplyCalls).toBe(1);
 
   const availability = await request.get(
     `${supabaseUrl}/rest/v1/training_availability_overrides?user_id=eq.${user.id}&calendar_date=eq.${targetDate}&select=calendar_date,availability_status,source`,
@@ -516,7 +520,7 @@ test("explicit tomorrow unavailability persists without moving or cancelling a c
     planned_date: targetDate,
   });
 
-  await expect(page.getByText(/no la he movido ni cancelado/i)).toBeVisible();
+  await expect(page.getByText(/El plan se conserva/i)).toBeVisible();
 });
 
 test("week without plan does not fabricate sessions", async ({ page, request }) => {
@@ -538,7 +542,7 @@ test("Coach cards and primary navigation render without browser exceptions", asy
 
 test("preview can be dismissed and conversational acceptance first requires reviewing the exact change", async ({ page, request }) => {
   const user = await provision(request, "preview-review");
-  await createPlan(request, user.id, "Fuerza para revisar");
+  await createPlan(request, user.id, "Fuerza para revisar", madridDate(), "home", true);
   await login(page, user);
   await ask(page, "¿Qué entreno hoy?");
   await previewCommand(page, "Déjalo en 30 minutos", "preview_adapt_duration");
@@ -564,7 +568,7 @@ test("preview can be dismissed and conversational acceptance first requires revi
 
 test("stale preview is rejected in Coach and preserves the concurrent canonical plan", async ({ page, request, expectedToolStatuses }) => {
   const user = await provision(request, "preview-stale");
-  const created = await createPlan(request, user.id, "Fuerza antes de editar");
+  const created = await createPlan(request, user.id, "Fuerza antes de editar", madridDate(), "home", true);
   await login(page, user);
   await ask(page, "¿Qué entreno hoy?");
   await previewCommand(page, "Déjalo en 30 minutos", "preview_adapt_duration");

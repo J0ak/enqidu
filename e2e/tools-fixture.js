@@ -67,8 +67,8 @@ export async function createToolsFixture(label, { health = true, plans = true } 
     ]);
     await insert("planned_session_blocks", [
       { planned_session_id: identities.historicalPlan.id, block_order: 1, title: "Sentadilla", block_type: "strength", planned_duration_seconds: 3000, planned_exercises: [{ name: "Sentadilla", sets: 3, reps: 5, load_kg: 45 }] },
-      { planned_session_id: identities.todayPlan.id, block_order: 1, title: "Fuerza", block_type: "strength", planned_duration_seconds: 2400 },
-      { planned_session_id: identities.futurePlan.id, block_order: 1, title: "Fuerza principal", block_type: "strength", planned_duration_seconds: 3000 },
+      { planned_session_id: identities.todayPlan.id, block_order: 1, title: "Aeróbico por tiempo", block_type: "aerobic", planned_duration_seconds: 2400 },
+      { planned_session_id: identities.futurePlan.id, block_order: 1, title: "Aeróbico por tiempo", block_type: "aerobic", planned_duration_seconds: 3000 },
     ]);
     const [block] = await insert("session_blocks", { session_id: identities.execution.id, block_order: 1, title: "Sentadilla", name: "Sentadilla", block_type: "strength", duration_seconds: 3000, data_confidence: "reported" });
     await insert("session_exercises", { session_id: identities.execution.id, block_id: block.id, exercise_order: 1, name: "Sentadilla", reported_name: "Sentadilla", sets_completed: 3, reps_per_set: [5, 5, 5], load_value: 45, load_unit: "kg", data_confidence: "manual" });

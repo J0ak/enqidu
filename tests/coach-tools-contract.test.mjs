@@ -146,7 +146,7 @@ test("ENQIDU TOOLS: cancellation is enabled for App/OpenAI and future MCP projec
 
 test("ENQIDU TOOLS: transport projections default to read and preview only", () => {
   const names = toMcpToolDescriptors().map((item) => item.name);
-  assert.equal(names.length, 27);
+  assert.equal(names.length, 29);
   assert.equal(names.some((name) => name.startsWith("apply_")), false);
-  assert.equal(toMcpToolDescriptors({ includeWrites: true }).filter((item) => item.name.startsWith("apply_")).length, 7);
+  assert.equal(toMcpToolDescriptors({ includeWrites: true }).filter((item) => item.name.startsWith("apply_")).length, 8);
 });

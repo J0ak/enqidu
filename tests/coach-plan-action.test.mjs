@@ -134,7 +134,10 @@ test("write Edge Function authenticates and delegates to the sole shared domain 
   assert.match(edge, /executePreparedEnqiduAction\(\{ adminDb, userId, prepared \}\)/);
   assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(edge, /const adminDb = createClient/);
-  assert.match(edge, /validateEnqiduActionPreview/);
+  assert.match(edge, /createEnqiduToolRuntime/);
+  assert.match(edge, /runtime.execute/);
+  const runtime = await readFile(new URL("../src/enqiduTools/runtime.js", import.meta.url), "utf8");
+  assert.match(runtime, /validateEnqiduActionPreview/);
   assert.match(source, /buildTrainingRecommendation\(context/);
   assert.match(source, /if \(active\(plans\)\.length\) return reject\("plan_already_exists"\)/);
   assert.match(source, /adminDb\.rpc\("save_coach_recommendation_plan"/);

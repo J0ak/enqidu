@@ -40,6 +40,11 @@ export function createToolsDb({ userId = TOOL_USER_A, empty = false } = {}) {
     wearable_health_imports: [],
     user_wearable_connections: [],
   };
+  // #106: pending duration acceptance uses a duration-only aerobic prescription;
+  // historical strength/exercise evidence above stays intact for Closed Loop.
+  for (const b of tables.planned_session_blocks) if ([toolId(2), toolId(3)].includes(b.planned_session_id)) {
+    b.block_type = "aerobic"; b.planned_exercises = [];
+  }
   if (empty) for (const name of Object.keys(tables)) if (name !== "profiles") tables[name] = [];
   const calls = [];
   const db = {
