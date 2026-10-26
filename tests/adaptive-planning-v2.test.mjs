@@ -132,8 +132,12 @@ test("AP2 environment distinguishes new prescription and unavailable location", 
   const replacement = await assess(f, { request: "home" });
   assert.equal(replacement.data.change_kind, "replacement");
   assert.ok(replacement.data.preview.consequences.includes("planned_blocks_replaced"));
-  f.state.user_training_locations[0].prescription_scope = "coach_led_only";
   f.state.user_equipment = [];
+  const withoutEquipment = await assess(f, { request: "home" });
+  assert.equal(withoutEquipment.data.change_kind, "replacement");
+  assert.match(withoutEquipment.data.preview.after[0].title, /sin material/);
+  assert.ok(withoutEquipment.data.preview.after[0].blocks.every((block) => block.exercises_text === "[]"));
+  f.state.user_training_locations[0].prescription_scope = "coach_led_only";
   const blocked = await assess(f, { request: "home" });
   assert.equal(blocked.data.preview, null);
 });

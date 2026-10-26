@@ -310,7 +310,7 @@ try {
       golden = await mint();
       const c = await sdk(golden.access_token);
       const tools = (await c.listTools()).tools;
-      assert.equal(tools.length, 27);
+      assert.equal(tools.length, 29);
       assert.ok(tools.every((t) => !t.name.startsWith("apply_")));
       const result = (
         await c.callTool({
@@ -567,7 +567,11 @@ try {
     const read = await mint(a, "enqidu.read");
     assert.equal(read.refresh_token, undefined);
     const c = await sdk(read.access_token);
-    assert.equal((await c.listTools()).tools.length, 27);
+    assert.equal((await c.listTools()).tools.length, 29);
+    assert.equal(
+      (await c.callTool({ name: "get_adaptive_assessment_v2", arguments: { request: "unavailable" } })).structuredContent.error.code,
+      "insufficient_scope",
+    );
     assert.equal(
       (
         await c.callTool({

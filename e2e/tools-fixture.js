@@ -83,7 +83,7 @@ export async function createToolsFixture(label, { health = true, plans = true } 
     const plans = await own("planned_training_sessions");
     const executions = await own("training_sessions");
     const children = async (table, key, ids) => ids.length ? requireResult(await adminDb.from(table).select("*").in(key, ids).order("id"), `snapshot ${table}`) : [];
-    return { plans, blocks: await children("planned_session_blocks", "planned_session_id", plans.map((row) => row.id)), executions, fit: await own("fit_message_payloads"), sources: await own("training_sources"), metrics: await children("session_metrics", "session_id", executions.map((row) => row.id)), executionBlocks: await children("session_blocks", "session_id", executions.map((row) => row.id)), exercises: await children("session_exercises", "session_id", executions.map((row) => row.id)) };
+    return { plans, availability: requireResult(await adminDb.from("training_availability_overrides").select("*").eq("user_id", user.id).order("calendar_date"), "snapshot availability"), blocks: await children("planned_session_blocks", "planned_session_id", plans.map((row) => row.id)), executions, fit: await own("fit_message_payloads"), sources: await own("training_sources"), metrics: await children("session_metrics", "session_id", executions.map((row) => row.id)), executionBlocks: await children("session_blocks", "session_id", executions.map((row) => row.id)), exercises: await children("session_exercises", "session_id", executions.map((row) => row.id)) };
   };
   return { db, adminDb, url, anonKey, user, email, token: session.access_token, now, date, identities, snapshot, insert,
     headers: { apikey: anonKey, Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
