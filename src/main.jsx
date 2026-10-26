@@ -18,7 +18,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { requestEnqiduTool } from "@/services/enqiduToolsService";
 import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
 import GarminSyncConsent from "@/components/GarminSyncConsent";

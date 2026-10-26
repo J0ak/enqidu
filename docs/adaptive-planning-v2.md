@@ -73,6 +73,8 @@ Migración única: `supabase/migrations/20261025193006_adaptive_planning_v2.sql`
 
 Se conservan `security invoker`, `search_path` cerrado, privilegios exclusivos de `service_role`, locks de fechas/filas/tablas, comparación completa, rollback atómico e aislamiento `READ COMMITTED`. No hay nuevos grants al navegador, tablas, triggers, LLM ni escrituras sobre actividades/FIT.
 
+La inspección sólo lectura del contrato productivo el 26/10/2026 confirma que `training_availability_overrides` sólo admite `unavailable`; ausencia de override no es una fila `available`. El CHECK actual de planes tampoco permite persistir `completed` ni `enriched`. Se conserva ese CHECK: el dominio y la RPC rechazan defensivamente esos estados históricos/de entrada, y los tests SQL comprueban tanto el rechazo del CHECK como el de snapshots falsificados. `skipped` y `cancelled` sí se verifican como estados persistidos. No se amplía el esquema para acomodar fixtures.
+
 La indisponibilidad mostrada aún no guarda nada. Tras confirmación, un segundo apply del mismo preview falla stale sin cambiar `xmin`; un nuevo preview de un día ya no disponible es no-op. El endpoint de compatibilidad también exige preview/confirmación y delega en el runtime común, con reautenticación y readback.
 
 La caducidad de cinco minutos y el calendario se validan al admitir la acción, como en la frontera existente. Los locks de tablas siguen siendo una barrera conservadora contra inserciones fantasma y serializan escrituras de planificación entre atletas; las lecturas continúan. La evidencia de Health/Closed Loop se relee y vincula al fingerprint, pero no se convierte en autoridad SQL de prescripción ni se bloquean las tablas de Health durante la transacción.

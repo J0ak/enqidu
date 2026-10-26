@@ -77,7 +77,7 @@ test("AP2 unavailability stale conflict and expired previews never enter writer"
     const r = await runtimeFor(f, { now: () => now });
     const a = (await r.execute("get_adaptive_assessment_v2", { request: "unavailable" })).data;
     if (change === "plan") f.state.planned_training_sessions[0].title = "Changed";
-    if (change === "availability") f.state.training_availability_overrides.push({ user_id: ACTION_USER, calendar_date: ACTION_DATE, availability_status: "available", source: "user" });
+    if (change === "availability") f.state.training_availability_overrides.push({ user_id: ACTION_USER, calendar_date: ACTION_DATE, availability_status: "unavailable", source: "user" });
     if (change === "expired") now = "2026-10-05T12:06:00Z";
     if (change === "identity") f.db.auth.getUser = async () => ({ data: { user: { id: OTHER_USER } } });
     const apply = accepted(a); const result = await r.execute(apply.tool, apply.arguments);

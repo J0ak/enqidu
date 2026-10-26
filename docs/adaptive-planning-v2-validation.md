@@ -9,7 +9,7 @@ Esta evidencia se completa durante la validación del PR. El expediente de arqui
 | Comando | Resultado |
 |---|---|
 | `npm run test:coach-evals` | 165 passed, 0 failed/skipped |
-| `npm test` | Ejecución final en curso |
+| `npm test` | CI: 1.086 passed, 0 failed/skipped; local final en curso |
 | `npm run test:transactional-actions` | Pendiente de PostgreSQL local |
 | `node scripts/test-reconciliation-postgres.mjs` | Pendiente |
 | `node scripts/test-semantics-postgres.mjs` | Pendiente |
@@ -29,6 +29,8 @@ Node 22.14.0, PostgreSQL 17.11, Supabase CLI 2.119.0 y Chromium local. Se usa el
 El daemon administrado usa `vfs`; se reutiliza el procedimiento documentado para aplanar la imagen oficial PostgreSQL conservando su configuración, sin cambiar el daemon. Se excluyen servicios locales innecesarios y se usa el bypass de proxy local existente. Reinicios del entorno no implican cambios en producción.
 
 Las pruebas de reducción ahora usan bloques aeróbicos prescritos sólo por tiempo. Se mantienen las aserciones de persistencia, atomicidad, seguridad e historia y se añaden rechazos explícitos de fuerza/estructura no reducible. El recuento MCP incorpora el assessment PREVIEW y la indisponibilidad con confirmación. La fixture HTTP de Remote MCP cierra conexiones de loopback para evitar sockets keep-alive caducados durante validación intensiva de schemas; no se cambia el transporte productivo ni sus controles.
+
+El primer run de PostgreSQL en CI detectó fixtures que intentaban guardar `available`, `completed` y `enriched`, rechazados por los CHECK canónicos. Se contrastó el contrato productivo mediante consulta sólo lectura; se corrigieron los fixtures y se conservaron pruebas de rechazo SQL/JS para estados no persistibles, sin relajar constraints.
 
 ## Cobertura de #106
 
