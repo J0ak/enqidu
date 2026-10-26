@@ -348,6 +348,12 @@ begin
   end if;
 
   if p_action = 'adapt_duration' then
+    -- Free session-level prescriptions cannot be proven compatible by scaling
+    -- timed blocks. A no-op preview never invokes this transactional writer.
+    if coalesce(v_source->>'objective','') <> '' or coalesce(v_source->>'coach_notes','') <> ''
+       or v_source->'constraints' not in ('null'::jsonb,'[]'::jsonb) then
+      return jsonb_build_object('ok',false,'error','invalid_request');
+    end if;
     if jsonb_typeof(p_command->'duration') is distinct from 'number'
        or (p_command->'duration')::text !~ '^\d+$'
        or (p_command->>'duration')::numeric not between 10 and 180

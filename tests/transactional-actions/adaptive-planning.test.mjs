@@ -112,3 +112,16 @@ test("AP2 SQL selected same-day session changes alone; other prescription and ex
   assert.equal(after.plans.find((p) => p.row.id === second.id).row.planned_duration_min, 30);
   assert.deepEqual(after.history, before.history); assert.deepEqual(after.fit, before.fit);
 });
+
+for (const [column, value] of [["objective", "Complete 10 km"], ["coach_notes", "Keep 20 minutes of main work"], ["constraints", '["Minimum 45 minutes"]']]) test(`AP2 SQL refuses a crafted duration change with global ${column}`, async (t) => {
+  const f = await fixture(t);
+  // Identifiers come from this closed test fixture, never request input.
+  await f.monitor.query(`update public.planned_training_sessions set ${column}=$1 where id=$2`, [value, f.source.id]);
+  const base = await preview(f, "cancel_session", { source_date: DAY });
+  const before = await persisted(f.monitor, [f.userId, f.otherId]);
+  const result = await rawApply(f.a, f.userId, { ...base.transaction, action: "adapt_duration", command: {
+    sourceDate: DAY, sessionId: f.source.id, duration: 30, blocks: [{ id: f.source.blockId, duration_seconds: 1800 }],
+  } });
+  assert.equal(result.ok, false);
+  assert.deepEqual(await persisted(f.monitor, [f.userId, f.otherId]), before);
+});

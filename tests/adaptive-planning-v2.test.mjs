@@ -235,3 +235,13 @@ test("AP2 explicit plan selection reloads ownership and preview targets only tha
   const foreign = await r.execute("get_adaptive_assessment_v2", { request: "duration", duration_minutes: 30, planned_session_id: second.id });
   assert.equal(foreign.data.status, "not_admissible"); assert.equal(foreign.data.preview, null);
 });
+
+for (const [field, value] of [["objective", "Completar 10 km"], ["coach_notes", "Mantener 20 minutos de trabajo principal"], ["constraints", ["Mínimo 45 minutos"]]]) test(`AP2 duration requires review for session-level ${field}`, async () => {
+  const f = actionDatabase(); f.state.planned_training_sessions[0][field] = value;
+  const before = structuredClone(f.state);
+  const result = await assess(f, { request: "duration", duration_minutes: 30 });
+  assert.equal(result.data.status, "insufficient_information");
+  assert.deepEqual(result.data.reason_codes, ["duration_adaptation_unavailable"]);
+  assert.deepEqual(f.state, before);
+  assert.equal((await assess(f, { request: "duration", duration_minutes: 50 })).data.status, "no_change");
+});

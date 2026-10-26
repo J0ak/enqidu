@@ -50,7 +50,7 @@ Políticas reutilizadas: `training_recommendation_v1.1`, Morning Coach V1, readi
 
 El algoritmo anterior repartía minutos proporcionalmente entre **todos** los bloques, con mínimo de un minuto por bloque y mayores restos para redondear. Podía acortar calentamiento, recuperación o una prescripción de fuerza manteniendo sus series/repeticiones intactas.
 
-La nueva regla autoriza reducir únicamente bloques tipados `aerobic` cuya única prescripción modificable sea el tiempo: sin ejercicios, rondas, restricciones, objetivo ni notas secundarios. Todos los demás bloques conservan exactamente su duración y contenido. No se infiere semántica por título. Se rechazan aumentos, tiempos no enteros en minutos, duraciones ausentes/cero, sesiones sin bloques, más de 12 bloques y objetivos incompatibles con los bloques fijos. Cada bloque ajustable conserva al menos un minuto; el total debe ser exacto y ningún bloque puede aumentar por redondeo. Un no-op conserva la estructura sin redistribuirla.
+La nueva regla autoriza reducir únicamente bloques tipados `aerobic` cuya única prescripción modificable sea el tiempo: sin ejercicios, rondas, restricciones, objetivo ni notas secundarios. Todos los demás bloques conservan exactamente su duración y contenido. Si la sesión contiene un objetivo, notas del Coach o restricciones globales, una reducción exige revisión: esos campos pueden imponer distancia, trabajo o seguridad que los bloques por sí solos no demuestran conservar. No se interpretan notas libres como autorizaciones; incluso una nota meramente informativa mantiene esta limitación conservadora. Un no-op sigue siendo no-op. No se infiere semántica por título. Se rechazan aumentos, tiempos no enteros en minutos, duraciones ausentes/cero, sesiones sin bloques, más de 12 bloques y objetivos incompatibles con los bloques fijos. Cada bloque ajustable conserva al menos un minuto; el total debe ser exacto y ningún bloque puede aumentar por redondeo. Un no-op conserva la estructura sin redistribuirla.
 
 Se mantienen el orden, IDs y contenido de los bloques. No se fabrican ejercicios, series, repeticiones ni cargas. La guarda semántica también existe en la frontera SQL para rechazar un comando privilegiado incoherente; no se cambia el escritor de duración.
 
@@ -69,7 +69,7 @@ Migración única: `supabase/migrations/20261025193006_adaptive_planning_v2.sql`
 1. Añade la operación cerrada `set_training_unavailability`, con alcance hoy/mañana y comando `sourceDate`.
 2. Compara plan, bloques, perfil y disponibilidad bajo los locks existentes **antes** de llamar al UPSERT existente en la misma transacción. Se incluye `availability.updated_at` para detectar revisiones incluso con el mismo valor.
 3. Permite seleccionar por el `sessionId` ya admitido por los escritores de duración/entorno; sin selección el dominio sigue rechazando ambigüedad. Ownership y fecha se comprueban siempre.
-4. Valida que una reducción no cambie bloques no reducibles ni incremente tiempos.
+4. Valida que una reducción no cambie bloques no reducibles, incremente tiempos ni ignore instrucciones globales de la sesión.
 
 Se conservan `security invoker`, `search_path` cerrado, privilegios exclusivos de `service_role`, locks de fechas/filas/tablas, comparación completa, rollback atómico e aislamiento `READ COMMITTED`. No hay nuevos grants al navegador, tablas, triggers, LLM ni escrituras sobre actividades/FIT.
 

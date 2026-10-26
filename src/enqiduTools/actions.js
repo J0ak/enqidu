@@ -378,6 +378,11 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     if (!scaled) return reject("duration_adaptation_unavailable");
     const changed = before[0].duration_min !== args.duration_minutes || before[0].duration_max !== args.duration_minutes
       || blocks.reduce((sum, block) => sum + block.planned_duration_seconds, 0) !== args.duration_minutes * 60;
+    // Session-level instructions may prescribe distance, work or safety beyond
+    // the timed blocks. Do not interpret free text as permission to shorten it.
+    if (changed && (source.objective || source.coach_notes
+      || source.constraints != null && !(Array.isArray(source.constraints) && source.constraints.length === 0)))
+      return reject("duration_adaptation_unavailable");
     return prepare({ ...base, after: [changed ? { ...before[0], status: "modified",
       duration_minutes: args.duration_minutes, duration_min: args.duration_minutes, duration_max: args.duration_minutes,
       blocks: before[0].blocks.map((block) => ({ ...block, ...scaled.find((item) => item.id === block.id) })),

@@ -36,6 +36,7 @@ export function actionDatabase({ action = "adapt_duration", owner = ACTION_USER,
   if (!detailed && state.planned_session_blocks.length) Object.assign(state.planned_session_blocks[0], {
     block_type: "aerobic", objective: null, planned_rounds: null, planned_exercises: [], constraints: [], notes: null,
   });
+  if (!detailed) for (const plan of state.planned_training_sessions) Object.assign(plan, { objective: null, coach_notes: null, constraints: [] });
   const context = {
     athlete_context: {
       athlete: { display_name: "Local athlete" }, goals: [{ name: "Improve strength", active: true }],

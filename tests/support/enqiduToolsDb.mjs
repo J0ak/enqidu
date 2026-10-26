@@ -45,6 +45,7 @@ export function createToolsDb({ userId = TOOL_USER_A, empty = false } = {}) {
   for (const b of tables.planned_session_blocks) if ([toolId(2), toolId(3)].includes(b.planned_session_id)) {
     b.block_type = "aerobic"; b.planned_exercises = [];
   }
+  for (const p of tables.planned_training_sessions) if ([toolId(2), toolId(3)].includes(p.id)) p.objective = null;
   if (empty) for (const name of Object.keys(tables)) if (name !== "profiles") tables[name] = [];
   const calls = [];
   const db = {

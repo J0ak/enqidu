@@ -2,35 +2,41 @@
 
 Base: `05b093ae70af9ad184a87c1161c73245f597e601`, verificada mediante fetch y de nuevo contra GitHub el 26/10/2026. Rama: `codex/106-adaptive-planning-v2`.
 
-Esta evidencia se completa durante la validación del PR. El expediente de arquitectura, políticas, seguridad, límites, rollout/rollback y gate de paridad está en [adaptive-planning-v2.md](adaptive-planning-v2.md).
+El expediente de arquitectura, políticas, seguridad, límites, rollout/rollback y gate de paridad está en [adaptive-planning-v2.md](adaptive-planning-v2.md).
 
 ## Comprobaciones
 
 | Comando | Resultado |
 |---|---|
 | `npm run test:coach-evals` | 165 passed, 0 failed/skipped |
-| `npm test` | CI: 1.086 passed, 0 failed/skipped; local final en curso |
-| `npm run test:transactional-actions` | Pendiente de PostgreSQL local |
-| `node scripts/test-reconciliation-postgres.mjs` | Pendiente |
-| `node scripts/test-semantics-postgres.mjs` | Pendiente |
-| `npm run test:mcp:oauth` | Incluido en la batería base; ejecución dedicada pendiente |
-| `node scripts/test-mcp-oauth-supabase.mjs` | Pendiente |
-| `npm run test:e2e -- --workers=1` | Pendiente |
+| `npm test` | CI: 1.086 passed, 0 failed/skipped |
+| `npm run test:transactional-actions` | CI: 51 passed, 0 failed/skipped |
+| `node scripts/test-reconciliation-postgres.mjs` | 43 passed, CI y local |
+| `node scripts/test-semantics-postgres.mjs` | 9 passed, CI y local |
+| `npm run test:mcp:oauth` | 8 passed, CI y local |
+| `node scripts/test-mcp-oauth-supabase.mjs` | CI: 14 escenarios passed, incluyendo permiso PREVIEW del assessment |
+| `npm run test:e2e -- --workers=1` | CI: 55 passed en `ae9a8df`; se repite tras la guarda global de duración |
 | `npm run build` | Passed; aviso previo de bundle >500 kB |
 | `git diff --check` | Passed |
-| CI | Se adjuntará el run del SHA final |
+| CI | [Run verde de referencia](https://github.com/J0ak/enqidu/actions/runs/40385324616); validación final de la guarda global en curso |
 
 No hay merge, deploy, migraciones productivas ni llamadas a modelos. Coste incremental: **0,00 €**.
 
 ## Entorno y ajustes de aceptación
 
-Node 22.14.0, PostgreSQL 17.11, Supabase CLI 2.119.0 y Chromium local. Se usa el proyecto desechable `enqidu-e2e`; los scripts SQL rechazan hosts remotos. Las funciones locales se preparan con el bundler ya documentado en `playwright-e2e.md`; TLS permanece habilitado y OpenAI desactivado. El navegador usa America/Los_Angeles y los perfiles Europe/Madrid.
+CI usa Node 22, Supabase CLI del workflow y el grafo nativo de Edge Functions. Local: Node 22.14.0, PostgreSQL 17.11, Supabase CLI 2.119.0 y Chromium. Se usa el proyecto desechable `enqidu-e2e`; los scripts SQL rechazan hosts remotos. Las funciones locales se preparan con el bundler ya documentado en `playwright-e2e.md`; TLS permanece habilitado y OpenAI desactivado. El navegador usa America/Los_Angeles y los perfiles Europe/Madrid.
 
 El daemon administrado usa `vfs`; se reutiliza el procedimiento documentado para aplanar la imagen oficial PostgreSQL conservando su configuración, sin cambiar el daemon. Se excluyen servicios locales innecesarios y se usa el bypass de proxy local existente. Reinicios del entorno no implican cambios en producción.
 
 Las pruebas de reducción ahora usan bloques aeróbicos prescritos sólo por tiempo. Se mantienen las aserciones de persistencia, atomicidad, seguridad e historia y se añaden rechazos explícitos de fuerza/estructura no reducible. El recuento MCP incorpora el assessment PREVIEW y la indisponibilidad con confirmación. La fixture HTTP de Remote MCP cierra conexiones de loopback para evitar sockets keep-alive caducados durante validación intensiva de schemas; no se cambia el transporte productivo ni sus controles.
 
 El primer run de PostgreSQL en CI detectó fixtures que intentaban guardar `available`, `completed` y `enriched`, rechazados por los CHECK canónicos. Se contrastó el contrato productivo mediante consulta sólo lectura; se corrigieron los fixtures y se conservaron pruebas de rechazo SQL/JS para estados no persistibles, sin relajar constraints.
+
+Una ejecución local transaccional sufrió un timeout al insertar un fixture mientras se recreaba Edge; la repetición del caso pasó, y la suite completa 51/51 pasó en CI sin cambiar timeouts. La ejecución local inicial de E2E sufrió un timeout de Auth/Edge tras la interrupción del entorno; se reinició exclusivamente el runtime local. La segunda ejecución local observó respuestas 546 del límite acumulado de CPU de Edge (1.77.1, bundle local); se conservan las aserciones de errores de navegador. La batería base local quedó interrumpida; su evidencia completa es CI. Estos intentos incompletos no se presentan como éxitos.
+
+El E2E base de backend indisponible detectó que la nueva relectura mostraba ausencia de plan ante un fallo de red. Se corrigió el cliente para conservar el error seguro; se mantuvo intacta la aserción de que no hay fallback a escrituras legacy.
+
+La revisión final añade una guarda para objetivo, notas y restricciones globales de sesión: pueden contener una prescripción no representada por los bloques. Incluye tres regresiones JS (también no-op) y tres rechazos SQL de comandos construidos con un snapshot auténtico. Las 104 pruebas focalizadas de dominio/acciones/Morning Coach pasan; CI repite todas las suites.
 
 ## Cobertura de #106
 
@@ -51,6 +57,7 @@ El primer run de PostgreSQL en CI detectó fixtures que intentaban guardar `avai
 - `e2e/adaptive-planning.spec.js`
 - `e2e/coach.spec.js`
 - `e2e/tools-fixture.js`
+- `scripts/test-mcp-oauth-supabase.mjs`
 - `src/adaptivePlanning/assessment.js`
 - `src/adaptivePlanning/contract.js`
 - `src/adaptivePlanning/interpreter.js`

@@ -119,6 +119,10 @@ async function createPlan(request, userId, title = "Plan persistido E2E", planne
   expect(response.ok(), await response.text()).toBeTruthy();
   const saved = await response.json();
   if (durationOnly) {
+    const timed = await request.patch(`${supabaseUrl}/rest/v1/planned_training_sessions?id=eq.${saved.planned_session_id}`, {
+      headers: headers(), data: { objective: null, coach_notes: null, constraints: [] },
+    });
+    expect(timed.ok(), await timed.text()).toBe(true);
     const typed = await request.patch(`${supabaseUrl}/rest/v1/planned_session_blocks?planned_session_id=eq.${saved.planned_session_id}`, {
       headers: headers(), data: { block_type: "aerobic", planned_exercises: [], constraints: [], objective: null, notes: null, planned_rounds: null },
     });
