@@ -15,6 +15,8 @@ const compare = ({ traceability, ...v }) => {
   return result;
 };
 const requests = [
+  ["get_adaptive_assessment_v2", { request: "duration", duration_minutes: 30 }],
+  ["preview_set_training_unavailability", { date_reference: "today" }],
   ["get_training_semantics_v1", { session_id: toolId(20) }],
   ["interpret_training_correction_v1", { text: "Algo sin datos deportivos" }],
   [
@@ -77,7 +79,7 @@ for (const mode of ["legacy", { pin: "2026-07-28" }])
       tools.map((v) => v.name),
       listEnqiduTools({ includeWrites: false }).map((v) => v.id),
     );
-    assert.equal(tools.length, 27);
+    assert.equal(tools.length, 29);
     assert.ok(tools.every((v) => !v.name.startsWith("apply_")));
     const r = (
       await client.callTool({
@@ -481,7 +483,7 @@ test("server data-plane failures are sanitized and never expose its credential",
   assert.equal(await r.text(), '{"error":"request_unavailable"}');
 });
 
-test("all 27 tools ignore adversarial foreign parents and children with a data client bypassing RLS", async (t) => {
+test("all 29 tools ignore adversarial foreign parents and children with a data client bypassing RLS", async (t) => {
   const pristine = semanticFixture(),
     polluted = semanticFixture();
   const remap = new Map();
@@ -553,13 +555,13 @@ test("all 27 tools ignore adversarial foreign parents and children with a data c
   assert.ok(f.dataRequests.every((r) => r.privileged));
 });
 
-test("preview scopes are enforced with OAuth tool metadata and all 27 discoverable", async (t) => {
+test("preview scopes are enforced with OAuth tool metadata and all 29 discoverable", async (t) => {
   const f = await remoteFixture(t);
   const c = await f.connect({
     accessToken: f.token({ scopes: ["enqidu.read"] }),
   });
   const tools = (await c.listTools()).tools;
-  assert.equal(tools.length, 27);
+  assert.equal(tools.length, 29);
   assert.deepEqual(
     tools.find((t) => t.name === "preview_cancel_session")._meta
       .securitySchemes,

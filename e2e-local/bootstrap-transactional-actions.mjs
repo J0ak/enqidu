@@ -28,3 +28,10 @@ const manualResult = spawnSync("docker", ["--host=unix:///var/run/docker.sock", 
 });
 if (manualResult.status !== 0) throw new Error(`Disposable manual health migration failed: ${manualResult.stderr}`);
 console.log("Manual Health migration ready in disposable local Supabase; no remote changes.");
+
+const adaptiveSql = await readFile(new URL("../supabase/migrations/20261025193006_adaptive_planning_v2.sql", import.meta.url), "utf8");
+const adaptiveResult = spawnSync("docker", ["--host=unix:///var/run/docker.sock", "exec", "-i", "supabase_db_enqidu-e2e", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], {
+  input: `${adaptiveSql}\nnotify pgrst, 'reload schema';\n`, encoding: "utf8", env: dockerEnv, maxBuffer: 8 * 1024 * 1024,
+});
+if (adaptiveResult.status !== 0) throw new Error(`Disposable adaptive migration failed: ${adaptiveResult.stderr}`);
+console.log("Adaptive Planning migration ready in disposable local Supabase; no remote changes.");

@@ -1,7 +1,7 @@
 import { buildTrainingRecommendation } from "../coachContext/trainingRecommendation.js";
 import { normalizeCoachPlanLocation, toPlannedRecommendationPayload } from "../coachContext/coachPlanAction.js";
 import {
-  isValidPlanCalendarDate, isPlanDateOnOrAfter, planRemainingWeekReschedule,
+  isPendingPlannedSession, isValidPlanCalendarDate, isPlanDateOnOrAfter, planRemainingWeekReschedule,
   resolveNextWeekdayDate, resolveRemainingWeekEndDate, scalePlannedBlockDurations, shiftPlanCalendarDate,
 } from "../coachTools/planActions.js";
 import { isValidTimeZone } from "../time/userCalendar.js";
@@ -22,21 +22,21 @@ const legacyNames = Object.freeze({
   set_training_unavailability: "set_training_unavailability",
 });
 const allowedArguments = Object.freeze({
-  move_session: ["source_date", "target_weekday", "target_date"], adapt_duration: ["source_date", "duration_minutes"],
-  adapt_environment: ["source_date", "environment"], cancel_session: ["source_date"],
+  move_session: ["source_date", "target_weekday", "target_date"], adapt_duration: ["source_date", "duration_minutes", "planned_session_id"],
+  adapt_environment: ["source_date", "environment", "planned_session_id"], cancel_session: ["source_date"],
   adapt_remaining_week: [], save_recommendation_today: ["date", "location"],
   set_training_unavailability: ["date_reference"],
 });
 const planColumns = "id,user_id,planned_date,planned_time,title,status,source,linked_completed_session_id,location_type,session_type,planned_intensity,planned_duration_min,planned_duration_max,objective,coach_notes,constraints,created_at,updated_at";
 const blockColumns = "id,planned_session_id,block_order,block_type,title,objective,planned_duration_seconds,planned_rounds,planned_exercises,constraints,notes,created_at";
-const availabilityColumns = "user_id,calendar_date,availability_status,source";
+const availabilityColumns = "user_id,calendar_date,availability_status,source,updated_at";
 const prescriptionColumns = Object.freeze({
   constraints: "id,user_id,constraint_type,severity,description,active,updated_at",
   locations: "id,user_id,display_name,location_type,access_mode,prescription_scope,coached_sessions_available,is_active,updated_at",
   equipment: "id,user_id,equipment_id,quantity,unit,location_label,available,valid_from,valid_to,updated_at",
   catalog: "id,name,equipment_category,unit,updated_at",
 });
-const transactionalActions = new Set(["move_session", "adapt_duration", "adapt_environment", "cancel_session", "adapt_remaining_week"]);
+const transactionalActions = new Set(["set_training_unavailability", "move_session", "adapt_duration", "adapt_environment", "cancel_session", "adapt_remaining_week"]);
 const reject = (error) => ({ ok: false, error });
 const own = (rows, userId) => rows.filter((row) => row.user_id === userId);
 const active = (rows) => rows.filter((row) => row.status !== "cancelled");
@@ -64,7 +64,7 @@ async function loadBlocks(db, ids) {
   return scoped;
 }
 
-async function loadAvailability(db, userId, from, to = from) {
+export async function loadAvailability(db, userId, from, to = from) {
   return own(await rows(db.from("training_availability_overrides")
     .select(availabilityColumns)
     .eq("user_id", userId).gte("calendar_date", from).lte("calendar_date", to)
@@ -162,7 +162,7 @@ function transactionContract(action, mutation, state, calendar) {
   const fromDate = state.selection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1)
     : action === "adapt_remaining_week" ? command.from : command.sourceDate;
   const toDate = action === "adapt_remaining_week" ? command.to : command.targetDate || command.sourceDate;
-  const blockSessionIds = action === "adapt_remaining_week" ? state.plans.map((row) => row.id)
+  const blockSessionIds = ["adapt_remaining_week", "set_training_unavailability"].includes(action) ? state.plans.map((row) => row.id)
     : [command.sessionId || state.plans.find((row) => row.planned_date === fromDate && row.status !== "cancelled").id];
   return {
     action, command,
@@ -208,7 +208,7 @@ function sourceError(sessions, action) {
   if (sessions.length > 1) return "source_plan_ambiguous";
   const source = sessions[0];
   if (source.linked_completed_session_id) return "source_plan_already_completed";
-  if (["cancelled", "skipped", "completed"].includes(source.status)) return "source_plan_not_adaptable";
+  if (!isPendingPlannedSession(source)) return "source_plan_not_adaptable";
   if (["adapt_duration", "adapt_environment"].includes(action) && source.source !== "enkidu_coach") return "unsupported_plan_source";
   return null;
 }
@@ -267,8 +267,11 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     if (!["today", "tomorrow"].includes(args.date_reference)) return reject("invalid_date_reference");
     const date = args.date_reference === "today" ? calendar.date : shiftPlanCalendarDate(calendar.date, 1);
     const [plans, availability] = await Promise.all([loadActionPlans(db, userId, date), loadAvailability(db, userId, date)]);
-    return prepare({ userId, calendar, action, args, state: { plans, availability },
-      mutation: { kind: action, date },
+    const blocks = await loadBlocks(db, plans.map((row) => row.id));
+    const before = plans.map((row) => snapshot(row, blocks));
+    const unchanged = availability.some((row) => row.availability_status === "unavailable");
+    return prepare({ userId, calendar, action, args, before, after: before, state: { plans, blocks, availability },
+      mutation: unchanged ? null : { kind: action, sourceDate: date },
       legacy: { date_reference: args.date_reference, date, marked_unavailable: true,
         planned_conflict: active(plans).length > 0, planned_titles: active(plans).map((row) => row.title) },
       reasons: ["explicit_training_unavailability"], consequences: ["existing_plans_preserved"],
@@ -338,7 +341,8 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     loadActionPlans(db, userId, targetSelection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1) : sourceDate, targetDate),
     loadAvailability(db, userId, targetSelection === "closed_loop_target" ? shiftPlanCalendarDate(calendar.date, 1) : sourceDate, targetDate),
   ]);
-  const sources = active(plans).filter((row) => row.planned_date === sourceDate);
+  const sources = active(plans).filter((row) => row.planned_date === sourceDate
+    && (!args.planned_session_id || row.id === args.planned_session_id));
   const error = sourceError(sources, action);
   if (error) return reject(error);
   const source = sources[0];
@@ -374,6 +378,11 @@ export async function prepareEnqiduAction({ db, userId, calendar, action: reques
     if (!scaled) return reject("duration_adaptation_unavailable");
     const changed = before[0].duration_min !== args.duration_minutes || before[0].duration_max !== args.duration_minutes
       || blocks.reduce((sum, block) => sum + block.planned_duration_seconds, 0) !== args.duration_minutes * 60;
+    // Session-level instructions may prescribe distance, work or safety beyond
+    // the timed blocks. Do not interpret free text as permission to shorten it.
+    if (changed && (source.objective || source.coach_notes
+      || source.constraints != null && !(Array.isArray(source.constraints) && source.constraints.length === 0)))
+      return reject("duration_adaptation_unavailable");
     return prepare({ ...base, after: [changed ? { ...before[0], status: "modified",
       duration_minutes: args.duration_minutes, duration_min: args.duration_minutes, duration_max: args.duration_minutes,
       blocks: before[0].blocks.map((block) => ({ ...block, ...scaled.find((item) => item.id === block.id) })),
@@ -408,8 +417,6 @@ export async function executePreparedEnqiduAction({ adminDb, userId, prepared } 
     } else switch (command.kind) {
       case "save_recommendation_today":
         result = await adminDb.rpc("save_coach_recommendation_plan", { p_user_id: userId, p_planned_date: command.date, p_session: command.session }); break;
-      case "set_training_unavailability":
-        result = await adminDb.rpc("set_coach_training_unavailability", { p_user_id: userId, p_date: command.date }); break;
       default: return reject("unsupported_action");
     }
     if (result.error) return reject("plan_write_failed");

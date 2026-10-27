@@ -150,7 +150,7 @@ export async function insertPlan(client, userId, day, { id = randomUUID(), title
   await client.query(`insert into public.planned_training_sessions(id,user_id,planned_date,title,session_type,status,location_type,planned_duration_min,planned_duration_max,source)
     values($1,$2,$3,$4,'strength','planned','outdoor',50,50,'enkidu_coach')`, [id, userId, day, title]);
   await client.query(`insert into public.planned_session_blocks(id,planned_session_id,block_order,block_type,title,planned_duration_seconds,planned_exercises,constraints,notes)
-    values($1,$2,1,'strength','Main strength block',3000,'[{"name":"Squat","target_sets":3}]','["No impact"]','Original block')`, [blockId, id]);
+    values($1,$2,1,'aerobic','Aerobic duration only',3000,'[]','[]',null)`, [blockId, id]);
   return { id, blockId, day };
 }
 

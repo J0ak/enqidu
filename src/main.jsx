@@ -1,3 +1,5 @@
+import { detectAdaptiveRequest } from "./adaptivePlanning/interpreter.js";
+import { renderAdaptiveAssessment } from "./adaptivePlanning/presentation.js";
 import { focusFromMessages } from "./coachConversation/referenceContext.js";
 import OAuthConnections from "./oauth/OAuthConnections.jsx";
 import OAuthConsent from "./oauth/OAuthConsent.jsx";
@@ -16,7 +18,7 @@ import FitParser from "fit-file-parser";
 import { getArrayBuffer, readRecord } from "../node_modules/fit-file-parser/dist/binary.js";
 import { Buffer } from "buffer";
 import { supabase } from "@/integrations/supabase/client";
-import { requestCoachReply, saveCoachRecommendationToPlan, setCoachTrainingUnavailability } from "@/services/aiCoachContextService";
+import { requestCoachReply, saveCoachRecommendationToPlan } from "@/services/aiCoachContextService";
 import { requestEnqiduTool } from "@/services/enqiduToolsService";
 import { buildCoachApplyRequest, buildCoachPreviewRequest, coachAppliedSummary, coachPreviewSummary, detectPreviewConversationAction, isPlanPreviewCommand, plannedContextForWeekday } from "@/coachTools/actionPreviewView";
 import GarminSyncConsent from "@/components/GarminSyncConsent";
@@ -3790,32 +3792,20 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
         return;
       }
 
-      const fastPath = detectEnqiduFastPathCommand(text);
-      if (fastPath?.tool === "set_training_unavailability") {
-        const result = await setCoachTrainingUnavailability({
-          dateReference: fastPath.arguments?.date_reference,
-        });
-        if (result.ok && result.markedUnavailable && result.date) {
-          const dateLabel = formatCoachCardDate(result.date) || result.date;
-          const conflictTitle = result.plannedTitles?.[0] || null;
-          const content = result.plannedConflict
-            ? `He marcado el ${dateLabel} como no disponible para entrenar. Tienes ${conflictTitle ? `“${conflictTitle}” ` : "una sesión "}planificada ese día; no la he movido ni cancelado.`
-            : `He marcado el ${dateLabel} como no disponible para entrenar.`;
-          setMessages((current) => replaceLastAssistantMessage(current, content, []));
-          setMicNotice("Disponibilidad actualizada.");
-          return;
-        }
-
-        setMessages((current) => replaceLastAssistantMessage(
-          current,
-          result.message || "No he podido actualizar tu disponibilidad.",
-          [],
-        ));
-        return;
-      }
+      const adaptiveRequest = detectAdaptiveRequest(text);
+      if (adaptiveRequest) setPendingToolAction(null);
+      const fastPath = adaptiveRequest ? null : detectEnqiduFastPathCommand(text);
 
       if (isPlanPreviewCommand(fastPath)) {
-        let plannedContext = findLatestPlannedTrainingContext(messages);
+        const reference = findLatestPlannedTrainingContext(messages);
+        const canonical = await requestEnqiduTool({ tool: "get_week_plan", arguments: {} });
+        if (!canonical.ok) {
+          setMessages((current) => replaceLastAssistantMessage(current, canonical.error.safe_message, []));
+          return;
+        }
+        const referenceDate = reference?.date || canonical.data?.calendar_date;
+        const candidates = canonical.ok ? canonical.data.sessions.filter((session) => session.planned_date === referenceDate && session.status !== "cancelled") : [];
+        let plannedContext = candidates.length === 1 ? { date: candidates[0].planned_date, title: candidates[0].title } : null;
         if (fastPath.arguments?.source_weekday) {
           const week = await requestEnqiduTool({ tool: "get_week_plan", arguments: {} });
           plannedContext = week.ok ? plannedContextForWeekday(week.data, fastPath.arguments.source_weekday) : null;
@@ -3826,7 +3816,7 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
         }
         const request = buildCoachPreviewRequest(fastPath, plannedContext);
         if (!request) {
-          setMessages((current) => replaceLastAssistantMessage(current, "No tengo una sesión planificada reciente como referencia. Pregúntame primero qué tienes planificado.", []));
+          setMessages((current) => replaceLastAssistantMessage(current, "No encuentro una única sesión pendiente para esa referencia en tu plan guardado. Dime qué sesión quieres revisar.", []));
           return;
         }
         const result = await prepareToolPreview(request);
@@ -3865,6 +3855,9 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
         mode: "today_coach",
         conversationFocus: focusFromMessages(messages),
       });
+      if (result.adaptiveAssessment?.preview?.requires_confirmation) {
+        setPendingToolAction({ request: result.adaptiveAssessment.proposal, preview: result.adaptiveAssessment.preview, reviewed: true, error: null });
+      }
       const content = result.ok && result.answer
         ? result.answer
         : buildCoachFallbackReply(text, discipline, sessions, result.error, result.cards);
@@ -3932,6 +3925,20 @@ function CoachView({ userId, messages, setMessages, discipline, sessions, onOpen
   };
 
   const handleCardAction = async (action) => {
+    if (action?.type === "review_adaptive_choice") {
+      if (cardActionBusy || sending || toolActionInFlight.current) return;
+      toolActionInFlight.current = true;
+      setCardActionBusy(true);
+      setPendingToolAction(null);
+      try {
+        const result = await requestEnqiduTool({ tool: "get_adaptive_assessment_v2", arguments: action.arguments });
+        const rendered = result.ok ? renderAdaptiveAssessment(result.data) : { answer: result.error.safe_message, cards: [] };
+        if (result.ok && result.data.preview?.requires_confirmation) setPendingToolAction({ request: result.data.proposal, preview: result.data.preview, reviewed: true, error: null });
+        setMessages(current => [...current, { role: "assistant", content: rendered.answer, cards: rendered.cards }]);
+        return result;
+      } finally { toolActionInFlight.current = false; setCardActionBusy(false); }
+    }
+
     if (action?.type === "review_morning_proposal") {
       if (cardActionBusy || sending || toolActionInFlight.current || !["preview_adapt_duration", "preview_closed_loop_proposal"].includes(action.tool)) return;
       toolActionInFlight.current = true;
@@ -4290,7 +4297,7 @@ function CoachInlineCard({ card, onAction, disabled = false }) {
       </div>
       {metrics.length > 0 && <div className="coachInlineMetrics">{metrics.map((item) => <div key={item.key}><strong>{item.displayValue}</strong><span>{item.label}</span></div>)}</div>}
       {breakdown.length > 0 && <p className="coachInlineBreakdown">{breakdown.map((item) => `${item.label}: ${item.value}`).join(" · ")}</p>}
-      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" disabled={disabled} key={`${action.type}-${action.session_id || action.date || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
+      {Array.isArray(card.actions) && card.actions.map((action) => <button type="button" disabled={disabled} key={`${action.type}-${action.session_id || action.arguments?.session_id || action.arguments?.planned_session_id || action.date || ""}`} onClick={() => onAction?.(action)}>{action.label}<ChevronRight size={15} /></button>)}
     </article>
   );
 }

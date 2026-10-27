@@ -1,4 +1,5 @@
 import React from "react";
+import { formatCoachCardDate } from "../coachContext/coachCardsView.js";
 import { previewExplanation, previewSessions, previewSessionView } from "../coachTools/actionPreviewView.js";
 
 function SessionState({ session }) {
@@ -26,6 +27,8 @@ export default function CoachActionPreview({ pending, busy, onReview, onApply, o
   return <section className="coachActionPreview" aria-label="Cambio propuesto" aria-live="polite">
     <h3>{reviewed ? "Revisa el cambio en tu plan" : "Cambio propuesto"}</h3>
     {!reviewed ? <button type="button" disabled={busy} onClick={onReview}>REVISAR CAMBIO</button> : <>
+      {preview.availability_change && <p>{formatCoachCardDate(preview.availability_change.date)} · Disponibilidad: {preview.availability_change.before === "unavailable" ? "no disponible" : preview.availability_change.before === "available" ? "disponible" : "sin excepción guardada"} → no disponible. El plan se conserva.</p>}
+      {preview.consequences?.includes("planned_blocks_replaced") && <p>Reemplazo de sesión: se descartan los bloques y ejercicios anteriores y se guarda una nueva prescripción. No son sustituciones equivalentes.</p>}
       <div className="coachPreviewComparison">
         <div><h4>Antes</h4>{previewSessions(preview.before).map((session, index) => <SessionState key={index} session={session} />)}</div>
         <div><h4>Después</h4>{previewSessions(preview.after).map((session, index) => <SessionState key={index} session={session} />)}</div>

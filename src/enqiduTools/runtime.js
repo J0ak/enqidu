@@ -1,3 +1,4 @@
+import { assessAdaptivePlanning } from "../adaptivePlanning/assessment.js";
 import { interpretSemanticCorrection } from "../training/semantics/interpret.js";
 import { readSemanticState, previewSemanticCorrection, applySemanticCorrection } from "../training/semantics/domain.js";
 import { dailyCoachEvent } from "../dailyCoach/history.js";
@@ -6,7 +7,7 @@ import { getEnqiduTool, ENQIDU_TOOLS_VERSION, TOOL_VERSION } from "./registry.js
 import { matchesSchema } from "./schema.js";
 import { safeToolError, toolError } from "./errors.js";
 import { createEnqiduReadDomain, resolveClosedLoopAction } from "./readTools.js";
-import { prepareEnqiduAction, bindEnqiduActionEvidence, executePreparedEnqiduAction } from "./actions.js";
+import { loadAvailability, prepareEnqiduAction, bindEnqiduActionEvidence, executePreparedEnqiduAction } from "./actions.js";
 import { buildEnqiduActionPreview, validateEnqiduActionPreview } from "./actionPreview.js";
 
 export const MAX_TOOL_OUTPUT_BYTES = 131072;
@@ -74,7 +75,10 @@ export async function createEnqiduToolRuntime({ db, authDb = db, adminDb = null,
       if (definition.access === "write" && !scope.capabilities.writes) throw toolError(scope.source === "mcp" ? "mcp_writes_disabled" : "writes_disabled");
       if (definition.access === "write" && args?.confirmation !== true) throw toolError("explicit_confirmation_required");
       if (!matchesSchema(args, definition.input_schema) || new TextEncoder().encode(JSON.stringify(args)).length > 8192) throw toolError("invalid_arguments");
-      if (toolId === 'interpret_training_correction_v1') {
+      if (toolId === "get_adaptive_assessment_v2") {
+        result.data = await assessAdaptivePlanning({ args, domain: readDomain, calendar: calendarFor(scope),
+          preview: (tool, arguments_) => invoke(tool, arguments_, scope, readDomain) });
+      } else if (toolId === 'interpret_training_correction_v1') {
         result.data = await interpretSemanticCorrection({db,userId:scope.authenticated_user_id,args,calendar:calendarFor(scope),now:scope.generated_at,signingKey:semanticSigningKey});
       } else if (toolId.endsWith('training_semantics_v1')) {
         if (toolId === 'get_training_semantics_v1') result.data = await readSemanticState(db,args.session_id);
@@ -115,10 +119,20 @@ export async function createEnqiduToolRuntime({ db, authDb = db, adminDb = null,
           if (isApply) throw toolError("preview_stale");
           throw error;
         }
+        let morningEvidence = null;
+        if (resolved.args.assessment_context === "morning") {
+          morningEvidence = await readDomain.read("get_morning_coach_brief", {});
+          const current = morningEvidence.review_action;
+          if (current?.tool !== "preview_adapt_duration" || current.arguments.source_date !== resolved.args.source_date
+            || current.arguments.duration_minutes !== resolved.args.duration_minutes) throw toolError(isApply ? "preview_stale" : "proposal_not_actionable");
+          const { assessment_context, ...plainArgs } = resolved.args;
+          resolved = { ...resolved, args: plainArgs };
+        }
         let prepared = await prepareEnqiduAction({ db, userId: scope.authenticated_user_id, calendar: calendarFor(scope), action: resolved.action, args: resolved.args,
           now: new Date(scope.generated_at), targetSelection: action === "closed_loop_proposal" ? "closed_loop_target" : "action" });
         if (!prepared.ok) throw toolError(isApply ? "preview_stale" : prepared.error);
         if (action === "closed_loop_proposal") prepared = bindEnqiduActionEvidence(prepared, { policy_version: resolved.policy_version, proposal: resolved.proposal, assessment: resolved.assessment });
+        if (morningEvidence) prepared = bindEnqiduActionEvidence(prepared, { policy_version: morningEvidence.policy_version, assessment: morningEvidence });
         const preview = await buildEnqiduActionPreview({ prepared, calendar: calendarFor(scope), now: new Date(scope.generated_at) });
         if (!matchesSchema(preview, getEnqiduTool(`preview_${action}`).data_schema)) throw toolError("output_contract_violation");
         if (!isApply) result.data = preview;
@@ -143,6 +157,13 @@ export async function createEnqiduToolRuntime({ db, authDb = db, adminDb = null,
           try {
             result.data.persisted_plan = await newDomain(scope).read("get_week_plan", {});
             result.data.persistence_verified = true;
+            if (prepared.action === "set_training_unavailability") {
+              const available = await loadAvailability(db, scope.authenticated_user_id, prepared.legacy.date);
+              const row = available[0];
+              if (row) result.data.persisted_availability = { calendar_date: row.calendar_date, availability_status: row.availability_status, source: row.source };
+              result.data.persistence_verified = row?.availability_status === "unavailable";
+              if (!result.data.persistence_verified) result.warnings.push("persisted_availability_readback_changed");
+            }
           } catch {
             result.data.persistence_verified = false;
             result.warnings.push("persisted_plan_readback_unavailable");

@@ -176,7 +176,7 @@ test("ACTION MATRIX: same-duration no-op does not predict block rescaling that w
 });
 
 test("ACTION MATRIX: environment preview exposes discarded prescription details exactly", async () => {
-  const fixture = actionDatabase();
+  const fixture = actionDatabase({ detailed: true });
   const preview = await buildEnqiduActionPreview({ prepared: await prep(fixture, "adapt_environment"), now: ACTION_NOW });
   const before = preview.before[0].blocks[0], after = preview.after[0].blocks[0];
   assert.equal(before.objective, "Controlled repetitions");

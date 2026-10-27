@@ -29,7 +29,10 @@ export async function buildEnqiduActionPreview({ prepared, calendar = prepared?.
   return {
     schema_version: ACTION_PREVIEW_VERSION, action: prepared.action,
     target: { session_ids: prepared.before.map((session) => session.id),
-      dates: [...new Set([...prepared.before, ...prepared.after].map((session) => session.date))] },
+      dates: [...new Set([...prepared.before, ...prepared.after].map((session) => session.date).concat(prepared.action === "set_training_unavailability" ? [prepared.legacy.date] : []))] },
+    availability_change: prepared.action === "set_training_unavailability" ? {
+      date: prepared.legacy.date, before: prepared.state.availability[0]?.availability_status ?? null, after: "unavailable",
+    } : null,
     before: prepared.before, after: prepared.after, consequences: prepared.consequences,
     warnings: prepared.warnings, reasons: prepared.reasons, affected_entities: prepared.affected_entities,
     fingerprint: await fingerprintEnqiduAction(prepared),

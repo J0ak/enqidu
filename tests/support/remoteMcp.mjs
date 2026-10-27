@@ -121,6 +121,10 @@ export async function remoteFixture(
     },
   };
   const supabaseServer = createServer(async (req, res) => {
+    // Disposable loopback transport: independent connections avoid stale pooled
+    // sockets when CPU-bound schema validation outlives Node's keep-alive timer.
+    // The real SDK, HTTP handler, auth checks and all assertions remain in use.
+    res.setHeader("Connection", "close");
     res.setHeader("Content-Type", "application/json");
     const token = req.headers.authorization?.replace(/^Bearer /, "");
     const privileged = token === dataKey;
@@ -209,6 +213,7 @@ export async function remoteFixture(
   const supabaseUrl = `http://127.0.0.1:${supabaseServer.address().port}`;
   let remoteRequests = 0;
   const httpServer = createServer(async (req, res) => {
+    res.setHeader("Connection", "close");
     remoteRequests++;
     // Reconstruct the entire handler on EVERY request, as on independent serverless invocations.
     const request = new Request(`http://${req.headers.host}${req.url}`, {

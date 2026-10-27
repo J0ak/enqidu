@@ -64,6 +64,9 @@ try {
     ),
   );
   server = createServer(async (req, res) => {
+    // This disposable loopback server must not reuse a socket that expires
+    // while the real SDK compiles all advertised output schemas on a slow host.
+    res.setHeader("Connection", "close");
     try {
       const request = new Request(`http://${req.headers.host}${req.url}`, {
         method: req.method,
@@ -310,7 +313,7 @@ try {
       golden = await mint();
       const c = await sdk(golden.access_token);
       const tools = (await c.listTools()).tools;
-      assert.equal(tools.length, 27);
+      assert.equal(tools.length, 29);
       assert.ok(tools.every((t) => !t.name.startsWith("apply_")));
       const result = (
         await c.callTool({
@@ -567,7 +570,11 @@ try {
     const read = await mint(a, "enqidu.read");
     assert.equal(read.refresh_token, undefined);
     const c = await sdk(read.access_token);
-    assert.equal((await c.listTools()).tools.length, 27);
+    assert.equal((await c.listTools()).tools.length, 29);
+    assert.equal(
+      (await c.callTool({ name: "get_adaptive_assessment_v2", arguments: { request: "unavailable" } })).structuredContent.error.code,
+      "insufficient_scope",
+    );
     assert.equal(
       (
         await c.callTool({

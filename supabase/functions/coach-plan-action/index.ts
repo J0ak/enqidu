@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { prepareEnqiduAction, executePreparedEnqiduAction } from "../../../src/enqiduTools/actions.js";
-import { validateEnqiduActionPreview } from "../../../src/enqiduTools/actionPreview.js";
+import { createEnqiduToolRuntime } from "../../../src/enqiduTools/runtime.js";
+import { resolveNextWeekdayDate } from "../../../src/coachTools/planActions.js";
 import { isValidTimeZone, resolveUserCalendar } from "../../../src/time/userCalendar.js";
 
 const headers = {
@@ -15,12 +16,13 @@ const actionArgs: Record<string, string[]> = {
   save_recommendation_today: ["date", "location"],
   move_planned_session: ["source_date", "target_weekday", "target_date"],
   set_training_unavailability: ["date_reference"],
-  adapt_session_environment: ["source_date", "environment"],
-  adapt_session_duration: ["source_date", "duration_minutes"],
+  adapt_session_environment: ["source_date", "environment", "planned_session_id"],
+  adapt_session_duration: ["source_date", "duration_minutes", "planned_session_id", "assessment_context"],
   cancel_planned_session: ["source_date"],
   adapt_remaining_week: [],
 };
 const previewRequired = new Set([
+  "set_training_unavailability",
   "move_planned_session", "adapt_session_environment", "adapt_session_duration",
   "cancel_planned_session", "adapt_remaining_week",
 ]);
@@ -61,24 +63,28 @@ Deno.serve(async (req: Request) => {
     if (previewRequired.has(action) && body.confirmation !== true && body.confirmed !== true) {
       return reply({ ok: false, error: "explicit_confirmation_required" }, 400);
     }
+    const args = Object.fromEntries(actionArgs[action].filter((key) => key in body).map((key) => [key, body[key]]));
+    const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (previewRequired.has(action)) {
+      const names: Record<string, string> = { move_planned_session: "move_session", adapt_session_environment: "adapt_environment",
+        adapt_session_duration: "adapt_duration", cancel_planned_session: "cancel_session",
+        adapt_remaining_week: "adapt_remaining_week", set_training_unavailability: "set_training_unavailability" };
+      if (action === "move_planned_session" && "target_weekday" in args) {
+        if (!args.target_date) args.target_date = resolveNextWeekdayDate(args.source_date, args.target_weekday);
+        delete args.target_weekday;
+      }
+      const runtime = await createEnqiduToolRuntime({ db: userDb, adminDb, source: "coach" });
+      const result = await runtime.execute(`apply_${names[action]}`, { ...args,
+        confirmation: true, fingerprint: body.fingerprint ?? body.preview_fingerprint, expires_at: body.expires_at ?? body.preview_expires_at });
+      return result.ok ? reply(result.data) : reply({ ok: false, error: result.error.code }, result.error.code === "preview_stale" ? 409 : 400);
+    }
     const profileTimezone = await loadUserTimezone(userDb, userId);
     if (!isValidTimeZone(profileTimezone)) return reply({ ok: false, error: "profile_timezone_required" }, 400);
     const now = new Date();
     const calendar = resolveUserCalendar({ profileTimezone, now });
-    const args = Object.fromEntries(actionArgs[action].filter((key) => key in body).map((key) => [key, body[key]]));
     const prepared = await prepareEnqiduAction({ db: userDb, userId, calendar, action, args, now });
-    if (!prepared.ok) return previewRequired.has(action)
-      ? reply({ ok: false, error: "preview_stale" }, 409) : reply(prepared);
-    if (previewRequired.has(action)) {
-      const check = await validateEnqiduActionPreview({ prepared,
-        fingerprint: body.fingerprint ?? body.preview_fingerprint,
-        expiresAt: body.expires_at ?? body.preview_expires_at, now,
-      });
-      if (!check.ok) return reply(check, 409);
-    }
-    // The server secret never leaves this boundary. Fixed RPC names and all
-    // mutation values are produced by the shared domain preparation above.
-    const adminDb = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (!prepared.ok) return reply(prepared);
+    // Existing explicit recommendation-save contract remains unchanged.
     const result = await executePreparedEnqiduAction({ adminDb, userId, prepared });
     console.info(JSON.stringify({ request_id: requestId, tool_id: action, tool_version: "enqidu_tools_v1",
       timestamp: now.toISOString(), status: result.ok ? "ok" : "error", error_code: result.ok ? null : result.error }));

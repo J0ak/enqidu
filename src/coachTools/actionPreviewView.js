@@ -50,7 +50,7 @@ export function detectPreviewConversationAction(text) {
 
 export function buildCoachApplyRequest(pending) {
   if (pending?.error || !pending?.reviewed || !pending?.preview?.requires_confirmation || !pending?.preview?.fingerprint || !pending?.preview?.expires_at) return null;
-  if (!/^preview_(move_session|adapt_duration|adapt_environment|cancel_session|adapt_remaining_week|closed_loop_proposal)$/.test(pending.request?.tool || "")) return null;
+  if (!/^preview_(move_session|adapt_duration|adapt_environment|cancel_session|adapt_remaining_week|closed_loop_proposal|set_training_unavailability)$/.test(pending.request?.tool || "")) return null;
   return {
     tool: pending.request.tool.replace(/^preview_/, "apply_"),
     arguments: { ...pending.request.arguments, fingerprint: pending.preview.fingerprint, expires_at: pending.preview.expires_at, confirmation: true },
@@ -80,7 +80,7 @@ export function previewPrescription(value) {
   const describe = (entry) => {
     if (entry == null) return "";
     if (Array.isArray(entry)) return entry.map(describe).filter(Boolean).join("; ");
-    if (typeof entry === "object") return Object.entries(entry).map(([key, item]) => {
+    if (typeof entry === "object") return Object.entries(entry).filter(([key]) => !/(^id$|_id$|^canonical_code$)/.test(key)).map(([key, item]) => {
       const detail = describe(item);
       return detail ? `${prescriptionLabels[key] || key.replace(/[_-]+/g, " ")}: ${detail}` : "";
     }).filter(Boolean).join(" · ");
@@ -123,10 +123,11 @@ export function coachPreviewSummary(preview) {
     : "La sesión ya tiene el estado solicitado. No hay cambios pendientes de aplicar.");
   const before = previewSessionView(previewSessions(preview?.before)[0]);
   const after = previewSessionView(previewSessions(preview?.after)[0]);
+  if (action === "set_training_unavailability") return `Te propongo marcar el ${formatCoachCardDate(preview.target?.dates?.[0] || preview.calendar_date)} como no disponible. ${preview.before.length ? "Hay un conflicto con el plan: " + preview.before.map((s) => previewSessionView(s).title).join(", ") + ". " : ""}Las sesiones se conservan; moverlas o cancelarlas requiere otra revisión y confirmación.`;
   if (action.includes("remaining_week")) return "Te propongo reorganizar las sesiones pendientes del resto de la semana. Revisa las fechas antes de aplicar.";
   if (action.includes("cancel")) return `Te propongo cancelar ${before.title} del ${before.date}. Revisa el cambio antes de aplicar.`;
   if (action.includes("move")) return `Te propongo mover ${before.title} del ${before.date} al ${after.date}. Revisa el cambio antes de aplicar.`;
-  if (action.includes("environment")) return `Te propongo adaptar ${before.title} del ${before.date} para ${after.environment || "el entorno solicitado"}. Revisa el cambio antes de aplicar.`;
+  if (action.includes("environment")) return `Te propongo reemplazar ${before.title} del ${before.date} por una nueva prescripción para ${after.environment || "el entorno solicitado"}. Se sustituyen sus bloques y ejercicios; no se conserva el contenido original ni se afirman equivalencias. Revisa el cambio antes de aplicar.`;
   if (before.duration && after.duration) return `Te propongo ajustar ${before.title} del ${before.date} de ${before.duration} a ${after.duration}. Revisa el cambio antes de aplicar.`;
   return "Te propongo un cambio en tu plan. Revisa la sesión y el detalle antes de aplicar.";
 }
@@ -134,15 +135,18 @@ export function coachPreviewSummary(preview) {
 export function coachAppliedSummary(result = {}) {
   const data = result.result || result;
   const session = data.planned_session;
+  if (data.marked_unavailable) return `He marcado el ${formatCoachCardDate(data.date)} como no disponible. El plan se conserva.`;
   if (data.cancelled) return `He cancelado ${data.title || "el entrenamiento"} del ${formatCoachCardDate(data.source_date) || data.source_date}.`;
   if (data.moved) return `He movido ${data.title || "el entrenamiento"} al ${formatCoachCardDate(data.target_date) || data.target_date}.`;
-  if (data.adapted && session && data.action === "adapt_session_environment") return `He adaptado ${session.title || "el entrenamiento"} para ${previewEnvironmentLabels[session.environment] || "el entorno solicitado"}.`;
+  if (data.adapted && session && data.action === "adapt_session_environment") return `He reemplazado la sesión por ${session.title || "el entrenamiento"} para ${previewEnvironmentLabels[session.environment] || "el entorno solicitado"}.`;
   if (data.adapted && session) return `He ajustado ${session.title || "el entrenamiento"} a ${session.duration_minutes} minutos.`;
   if (data.adapted && Array.isArray(data.moves)) return `He adaptado el resto de la semana: ${data.moves.map((move) => `${move.title || "Entrenamiento"} → ${formatCoachCardDate(move.target_date) || move.target_date}`).join("; ")}.`;
   return data.message || "El cambio se ha aplicado y tu plan se ha actualizado.";
 }
 
 const explanationLabels = Object.freeze({
+  explicit_training_unavailability: "Has indicado que no puedes entrenar ese día.",
+  existing_plans_preserved: "La disponibilidad cambia; las sesiones no se mueven ni cancelan.",
   explicit_user_request: "Cambio solicitado por ti.",
   explicit_move_session: "Has solicitado cambiar el día de esta sesión.",
   explicit_adapt_duration: "Has solicitado ajustar la duración de esta sesión.",

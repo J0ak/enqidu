@@ -46,6 +46,11 @@ export function isPlanDateOnOrAfter(value, referenceDate) {
 }
 
 
+export const DURATION_POLICY_VERSION = "enqidu.duration.v2.0.0";
+
+// Duration is the sole adjustable prescription only for explicitly typed aerobic
+// blocks with no secondary instructions. Everything else is fixed. No title/NL
+// inference, exercise substitution, rounds, repetitions or load fabrication.
 export function scalePlannedBlockDurations(blocks = [], targetMinutes) {
   const target = Number(targetMinutes);
   if (!Number.isInteger(target) || target < 10 || target > 180) return null;
@@ -64,11 +69,26 @@ export function scalePlannedBlockDurations(blocks = [], targetMinutes) {
   });
   if (normalized.some((block) => !block)) return null;
 
-  const totalWeight = normalized.reduce((sum, block) => sum + block.weight, 0);
+  const empty = (value) => value == null || Array.isArray(value) && value.length === 0;
+  const flexible = normalized.filter((block) => block.block_type === "aerobic"
+    && empty(block.planned_exercises) && empty(block.constraints)
+    && block.planned_rounds == null && !block.notes && !block.objective);
+  const fixed = normalized.filter((block) => !flexible.includes(block));
+  if (normalized.some((block) => block.weight % 60 !== 0)) return null;
+  const originalSeconds = normalized.reduce((sum, block) => sum + block.weight, 0);
+  if (target * 60 === originalSeconds) return normalized.map((block) => ({
+    id: block.id, block_order: block.block_order ?? block.index + 1, title: block.title || null,
+    duration_minutes: block.weight / 60, duration_seconds: block.weight,
+  }));
+  // This policy authorizes reductions only; extending effort requires review.
+  if (target * 60 > originalSeconds || !flexible.length) return null;
+  const fixedMinutes = fixed.reduce((sum, block) => sum + block.weight / 60, 0);
+  if (target - fixedMinutes < flexible.length) return null;
+  const totalWeight = flexible.reduce((sum, block) => sum + block.weight, 0);
   if (!(totalWeight > 0)) return null;
 
-  const flexibleMinutes = target - normalized.length;
-  const allocated = normalized.map((block) => {
+  const flexibleMinutes = target - fixedMinutes - flexible.length;
+  const allocated = flexible.map((block) => {
     const raw = flexibleMinutes * (block.weight / totalWeight);
     return {
       ...block,
@@ -83,7 +103,7 @@ export function scalePlannedBlockDurations(blocks = [], targetMinutes) {
     .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
   const bonus = new Set(priority.slice(0, remaining).map((block) => block.index));
 
-  return allocated
+  const adjusted = allocated
     .sort((a, b) => a.index - b.index)
     .map((block) => {
       const durationMinutes = 1 + block.base + (bonus.has(block.index) ? 1 : 0);
@@ -95,6 +115,11 @@ export function scalePlannedBlockDurations(blocks = [], targetMinutes) {
         duration_seconds: durationMinutes * 60,
       };
     });
+  if (adjusted.some((block) => block.duration_seconds > normalized.find((item) => item.id === block.id).weight)) return null;
+  return normalized.map((block) => adjusted.find((item) => item.id === block.id) || {
+    id: block.id, block_order: block.block_order ?? block.index + 1, title: block.title || null,
+    duration_minutes: block.weight / 60, duration_seconds: block.weight,
+  });
 }
 
 
@@ -108,6 +133,10 @@ export function resolveRemainingWeekEndDate(sourceDate) {
 }
 
 const normalizedStatus = (value = "") => String(value || "").trim().toLowerCase();
+export function isPendingPlannedSession(session) {
+  return Boolean(session) && !session.linked_completed_session_id
+    && !["cancelled", "canceled", "skipped", "completed", "enriched"].includes(normalizedStatus(session.status));
+}
 
 export function planRemainingWeekReschedule({
   sessions = [],
@@ -115,7 +144,7 @@ export function planRemainingWeekReschedule({
   fromDate,
   toDate,
 } = {}) {
-  if (!isValidPlanCalendarDate(fromDate) || !isValidPlanCalendarDate(toDate) || toDate < fromDate) {
+  if (!isValidPlanCalendarDate(fromDate) || !isValidPlanCalendarDate(toDate) || toDate < fromDate || toDate > resolveRemainingWeekEndDate(fromDate)) {
     return { ok: false, error: "invalid_week_range", moves: [] };
   }
 
@@ -154,7 +183,7 @@ export function planRemainingWeekReschedule({
     if (session.source !== "enkidu_coach") {
       return { ok: false, error: "unsupported_plan_source", moves: [] };
     }
-    if (session.linked_completed_session_id || normalizedStatus(session.status) === "skipped") {
+    if (!isPendingPlannedSession(session)) {
       return { ok: false, error: "source_plan_not_adaptable", moves: [] };
     }
   }

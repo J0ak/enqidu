@@ -1,3 +1,4 @@
+import { ADAPTIVE_INPUT, adaptiveOutput } from "../adaptivePlanning/contract.js";
 import { SEMANTIC_READ_DEFINITIONS } from "../semanticRead/schemas.js";
 import { INTERPRET_SCHEMA, INTERPRET_RESULT_SCHEMA, COMMAND_SCHEMA, APPLY_SCHEMA, STATE_SCHEMA, PREVIEW_SCHEMA, RECEIPT_SCHEMA } from "../training/semantics/contract.js";
 import { READ_OUTPUT_SCHEMAS } from "./readSchemas.js";
@@ -21,6 +22,7 @@ const session = object({ id: nullable(id), date, title: text(), status: text(40)
 export const ACTION_PREVIEW_OUTPUT_SCHEMA = object({
   schema_version: { const: "enqidu_action_preview_v1" }, action: text(80),
   target: object({ session_ids: list(nullable(id), 100), dates: list(date, 100) }),
+  availability_change: nullable(object({ date, before: nullable(text(40)), after: { const: "unavailable" } })),
   before: list(session, 100), after: list(session, 100), consequences: strings, warnings: strings, reasons: strings,
   affected_entities: list(object({ type: { const: "planned_session" }, id: nullable(id), date }), 100),
   fingerprint, expires_at: timestamp, calendar_date: date, timezone: text(100), requires_confirmation: bool,
@@ -31,10 +33,12 @@ export const ACTION_RESULT_OUTPUT_SCHEMA = object({
   planned_session_id: id, title: nullable(text()), moved: bool, cancelled: bool, adapted: bool, moved_count: number,
   moves: list(object({ planned_session_id: id, title: nullable(text()), source_date: date, target_date: date }), 7), message: text(),
   response_mode: { const: "deterministic_action" }, llm_used: { const: false }, usage: { type: "null" }, request_date: date, calendar_timezone: text(100),
+  date, date_reference: { enum: ["today", "tomorrow"] }, marked_unavailable: bool, planned_conflict: bool, planned_titles: strings,
   planned_session: persistedSession,
   // Reloaded after the existing action commits, with the same projection as get_week_plan.
   persisted_plan: READ_OUTPUT_SCHEMAS.get_week_plan,
   persistence_verified: bool,
+  persisted_availability: object({ calendar_date: date, availability_status: text(40), source: text(80) }),
 }, ["ok", "action", "response_mode", "llm_used", "usage", "request_date", "calendar_timezone"]);
 
 function resultSchema(data) {
@@ -63,9 +67,10 @@ const reads = [
   ["get_adaptation_proposal", "Read adaptation_proposal_v1 without changing the plan.", sessionQuery],
 ];
 const actions = [
+  ["set_training_unavailability", "mark an explicit day unavailable, preserving its plan", object({ date_reference: { enum: ["today", "tomorrow"] } })],
   ["move_session", "move a planned session to a later available date", object({ source_date: date, target_date: date })],
-  ["adapt_duration", "rescale a planned session and its timed blocks", object({ source_date: date, duration_minutes: { type: "integer", minimum: 10, maximum: 180 } })],
-  ["adapt_environment", "recalculate a planned session for an explicit environment", object({ source_date: date, environment })],
+  ["adapt_duration", "rescale a planned session and its timed blocks", object({ source_date: date, duration_minutes: { type: "integer", minimum: 10, maximum: 180 }, assessment_context: { const: "morning" }, planned_session_id: id }, ["source_date", "duration_minutes"])],
+  ["adapt_environment", "recalculate a planned session for an explicit environment", object({ source_date: date, environment, planned_session_id: id }, ["source_date", "environment"])],
   ["cancel_session", "cancel a planned session while preserving plan history", object({ source_date: date })],
   ["adapt_remaining_week", "reschedule unavailable sessions within the remaining current week", noArgs],
   ["closed_loop_proposal", "translate an actionable canonical proposal into a bounded duration adaptation", object({ session_id: id, date }, ["session_id"])],
@@ -86,6 +91,7 @@ function freeze(value) {
   return value;
 }
 export const ENQIDU_TOOLS = freeze([
+  definition("get_adaptive_assessment_v2", "Assess a bounded adaptive request using canonical policy and existing previews. Never writes.", "preview", ADAPTIVE_INPUT, adaptiveOutput(ACTION_PREVIEW_OUTPUT_SCHEMA)),
   definition("interpret_training_correction_v1", "Parse bounded Spanish and ask for explicit session or exercise selection when ambiguous. No writes.", "preview", INTERPRET_SCHEMA, INTERPRET_RESULT_SCHEMA),
   definition("get_training_semantics_v1", "Read the owned canonical semantic state.", "read", object({session_id:id}), STATE_SCHEMA),
   definition("preview_training_semantics_v1", "Preview explicit exercise operations; no writes or LLM.", "preview", COMMAND_SCHEMA, PREVIEW_SCHEMA),
