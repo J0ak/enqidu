@@ -64,6 +64,9 @@ try {
     ),
   );
   server = createServer(async (req, res) => {
+    // This disposable loopback server must not reuse a socket that expires
+    // while the real SDK compiles all advertised output schemas on a slow host.
+    res.setHeader("Connection", "close");
     try {
       const request = new Request(`http://${req.headers.host}${req.url}`, {
         method: req.method,

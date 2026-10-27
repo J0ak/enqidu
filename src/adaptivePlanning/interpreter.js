@@ -16,4 +16,3 @@ export function detectAdaptiveRequest(message) {
   if (/^(?:hoy )?solo tengo .*min|^he dormido mal |^hoy estoy en casa |^he hecho mucha mas carga |^(?:hazlo|dejalo|ajustalo|recortalo) mas corto/.test(text)) return { request: "ambiguous" };
   return null;
 }
-

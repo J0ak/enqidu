@@ -1,6 +1,6 @@
 # #106 — Adaptive Planning V2: expediente de auditoría
 
-Base auditada y comprobada mediante `git fetch origin`: `05b093ae70af9ad184a87c1161c73245f597e601`. Se volvió a comprobar tras recuperar el entorno el 26/10/2026; `origin/main` seguía en esa revisión. Rama: `codex/106-adaptive-planning-v2`.
+Base auditada y comprobada mediante `git fetch origin`: `05b093ae70af9ad184a87c1161c73245f597e601`. Se volvió a comprobar tras recuperar el entorno el 27/10/2026; `origin/main` seguía en esa revisión. Rama: `codex/106-adaptive-planning-v2`.
 
 ## Contrato y alcance
 
