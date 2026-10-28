@@ -1,5 +1,5 @@
 import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
-import { CLIENT_ID, hash, validOpaque } from "../../server/oauth/protocol.js";
+import { CLIENT_IDS, hash, validOpaque } from "../../server/oauth/protocol.js";
 const invalid = () =>
   new OAuthError(
     OAuthErrorCode.InvalidToken,
@@ -10,17 +10,19 @@ const invalid = () =>
 export async function authenticateRemoteToken(token, config, store) {
   try {
     if (!validOpaque(token, "at")) throw invalid();
-    const resolve = async () => {
+    // The private resolver is bound to one client per call. Probe only the closed
+    // allowlist; a token belongs to exactly one grant, hence one client.
+    const resolve = async (client_id) => {
       const r = await store.call("resolve_access_token_v1", {
         token_hash: hash(token),
         resource: config.resource,
-        client_id: CLIENT_ID,
+        client_id,
       });
+      if (!r) return null;
       if (
-        !r ||
         !r.user_id ||
         r.resource !== config.resource ||
-        r.client_id !== CLIENT_ID ||
+        r.client_id !== client_id ||
         !Array.isArray(r.scopes) ||
         !r.scopes.includes("enqidu.read") ||
         !(Number(r.expires_at) > Date.now() / 1000)
@@ -28,13 +30,18 @@ export async function authenticateRemoteToken(token, config, store) {
         throw invalid();
       return r;
     };
-    const record = await resolve();
+    let record = null;
+    for (const client_id of CLIENT_IDS) {
+      record = await resolve(client_id);
+      if (record) break;
+    }
+    if (!record) throw invalid();
     const authDb = Object.freeze({
       auth: Object.freeze({
         async getUser() {
           try {
-            const r = await resolve();
-            if (r.user_id !== record.user_id) throw invalid();
+            const r = await resolve(record.client_id);
+            if (!r || r.user_id !== record.user_id) throw invalid();
             return { data: { user: { id: r.user_id } }, error: null };
           } catch {
             return { data: { user: null }, error: { code: "auth_required" } };

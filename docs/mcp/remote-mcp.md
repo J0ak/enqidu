@@ -2,6 +2,8 @@
 
 ENQIDU OAuth issues opaque credentials for MCP. The rejected Supabase-issuer design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). PR #104 remains DRAFT; no production deployment/configuration.
 
+Approved OAuth clients (closed allowlist in `src/oauth/clients.js`, no DCR): ChatGPT (`https://chatgpt.com/oauth/client.json`) and hosted Claude (`https://claude.ai/oauth/mcp-oauth-client-metadata`). See [Connecting ChatGPT](chatgpt-connection.md) and [Connecting Claude](claude-connection.md). Both receive the identical 27-tool READ/PREVIEW surface.
+
 ## Endpoints and configuration
 
 - MCP: `https://enqidu.vercel.app/api/mcp` (Streamable HTTP POST).
@@ -71,7 +73,7 @@ The seven existing writes `apply_move_session`, `apply_adapt_duration`, `apply_a
 
 ## Local acceptance
 
-`npm run test:mcp:oauth` covers protocol validation, official CIMD snapshot, SSRF/size/time guards, metadata, errors and request binding. `npm run test:mcp:remote` uses the real MCP SDK over HTTP, fixture private token resolution and privileged REST data; it covers all-27 parity/isolation and both protocol lifecycles.
+`npm run test:mcp:oauth` covers protocol validation, official ChatGPT and Claude CIMD snapshots, per-client code/refresh/revocation binding on the unchanged private SQL migration (in-process PostgreSQL), SSRF/size/time guards, metadata, errors and request binding. `npm run test:mcp:remote` uses the real MCP SDK over HTTP, fixture private token resolution and privileged REST data; it covers all-27 parity/isolation and both protocol lifecycles.
 
 The principal real acceptance is:
 
@@ -86,6 +88,7 @@ It performs real first-party login, ENQIDU authorization/decision/code exchange,
 
 - [OpenAI MCP authentication / CIMD / tool schemes](https://developers.openai.com/plugins/build/auth)
 - [Published ChatGPT CIMD](https://chatgpt.com/oauth/client.json)
+- [Claude connector authentication](https://claude.com/docs/connectors/building/authentication), [published Claude CIMD](https://claude.ai/oauth/mcp-oauth-client-metadata)
 - [MCP authorization](https://modelcontextprotocol.io/specification/latest/basic/authorization)
 - [SDK v2 HTTP](https://ts.sdk.modelcontextprotocol.io/v2/serving/http)
 - [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414.html), [PKCE RFC 7636](https://www.rfc-editor.org/rfc/rfc7636.html), [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728.html), [issuer identification RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html), [revocation RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html), [resource indicators RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html).

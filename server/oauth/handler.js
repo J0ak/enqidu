@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomUUID } from "node:crypto";
 import {
-  CLIENT_ID,
   CLIENTS,
   SCOPES,
   OAuthFailure,
@@ -316,7 +315,7 @@ export function createOAuthHandler({
       });
       if (
         details.resource !== config.resource ||
-        details.client_id !== CLIENT_ID
+        !Object.hasOwn(CLIENTS, details.client_id)
       )
         fail("invalid_grant");
       if (endpoint === "/api/oauth/details") {

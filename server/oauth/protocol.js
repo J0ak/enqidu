@@ -1,14 +1,15 @@
 import { randomBytes, createHash } from "node:crypto";
-export const CLIENT_ID = "https://chatgpt.com/oauth/client.json";
-export const CLIENTS = Object.freeze({
-  [CLIENT_ID]: Object.freeze({
-    name: "ChatGPT",
-    origin: "https://chatgpt.com",
-    redirects: Object.freeze([
-      "https://chatgpt.com/connector_platform_oauth_redirect",
-    ]),
-  }),
-});
+import {
+  CHATGPT_CLIENT_ID,
+  CLAUDE_CLIENT_ID,
+  OAUTH_CLIENTS,
+  OAUTH_CLIENT_IDS,
+} from "../../src/oauth/clients.js";
+// CLIENT_ID remains the ChatGPT identifier for existing callers and tests.
+export const CLIENT_ID = CHATGPT_CLIENT_ID;
+export { CLAUDE_CLIENT_ID };
+export const CLIENTS = OAUTH_CLIENTS;
+export const CLIENT_IDS = OAUTH_CLIENT_IDS;
 export const SCOPES = Object.freeze([
   "enqidu.read",
   "enqidu.preview",
@@ -33,9 +34,10 @@ export const fail = (code = "invalid_request", status = 400) => {
 export function scopes(value) {
   if (typeof value !== "string" || value.length > 100) fail("invalid_scope");
   const result = value.split(" ");
+  // Exact repeats of an approved scope grant nothing extra (some clients append
+  // offline_access to advertised scopes); unknown or empty entries still fail.
   if (
     !result.includes("enqidu.read") ||
-    new Set(result).size !== result.length ||
     result.some((s) => !SCOPES.includes(s))
   )
     fail("invalid_scope");
