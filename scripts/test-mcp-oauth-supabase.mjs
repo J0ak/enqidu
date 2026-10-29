@@ -12,12 +12,30 @@ import {
 import { createToolsFixture } from "../e2e/tools-fixture.js";
 import { createOAuthHandler } from "../server/oauth/handler.js";
 import { createOAuthStore } from "../server/oauth/store.js";
-import { CLIENT_ID, SCOPES, opaque, hash } from "../server/oauth/protocol.js";
+import {
+  CLIENT_ID,
+  CLAUDE_CLIENT_ID,
+  SCOPES,
+  opaque,
+  hash,
+} from "../server/oauth/protocol.js";
 import { createRemoteMcpHandler } from "../src/mcp/remote.js";
 import { catalogSeed } from "../src/training/catalogSeed.js";
 if (process.env.ENQIDU_TRANSACTION_ENV_FILE)
   loadEnvFile(process.env.ENQIDU_TRANSACTION_ENV_FILE);
 assert.equal(process.env.ENQIDU_TRANSACTION_LOCAL, "1");
+// Approved client exercised by every existing group: chatgpt (default, unchanged
+// behaviour) or claude. The cross-client group always runs with both. Run once per
+// value for full coverage. Local-only: the URL guards below are unchanged.
+const ACCEPTANCE_CLIENTS = {
+  chatgpt: { id: CLIENT_ID, fixture: "chatgpt-client.json" },
+  claude: { id: CLAUDE_CLIENT_ID, fixture: "claude-client.json" },
+};
+const clientName = process.env.ENQIDU_OAUTH_ACCEPTANCE_CLIENT || "chatgpt";
+assert.ok(
+  Object.hasOwn(ACCEPTANCE_CLIENTS, clientName),
+  "ENQIDU_OAUTH_ACCEPTANCE_CLIENT must be chatgpt or claude",
+);
 for (const key of ["API_URL", "DB_URL"]) {
   const u = new URL(process.env[key]);
   assert.ok(
@@ -58,11 +76,21 @@ try {
       await createToolsFixture(name, { health: false, plans: false }),
     );
   const [a, b] = fixtures;
-  const doc = JSON.parse(
-    readFileSync(
-      new URL("../tests/fixtures/oauth/chatgpt-client.json", import.meta.url),
-    ),
+  // Bounded official CIMD snapshots; no live third-party fetch in acceptance.
+  const docs = Object.fromEntries(
+    Object.values(ACCEPTANCE_CLIENTS).map(({ id, fixture }) => [
+      id,
+      JSON.parse(
+        readFileSync(
+          new URL(`../tests/fixtures/oauth/${fixture}`, import.meta.url),
+        ),
+      ),
+    ]),
   );
+  const OTHER_CLIENT =
+    ACCEPTANCE_CLIENTS[clientName === "chatgpt" ? "claude" : "chatgpt"].id;
+  const ACTIVE_CLIENT = ACCEPTANCE_CLIENTS[clientName].id;
+  const doc = docs[ACTIVE_CLIENT];
   server = createServer(async (req, res) => {
     try {
       const request = new Request(`http://${req.headers.host}${req.url}`, {
@@ -83,7 +111,7 @@ try {
           : createOAuthHandler({
               config,
               store,
-              fetchDocument: async () => doc,
+              fetchDocument: async (id) => docs[id],
               observe: (e) => events.push(e),
             })
       )(request);
@@ -125,13 +153,17 @@ try {
       },
       body: bearer ? JSON.stringify(p) : new URLSearchParams(p),
     });
-  const authorize = async (scope = SCOPES.join(" "), patch = {}) => {
+  const authorize = async (
+    scope = SCOPES.join(" "),
+    patch = {},
+    client = ACTIVE_CLIENT,
+  ) => {
     const verifier = randomBytes(32).toString("base64url");
     const challenge = createHash("sha256").update(verifier).digest("base64url");
     const p = {
       response_type: "code",
-      client_id: CLIENT_ID,
-      redirect_uri: doc.redirect_uris[0],
+      client_id: client,
+      redirect_uri: docs[client].redirect_uris[0],
       resource: config.resource,
       code_challenge: challenge,
       code_challenge_method: "S256",
@@ -143,7 +175,7 @@ try {
     assert.equal(r.status, 302);
     const u = new URL(r.headers.get("location"));
     assert.equal(u.pathname, "/oauth/consent");
-    return { handle: u.searchParams.get("request_id"), verifier, p };
+    return { handle: u.searchParams.get("request_id"), verifier, p, client };
   };
   const decide = async (auth, who = a, decision = "approve") => {
     const details = await post(
@@ -159,7 +191,10 @@ try {
     );
     assert.equal(r.status, 200);
     const callback = new URL(r.body.redirect_url);
-    assert.equal(callback.origin, "https://chatgpt.com");
+    assert.equal(
+      callback.origin + callback.pathname,
+      docs[auth.client].redirect_uris[0],
+    );
     assert.equal(callback.searchParams.get("iss"), issuer);
     assert.equal(callback.searchParams.get("state"), auth.p.state);
     return { ...auth, code: callback.searchParams.get("code"), callback };
@@ -167,24 +202,24 @@ try {
   const exchange = (c, patch = {}) =>
     post("/oauth/token", {
       grant_type: "authorization_code",
-      client_id: CLIENT_ID,
+      client_id: c.client,
       resource: config.resource,
-      redirect_uri: doc.redirect_uris[0],
+      redirect_uri: docs[c.client].redirect_uris[0],
       code: c.code,
       code_verifier: c.verifier,
       ...patch,
     });
-  const mint = async (who = a, scope) => {
-    const c = await decide(await authorize(scope), who);
+  const mint = async (who = a, scope, client = ACTIVE_CLIENT) => {
+    const c = await decide(await authorize(scope, {}, client), who);
     const r = await exchange(c);
     assert.equal(r.status, 200);
     assert.match(r.body.access_token, /^enq_mcp_at_[A-Za-z0-9_-]{43}$/);
     return r.body;
   };
-  const refresh = (token, patch = {}) =>
+  const refresh = (token, patch = {}, client = ACTIVE_CLIENT) =>
     post("/oauth/token", {
       grant_type: "refresh_token",
-      client_id: CLIENT_ID,
+      client_id: client,
       resource: config.resource,
       refresh_token: token,
       ...patch,
@@ -611,7 +646,7 @@ try {
       assert.equal(
         (
           await post("/oauth/revoke", {
-            client_id: CLIENT_ID,
+            client_id: ACTIVE_CLIENT,
             token: t2.refresh_token,
           })
         ).status,
@@ -667,6 +702,66 @@ try {
     },
   );
   await check(
+    "cross-client separation: ChatGPT and Claude codes, refresh, revocation and grants never mix",
+    async () => {
+      const mine = await mint(a, undefined, ACTIVE_CLIENT);
+      const other = await mint(a, undefined, OTHER_CLIENT);
+      // A code issued to one client cannot be redeemed by the other.
+      const c = await decide(await authorize(undefined, {}, ACTIVE_CLIENT));
+      assert.equal(
+        (
+          await exchange(c, {
+            client_id: OTHER_CLIENT,
+            redirect_uri: docs[OTHER_CLIENT].redirect_uris[0],
+          })
+        ).status,
+        400,
+      );
+      assert.equal((await exchange(c)).status, 200);
+      // Cross-client refresh fails without consuming; RFC 7009 from the wrong
+      // client revokes nothing.
+      assert.equal(
+        (await refresh(mine.refresh_token, {}, OTHER_CLIENT)).status,
+        400,
+      );
+      assert.equal(
+        (
+          await post("/oauth/revoke", {
+            client_id: OTHER_CLIENT,
+            token: mine.refresh_token,
+          })
+        ).status,
+        200,
+      );
+      assert.equal(await mcpStatus(mine.access_token), 200);
+      const connections = (
+        await http("/api/oauth/connections", {
+          headers: { Authorization: `Bearer ${a.token}` },
+        })
+      ).body.connections;
+      for (const client of [ACTIVE_CLIENT, OTHER_CLIENT])
+        assert.ok(connections.some((g) => g.client_id === client), client);
+      // Revoking one client's grant leaves the other client's grant working.
+      assert.equal(
+        (
+          await post("/oauth/revoke", {
+            client_id: ACTIVE_CLIENT,
+            token: mine.refresh_token,
+          })
+        ).status,
+        200,
+      );
+      assert.equal(await mcpStatus(mine.access_token), 401);
+      assert.equal(await mcpStatus(other.access_token), 200);
+      const rotated = await refresh(other.refresh_token, {}, OTHER_CLIENT);
+      assert.equal(rotated.status, 200);
+      const tools = (await (await sdk(rotated.body.access_token)).listTools())
+        .tools;
+      assert.equal(tools.length, 27);
+      assert.ok(tools.every((t) => !t.name.startsWith("apply_")));
+    },
+  );
+  await check(
     "only hashes persisted; no first-party/data secrets in token responses/MCP/telemetry",
     async () => {
       const stored = await sql.query(
@@ -702,7 +797,7 @@ try {
     },
   );
   console.log(
-    `Opaque OAuth real Supabase acceptance PASS: ${passes} groups; credential separation, atomic races, rotation, revocation and account lifecycle verified.`,
+    `Opaque OAuth real Supabase acceptance PASS (${clientName}): ${passes} groups; credential separation, atomic races, rotation, revocation and account lifecycle verified.`,
   );
 } finally {
   for (const c of clients) await c.close().catch(() => {});

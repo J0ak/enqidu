@@ -28,14 +28,23 @@ window.renderConsent = (scenario = "ready") => {
     const body = JSON.parse(options.body);
     window.consentCalls.push([path, body]);
     if (scenario === "error") return new Response("", { status: 400 });
+    const callback =
+      scenario === "claude"
+        ? "https://claude.ai/api/mcp/auth_callback"
+        : "https://chatgpt.com/connector_platform_oauth_redirect";
     return path.endsWith("details")
       ? Response.json({
-          client: { name: "ChatGPT <script>NO_EJECUTAR</script>" },
+          client: {
+            name:
+              scenario === "claude"
+                ? "Claude"
+                : "ChatGPT <script>NO_EJECUTAR</script>",
+          },
           scope: "enqidu.read enqidu.preview offline_access",
-          redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect",
+          redirect_uri: callback,
         })
       : Response.json({
-          redirect_url: `https://chatgpt.com/connector_platform_oauth_redirect?${body.decision === "approve" ? "code=opaque" : "error=access_denied"}&iss=https%3A%2F%2Fenqidu.example`,
+          redirect_url: `${callback}?${body.decision === "approve" ? "code=opaque" : "error=access_denied"}&iss=https%3A%2F%2Fenqidu.example`,
         });
   };
   root.render(

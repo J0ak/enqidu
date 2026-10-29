@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { consentApi } from "./consent.js";
+import { oauthClientName } from "./clients.js";
 import "./OAuthConsent.css";
 export default function OAuthConnections({ db }) {
   const [connections, setConnections] = useState(null),
@@ -33,7 +34,7 @@ export default function OAuthConnections({ db }) {
       <section>
         <p className="oauth-brand">ENQIDU</p>
         <h1>Conexiones</h1>
-        <p>Revocar acceso desconecta ChatGPT de tus datos deportivos.</p>
+        <p>Revocar acceso desconecta esa aplicación de tus datos deportivos.</p>
         {error && (
           <p role="alert">
             Inicia sesión en ENQIDU y vuelve a intentar cargar tus conexiones.
@@ -43,7 +44,7 @@ export default function OAuthConnections({ db }) {
         {connections?.length === 0 && <p>No tienes conexiones activas.</p>}
         {connections?.map((c) => (
           <article key={c.id}>
-            <h2>ChatGPT</h2>
+            <h2>{oauthClientName(c.client_id) || "Aplicación desconocida"}</h2>
             <p>{c.scopes.join(", ")}</p>
             <button disabled={busy} onClick={() => revoke(c.id)}>
               Revocar acceso

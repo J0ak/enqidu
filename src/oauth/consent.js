@@ -1,3 +1,4 @@
+import { isApprovedCallback } from "./clients.js";
 export function authorizationId(search) {
   const p = new URLSearchParams(search),
     id = p.get("request_id");
@@ -8,15 +9,9 @@ export function authorizationId(search) {
 }
 export function officialRedirect(data) {
   // Defense in depth. Only ENQIDU API output enters here, never query/client metadata.
+  // The destination must be the exact callback of an approved client.
   const u = new URL(data?.redirect_url);
-  if (
-    u.origin !== "https://chatgpt.com" ||
-    u.pathname !== "/connector_platform_oauth_redirect" ||
-    u.username ||
-    u.password ||
-    u.hash ||
-    !u.searchParams.get("iss")
-  )
+  if (!isApprovedCallback(u.href) || !u.searchParams.get("iss"))
     throw Error("invalid_redirect");
   return data.redirect_url;
 }

@@ -6,6 +6,7 @@ import { createEnqiduToolRuntime } from "../src/enqiduTools/runtime.js";
 import { connectEnqiduMcp } from "./support/enqiduMcp.mjs";
 import { TOOL_NOW, TOOL_USER_B, toolId } from "./support/enqiduToolsDb.mjs";
 import { remoteConfiguration } from "../server/mcpConfiguration.js";
+import { CLIENT_ID, CLAUDE_CLIENT_ID } from "../server/oauth/protocol.js";
 const compare = ({ traceability, ...v }) => {
   // Inspection-only semantic previews intentionally use a per-server signing key.
   // Fingerprints cannot authorize cross-channel writes; compare the full sporting projection.
@@ -532,23 +533,25 @@ test("all 27 tools ignore adversarial foreign parents and children with a data c
         polluted.tables[table].push(foreign);
       }
     }
-  const f = await remoteFixture(t, { fixture: polluted }),
-    client = await f.connect();
+  const f = await remoteFixture(t, { fixture: polluted });
   const baseline = await createEnqiduToolRuntime({
     db: pristine.db,
     now: TOOL_NOW,
     semanticSigningKey: "baseline-key".repeat(6),
   });
-  for (const [name, args] of requests) {
-    const expected = await baseline.execute(name, args);
-    const actual = (await client.callTool({ name, arguments: args }))
-      .structuredContent;
-    assert.equal(actual.ok, true, `${name}: ${JSON.stringify(actual.error)}`);
-    assert.deepEqual(compare(actual), compare(expected), name);
-    assert.doesNotMatch(
-      JSON.stringify(actual),
-      /FOREIGN_SECRET|SYNTHETIC_REMOTE_DATA_PLANE_ONLY/,
-    );
+  for (const client_id of [CLIENT_ID, CLAUDE_CLIENT_ID]) {
+    const client = await f.connect({ accessToken: f.token({ client_id }) });
+    for (const [name, args] of requests) {
+      const expected = await baseline.execute(name, args);
+      const actual = (await client.callTool({ name, arguments: args }))
+        .structuredContent;
+      assert.equal(actual.ok, true, `${name}: ${JSON.stringify(actual.error)}`);
+      assert.deepEqual(compare(actual), compare(expected), name);
+      assert.doesNotMatch(
+        JSON.stringify(actual),
+        /FOREIGN_SECRET|SYNTHETIC_REMOTE_DATA_PLANE_ONLY/,
+      );
+    }
   }
   assert.ok(f.dataRequests.every((r) => r.privileged));
 });
@@ -571,4 +574,80 @@ test("preview scopes are enforced with OAuth tool metadata and all 27 discoverab
   });
   assert.equal(r.structuredContent.error.code, "insufficient_scope");
   assert.match(r._meta["mcp/www_authenticate"][0], /enqidu.preview/);
+});
+
+test("Claude and ChatGPT tokens share the same READ/PREVIEW surface with per-client and per-athlete isolation", async (t) => {
+  const f = await remoteFixture(t);
+  const chatgpt = await f.connect({ accessToken: f.token() });
+  const claudeToken = f.token({ client_id: CLAUDE_CLIENT_ID });
+  const claude = await f.connect({ accessToken: claudeToken });
+  const names = (tools) => tools.map((tool) => tool.name);
+  const claudeTools = (await claude.listTools()).tools;
+  assert.equal(claudeTools.length, 27);
+  assert.deepEqual(claudeTools, (await chatgpt.listTools()).tools);
+  assert.ok(names(claudeTools).every((name) => !name.startsWith("apply_")));
+  assert.ok(claudeTools.every((tool) => tool.annotations.readOnlyHint));
+  // Guessed writes stay denied by the locked remote write gate.
+  for (const [name, code] of [
+    ["apply_cancel_session", "mcp_writes_disabled"],
+    ["apply_training_semantics_v1", "mcp_writes_disabled"],
+  ]) {
+    const denied = (await claude.callTool({ name, arguments: {} }))
+      .structuredContent;
+    assert.equal(denied.ok, false);
+    assert.equal(denied.error.code, code, name);
+  }
+  for (const [name, args] of requests) {
+    const a = (await claude.callTool({ name, arguments: args }))
+      .structuredContent;
+    const b = (await chatgpt.callTool({ name, arguments: args }))
+      .structuredContent;
+    assert.equal(a.ok, true, `${name}: ${JSON.stringify(a.error)}`);
+    assert.deepEqual(compare(a), compare(b), name);
+  }
+  // Athlete B through Claude never reaches athlete A's recorded session.
+  const claudeB = await f.connect({
+    accessToken: f.token({ client_id: CLAUDE_CLIENT_ID, sub: TOOL_USER_B }),
+  });
+  assert.equal(
+    (
+      await claudeB.callTool({
+        name: "get_training_session_detail_v2",
+        arguments: { session_id: toolId(20) },
+      })
+    ).structuredContent.error.code,
+    "session_not_found",
+  );
+  // Read-only Claude grants cannot preview.
+  const readOnly = await f.connect({
+    accessToken: f.token({
+      client_id: CLAUDE_CLIENT_ID,
+      scopes: ["enqidu.read"],
+    }),
+  });
+  assert.equal(
+    (
+      await readOnly.callTool({
+        name: "preview_cancel_session",
+        arguments: { source_date: "2026-10-05" },
+      })
+    ).structuredContent.error.code,
+    "insufficient_scope",
+  );
+  // Grants from clients outside the allowlist never authenticate.
+  for (const client_id of [
+    "https://claude.ai/oauth/claude-code-client-metadata",
+    "https://evil.test/client.json",
+  ]) {
+    const res = await fetch(f.config.resource, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${f.token({ client_id })}` },
+      body: "{}",
+    });
+    assert.equal(res.status, 401);
+  }
+  // Revoking the Claude token leaves the ChatGPT connection working.
+  f.revoked.add(claudeToken);
+  await assert.rejects(() => claude.listTools(), /invalid_token/);
+  assert.equal((await chatgpt.listTools()).tools.length, 27);
 });

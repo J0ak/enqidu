@@ -105,7 +105,7 @@ export async function remoteFixture(
         revoked.has(r.token) ||
         r.exp <= Date.now() / 1000 ||
         ![TOOL_USER_A, TOOL_USER_B].includes(r.sub) ||
-        r.client_id !== CLIENT_ID ||
+        r.client_id !== p.client_id ||
         r.resource !== p.resource ||
         r.revoked ||
         r.banned
