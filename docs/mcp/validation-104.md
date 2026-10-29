@@ -1,6 +1,6 @@
 # #104 validation — ENQIDU opaque OAuth
 
-Validated locally on 2026-10-23, on the existing PR branch based on `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`, with Node 22.23.3 and pinned MCP SDK 2.3.1. The PR remains **DRAFT for independent review**. No production migration, deployment, OAuth enablement, client registration, hook, signing change or grant was performed.
+Validated locally on 2026-10-23, on the existing PR branch based on `90dfd15f497abb26eb0953c5b934b8c01e21d3ac`, with Node 22.23.3 and pinned MCP SDK 2.3.1. The PR was DRAFT at validation time and was later merged into `main` as `49c719c` (2026-10-24); this record is pre-merge local evidence, not production evidence (see [Rollout status](remote-mcp.md#rollout-status)). No production migration, deployment, OAuth enablement, client registration, hook, signing change or grant was performed.
 
 The rejected Supabase OAuth design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). Its account-mutation bypass is addressed by replacing the credential delivered to ChatGPT with an opaque ENQIDU token. Supabase remains the first-party identity provider only. The global client_id policies, PostgREST pre-request hook and ten Edge compensation guards have been removed; Edge entrypoints match the base branch.
 

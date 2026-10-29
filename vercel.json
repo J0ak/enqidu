@@ -39,7 +39,8 @@
     "deploymentEnabled": {
       "feat/101-progress-performance-v1": false,
       "codex/103-semantic-materialization": false,
-      "codex/104-remote-mcp-semantic-read": false
+      "codex/104-remote-mcp-semantic-read": false,
+      "claude/enqidu-mcp-claude-chat-q65f3k": false
     }
   },
   "rewrites": [

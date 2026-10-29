@@ -1,6 +1,8 @@
 # Connecting Claude to ENQIDU
 
-Status: **code ready for review, not operational.** Nothing in this change deploys,
+Status: **code ready for review, not operational.** The #104 remote MCP code is merged
+into `main`, but its production configuration and acceptance are not verified (see
+[rollout status](remote-mcp.md#rollout-status)). Nothing in this change deploys,
 migrates, registers a client or changes Supabase/Vercel. The integration must not be
 declared operational until a real OAuth connection from Claude Chat has completed
 against the deployed endpoint (see [acceptance](#acceptance-criteria)).
@@ -55,11 +57,33 @@ scope are canonicalized instead of rejected; unknown, empty or write scopes stil
 2. Enter `https://enqidu.vercel.app/api/mcp`. If asked for the OAuth client, choose
    **Use Claude's published identity**. Leave client ID/secret empty.
 3. Claude opens ENQIDU's consent page. Sign in with the ENQIDU account, check that it
-   says **Claude** and shows the destination `https://claude.ai/api/mcp/auth_callback`,
-   then approve.
+   says **Claude**, shows the destination `https://claude.ai/api/mcp/auth_callback` and
+   that **Permisos solicitados** includes both `enqidu.read` and `enqidu.preview`
+   (normally also `offline_access`), then approve. See
+   [required initial scopes](#required-initial-scopes).
 4. In a conversation, enable the connector from **+ → Connectors**. Keep per-tool
    approval on until the connector has been validated; do not use "Always allow" for
    preview tools at first.
+
+### Required initial scopes
+
+The initial Claude consent **must include `enqidu.read` and `enqidu.preview`**. Claude
+requests the scopes advertised by ENQIDU's protected-resource metadata, so a normal
+connection asks for `enqidu.read enqidu.preview offline_access`. ENQIDU's consent page
+approves or denies the requested set as a whole; it does not drop scopes.
+
+If a connection was granted without `enqidu.preview`, the 19 read tools work but the 8
+preview-access tools (`interpret_training_correction_v1` and the `preview_*` tools)
+return `insufficient_scope`. ENQIDU reports this as a tool error
+(HTTP 200), and Claude only starts re-authorization on an HTTP 401/403 challenge, so it
+will **not** prompt to add the scope by itself. Temporary workaround, manual:
+
+1. Revoke the Claude connection at `/oauth/connections` → **Revocar acceso**.
+2. Remove the connector in Claude (**Customize → Connectors**) and add it again.
+3. Reconnect and confirm the consent page lists `enqidu.preview` before approving.
+
+Changing the HTTP challenge behaviour for step-up authorization is deliberately out of
+scope for this change.
 
 Revoke server-side at `/oauth/connections` → **Revocar acceso** on the Claude entry.
 Removing the connector in Claude alone is not proof of server revocation.
@@ -71,7 +95,8 @@ use of chats) before connecting real health data. This is the athlete's decision
 ## Deployment requirements
 
 Claude adds **no** new environment variable, secret, migration or paid resource. It
-depends entirely on the #104 rollout, which is still pending.
+depends entirely on the #104 production configuration. The #104 code is merged into
+`main`; whether production runs it and is configured is not verified.
 
 ### Pending configuration (known not done; separate authorization required)
 
@@ -108,8 +133,9 @@ or allowlist to change.
 The integration is operational only when all of these pass with a real Claude Chat
 account against the deployed endpoint:
 
-1. Adding the connector completes OAuth; the consent page shows "Claude" and the
-   `claude.ai` callback; approve returns to Claude with `code`, `state` and `iss`.
+1. Adding the connector completes OAuth; the consent page shows "Claude", the
+   `claude.ai` callback and both `enqidu.read` and `enqidu.preview`; approve returns to
+   Claude with `code`, `state` and `iss`.
 2. Claude lists exactly the 27 READ/PREVIEW tools; no `apply_*`.
 3. "¿Qué toca hoy?" and an exercise progress question return the athlete's real data,
    using the profile timezone; missing data stays missing.

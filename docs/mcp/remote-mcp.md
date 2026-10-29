@@ -1,6 +1,25 @@
 # Remote MCP V1
 
-ENQIDU OAuth issues opaque credentials for MCP. The rejected Supabase-issuer design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). PR #104 remains DRAFT; no production deployment/configuration.
+ENQIDU OAuth issues opaque credentials for MCP. The rejected Supabase-issuer design is documented in [rejected-supabase-oauth.md](rejected-supabase-oauth.md). The #104 code is merged into `main`; production configuration and operational acceptance are **not verified** (see [Rollout status](#rollout-status)).
+
+## Rollout status
+
+Last reviewed 2026-10-29. Merged code is not evidence that the integration works in production.
+
+| Item | State |
+|---|---|
+| #104 code (OAuth server, private-SQL store, remote MCP, consent and connections UI) | **Merged** into `main` as `49c719c` (2026-10-24) |
+| Claude as second approved client | Added by PR #107 (merge pending when written) |
+| Whether the current production deployment serves this code | Not verified |
+| Migration `20261023150630_mcp_private_oauth_v1.sql` applied in production | Not verified; treat as pending |
+| LOGIN/password for `enqidu_mcp_oauth` via Supavisor | Not verified; treat as pending |
+| Server env (`ENQIDU_OAUTH_ISSUER`, `ENQIDU_MCP_RESOURCE_URL`, `ENQIDU_OAUTH_DATABASE_URL`, Supabase URL/keys) | Not verified; treat as pending |
+| Hosted discovery (`/.well-known/*`, 401 challenge on `/api/mcp`) | Not verified |
+| Real ChatGPT OAuth acceptance | Not performed |
+| Real Claude OAuth acceptance | Not performed |
+| Real local Supabase acceptance (`scripts/test-mcp-oauth-supabase.mjs`) | Passed for ChatGPT on 2026-10-23 (pre-merge); Claude mode added in #107, not yet executed |
+
+Each pending item requires separate authorization through the [production runbook](oauth-production-runbook.md). Until all rows are verified, the remote MCP must be described as not operational.
 
 Approved OAuth clients (closed allowlist in `src/oauth/clients.js`, no DCR): ChatGPT (`https://chatgpt.com/oauth/client.json`) and hosted Claude (`https://claude.ai/oauth/mcp-oauth-client-metadata`). See [Connecting ChatGPT](chatgpt-connection.md) and [Connecting Claude](claude-connection.md). Both receive the identical 27-tool READ/PREVIEW surface.
 
@@ -80,7 +99,12 @@ The principal real acceptance is:
 ```sh
 ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local.env \
   node scripts/test-mcp-oauth-supabase.mjs
+# Same suite with Claude as the client under test:
+ENQIDU_TRANSACTION_LOCAL=1 ENQIDU_TRANSACTION_ENV_FILE=/path/to/local.env \
+  ENQIDU_OAUTH_ACCEPTANCE_CLIENT=claude node scripts/test-mcp-oauth-supabase.mjs
 ```
+
+`ENQIDU_OAUTH_ACCEPTANCE_CLIENT` selects the approved client (`chatgpt`, the default, or `claude`) for every existing group, using the bounded CIMD snapshots in `tests/fixtures/oauth/`. A cross-client group always runs with both clients: codes, refresh tokens and RFC 7009 revocation never cross clients, and revoking one client's grant leaves the other working. The script keeps its loopback-only guards; it never targets hosted Supabase or production.
 
 It performs real first-party login, ENQIDU authorization/decision/code exchange, private PostgreSQL token operations, then real SDK `high_pull_up` progress. The **same opaque token** is rejected by real local Supabase Auth GET/PUT, REST, RPC and first-party Edge writers. Account metadata is re-read to verify no change. Codes/refresh races, replay revocation, grant ownership, expiry, deletion/ban, scopes and secret absence are tested. Supabase OAuth is disabled and the compensating migration is absent. CIMD uses the bounded official snapshot in deterministic CI; hosted OpenAI connectivity remains a rollout check.
 

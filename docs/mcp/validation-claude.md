@@ -62,9 +62,36 @@ ChatGPT-only, or loosening the callback match to a prefix, makes the new suite f
 ## Not executed here
 
 - `scripts/test-mcp-oauth-supabase.mjs` (real local Supabase Auth/REST/Edge): no Docker
-  daemon or Supabase CLI in the review environment. It is unchanged and still covers the
-  ChatGPT path; the client-binding SQL it relies on is covered above. Run it before
-  rollout.
+  daemon or Supabase CLI in the review environment. Since the Codex follow-up it supports
+  `ENQIDU_OAUTH_ACCEPTANCE_CLIENT=chatgpt|claude` plus an always-on cross-client group
+  (see [Remote MCP V1](remote-mcp.md#local-acceptance)). Only `node --check` was run here;
+  execute it locally for both values before rollout. Its loopback-only guards are
+  unchanged.
 - Any hosted check: `enqidu.vercel.app` is not reachable from the review environment.
 - A real Claude Chat OAuth connection. Required before declaring the integration
   operational — see [acceptance criteria](claude-connection.md#acceptance-criteria).
+
+## Codex audit follow-up (2026-10-29)
+
+Codex audited commit `b699ddbf948b0ab6b6c1b0ee754a67ff04641f90`: PASS WITH CONDITIONS, no
+BLOCKER/HIGH findings. Follow-up changes, with no runtime code change:
+
+1. **Vercel Git deployments**: `vercel.json` `git.deploymentEnabled` now explicitly sets
+   `claude/enqidu-mcp-claude-chat-q65f3k` to `false`, like earlier MCP branches. Evidence
+   for the already-pushed `b699ddbf`: GitHub reported no Vercel commit status or check on
+   it (only `test-build`, `e2e`, skipped `Supabase Preview`). The Vercel API was not
+   readable from the review session (team-scope 403), so absence of a preview deployment
+   is inferred from GitHub, not confirmed in Vercel.
+2. **#104 documentation**: code merged into `main` as `49c719c`; production configuration
+   and operational acceptance listed as not verified in
+   [rollout status](remote-mcp.md#rollout-status). Updated `remote-mcp.md`,
+   `epic-104-architecture.md`, `oauth-production-runbook.md`, `validation-104.md`,
+   `chatgpt-connection.md` and `docs/enqidu-mcp-v1.md`.
+3. **Initial Claude scopes**: `enqidu.read` and `enqidu.preview` are required at first
+   consent; the temporary workaround for a missing preview scope is a manual reconnect
+   ([required initial scopes](claude-connection.md#required-initial-scopes)). The HTTP
+   challenge protocol is unchanged.
+4. **Real acceptance script**: `scripts/test-mcp-oauth-supabase.mjs` supports both clients
+   (`ENQIDU_OAUTH_ACCEPTANCE_CLIENT`) and a cross-client group. Not executed here.
+5. **CI and validated SHA**: the follow-up commit cannot contain its own SHA; the exact
+   validated SHA and its CI result are recorded in the PR #107 description.

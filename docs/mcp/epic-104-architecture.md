@@ -1,6 +1,6 @@
 # #104 — ENQIDU Remote MCP & Semantic Read API V1
 
-ENQIDU now owns the OAuth authorization server. **ChatGPT receives only opaque ENQIDU tokens, never a Supabase access token.** The PR stays DRAFT pending review; nothing is deployed or enabled. [Supabase OAuth issuance was rejected](rejected-supabase-oauth.md) after real account-mutation evidence.
+ENQIDU now owns the OAuth authorization server. **ChatGPT receives only opaque ENQIDU tokens, never a Supabase access token.** The code is merged into `main` (`49c719c`); production configuration and operational acceptance are not verified — see [Rollout status](remote-mcp.md#rollout-status). [Supabase OAuth issuance was rejected](rejected-supabase-oauth.md) after real account-mutation evidence.
 
 ```text
 ChatGPT

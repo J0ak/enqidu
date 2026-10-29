@@ -1,6 +1,6 @@
 # Connecting ChatGPT to ENQIDU
 
-PR #104 is DRAFT and not deployed. After review and the separately authorized [production runbook](oauth-production-runbook.md), the endpoint is `https://enqidu.vercel.app/api/mcp`, using ENQIDU OAuth authorization code + PKCE. Availability depends on the ChatGPT product/plan/workspace; this PR buys nothing and registers no real client.
+The #104 code is merged into `main`; production configuration and a real ChatGPT OAuth test are not verified ([Rollout status](remote-mcp.md#rollout-status)). After the separately authorized [production runbook](oauth-production-runbook.md), the endpoint is `https://enqidu.vercel.app/api/mcp`, using ENQIDU OAuth authorization code + PKCE. Availability depends on the ChatGPT product/plan/workspace; this PR buys nothing and registers no real client.
 
 Follow the [official custom MCP connection guide](https://developers.openai.com/apps-sdk/deploy/connect-chatgpt) for the account's current interface: add a custom MCP server/plugin, enter the HTTPS resource URL, select OAuth, then review/install its discovered tools. Labels and eligibility can change. If unavailable, the workspace administrator must establish eligibility; do not use a paid workaround.
 

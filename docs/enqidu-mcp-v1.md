@@ -142,7 +142,12 @@ is enabled by this epic.
 
 ## Remote deployment is blocked
 
-This repository does not yet provide the remote MCP authorization/discovery
+> Superseded: #104 (merged as `49c719c`) added the ENQIDU OAuth server and remote
+> Streamable HTTP transport. Production configuration and acceptance are tracked in
+> [Remote MCP V1 — rollout status](mcp/remote-mcp.md#rollout-status). The text below is
+> the original pre-#104 position.
+
+This repository did not yet provide the remote MCP authorization/discovery
 infrastructure required for connecting ChatGPT. A local Supabase JWT is useful
 for local tests; it is not an invented OAuth authorization server.
 
